@@ -1,5 +1,5 @@
 # W:HIRLWIND
-what is a w:hirlwind? great question. w:hirlwind is a recursive acronym that also describes its function:
+w:hirlwind is a recursive acronym that also describes its function:
 `WHIRLWIND: Helps Ingest, Relate, Label, Wrangle, Index, Normalize Datacubes`
 ## program overview
 the primary goal of w:hirlwind is to serve as a coordinating program between an unorganized drive and a database of datacubes or "metamosaics".
