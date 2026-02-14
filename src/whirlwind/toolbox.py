@@ -1,10 +1,6 @@
 
 """
 toolbox.py
-
-helper library for 
-    - building staging-table CSVs from GeoTIFF/COG fieldnames
-
 """
 
 from __future__ import annotations
@@ -33,6 +29,7 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
+from rich.align import Align
 
 console = Console()
 
@@ -60,7 +57,7 @@ class ScanStats:
                 if size > self.largest[0][0]:
                     heapq.heapreplace(self.largest, item)
 #===#
-def scan_directory(root: Path, top_n: int = 100) -> ScanStats:
+def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
     stats = ScanStats()
 
     with Progress(
@@ -91,22 +88,38 @@ def scan_directory(root: Path, top_n: int = 100) -> ScanStats:
 #===#
 def render_scan_report(root: Path, stats: ScanStats) -> None:
 
-    inv = Table(title="inventory", header_style="bold yellow")
-    inv.add_column("metric", style="bold")
-    inv.add_column("value", justify="right")
+    inv = Table(title="inventory", header_style="bold white")
+    inv.add_column("metric")
+    inv.add_column("value")
     inv.add_row("directories", str(stats.num_dirs))
     inv.add_row("files", str(stats.num_files))
     inv.add_row("total size", format_bytes(stats.total_bytes))
 
     if stats.largest:
-        largest = Table(title="largest files", header_style="bold yellow")
-        largest.add_column("size", justify="right")
-        largest.add_column("path", overflow="fold")
+        largest = Table(title="largest files", header_style="bold white")
+        largest.add_column("path", justify="center")
+        largest.add_column("size", justify="center")
         for size, path in sorted(stats.largest, key=lambda x: x[0], reverse=True):
-            largest.add_row(Text(path,style=style_by_size(size)),Text(format_bytes(size),style_by_size(size)))
+            largest.add_row(
+                    Text(
+                        path,
+                        style=style_by_size(size)
+                        ),
+                    Text(
+                        format_bytes(size),
+                        style_by_size(size)
+                        )
+                    )
 
-    content = Group(largest,inv)
-    console.print(Panel.fit(content, title=f"summary of scan on {root}"))
+    content = Group(
+            Align.center(largest),
+            Align.center(inv),
+            )
+    panel = Panel.fit(
+            content,
+            title=f"summary of scan on {root}",
+            )
+    console.print(panel)
         
 # ----------------------------
 # helpful tools
@@ -432,27 +445,3 @@ def write_csv_mosaics(input_dir: str, out_csv: str, columns: Optional[List[str]]
         for r in rows:
             # Ensure all requested columns exist; fill missing with ""
             w.writerow({k: r.get(k, "") for k in columns})
-
-def run(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(prog="whirlwind")
-    sub = p.add_subparsers(dest="cmd", required=True)
-
-    scan = sub.add_parser("scan", help="Scan a directory and summarize files")
-    scan.add_argument("root", type=str, help="Root directory to scan")
-    scan.add_argument("--top-n", type=int, default=500, help="Show top N largest files (0 disables)")
-
-    args = p.parse_args(argv)
-
-    if args.cmd == "scan":
-        root = Path(args.root).expanduser().resolve()
-        if not root.exists() or not root.is_dir():
-            console.print(f"[bold red]error:[/bold red] not a directory: {root}")
-            return 2
-
-        stats = scan_directory(root, top_n=args.top_n)
-        render_scan_report(root, stats)
-        return 0
-
-    return 1
-
-
