@@ -17,11 +17,106 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from datetime import datetime 
 from osgeo import gdal
 from osgeo import osr  # SpatialReference + CoordinateTransformation
+import argparse
+import heapq
+import os
+from dataclasses import dataclass, field
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn
+)
+from rich.table import Table
+from rich.text import Text
+
+console = Console()
 
 
+#============# 
+#    SCAN    # 
+#============#
+
+@dataclass
+class ScanStats:
+    # how many directories, files, and bytes in root
+    num_dirs: int = 0
+    num_files: int = 0
+    total_bytes: int = 0
+    largest: List[Tuple[int, str]] = field(default_factory=list)
+
+    def add_file(self, path: Path, size: int, top_n: int) -> None:
+        self.num_files += 1
+        self.total_bytes += size
+        if top_n > 0:
+            item = (size, str(path))
+            if len(self.largest) < top_n:
+                heapq.heappush(self.largest, item)
+            else:
+                if size > self.largest[0][0]:
+                    heapq.heapreplace(self.largest, item)
+#===#
+def scan_directory(root: Path, top_n: int = 100) -> ScanStats:
+    stats = ScanStats()
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold]running scan[/bold]"),
+        TextColumn("{task.completed} dirs"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("scan", total=None)
+
+        for dirpath, dirnames, filenames in os.walk(root):
+            stats.num_dirs += 1
+            progress.update(task, advance=1)
+
+            for name in filenames:
+                p = Path(dirpath) / name
+                try:
+                    st = p.stat()
+                except OSError:
+                    continue
+                stats.add_file(p, st.st_size, top_n=top_n)
+
+    return stats
+#===#
+def render_scan_report(root: Path, stats: ScanStats) -> None:
+
+    inv = Table(title="inventory", header_style="bold magenta")
+    inv.add_column("metric", style="bold")
+    inv.add_column("value", justify="right")
+    inv.add_row("directories", str(stats.num_dirs))
+    inv.add_row("files", str(stats.num_files))
+    inv.add_row("total size", format_bytes(stats.total_bytes))
+
+    if stats.largest:
+        largest = Table(title="largest files", header_style="bold yellow")
+        largest.add_column("size", justify="right")
+        largest.add_column("path", overflow="fold")
+        for size, path in sorted(stats.largest, key=lambda x: x[0], reverse=True):
+            largest.add_row(format_bytes(size), path)
+        
+    content = Group(largest,inv)
+    console.print(Panel.fit(content, title=f"summary of scan on {root}"))
+        
 # ----------------------------
 # helpful tools
 # ----------------------------
+def format_bytes(n: int) -> str:
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    v = float(n)
+    for u in units:
+        if v < 1024.0 or u == units[-1]:
+            return f"{v:.2f} {u}" if u != "B" else f"{int(v)} {u}"
+        v /= 1024.0
+    return f"{n} B"
 def uuid_from_path(uri:str)->str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL,uri))
 def get_dtype(gdal_type: int) -> str:
@@ -322,5 +417,26 @@ def write_csv_mosaics(input_dir: str, out_csv: str, columns: Optional[List[str]]
             # Ensure all requested columns exist; fill missing with ""
             w.writerow({k: r.get(k, "") for k in columns})
 
-def write_csv_tiles(input_dir: str, out_csv: str, columns: Optional[List[str]]=None)-> None:
-        return
+def run(argv: Optional[List[str]] = None) -> int:
+    p = argparse.ArgumentParser(prog="whirlwind")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    scan = sub.add_parser("scan", help="Scan a directory and summarize files")
+    scan.add_argument("root", type=str, help="Root directory to scan")
+    scan.add_argument("--top-n", type=int, default=10, help="Show top N largest files (0 disables)")
+
+    args = p.parse_args(argv)
+
+    if args.cmd == "scan":
+        root = Path(args.root).expanduser().resolve()
+        if not root.exists() or not root.is_dir():
+            console.print(f"[bold red]error:[/bold red] not a directory: {root}")
+            return 2
+
+        stats = scan_directory(root, top_n=args.top_n)
+        render_scan_report(root, stats)
+        return 0
+
+    return 1
+
+
