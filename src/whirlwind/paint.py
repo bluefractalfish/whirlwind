@@ -1,29 +1,65 @@
-# rich imports
+from dataclasses import dataclass
+from typing import Any, Callable, Iterable, Optional, Sequence
+from pathlib import Path
 from rich.console import Console, Group
-from rich.panel import Panel
+from rich.theme import Theme
+from rich.text import Text
 from rich.rule import Rule
+from rich.panel import Panel
+from rich.align import Align
+from rich.padding import Padding
+from rich.table import Table
+from rich.columns import Columns
+from rich.tree import Tree
+from rich.markdown import Markdown
+from rich.syntax import Syntax
+from rich.json import JSON
 from rich.progress import (
-    BarColumn,
     Progress,
+    BarColumn,
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn
+    TimeRemainingColumn,
+    TaskProgressColumn,
 )
-from rich.table import Table
-from rich.text import Text
-from rich.align import Align
+from rich.live import Live
+from rich.layout import Layout
+from rich.status import Status
 
-console = Console()
+_DEFAULT_THEME = Theme (
+        {
+            "info": "white",
+            "ok": "green",
+            "warn": "yellow",
+            "err": "bold red",
+            "dim": "dim",
+            "title": "bold",
+            }
+        )
 
+console = Console(theme=_DEFAULT_THEME, highlight=False)
+
+
+# status spinner
+def status(msg: str) -> Status:
+    return console.status(msg)
 # print string to terminal
 def terminal(string:str, align: str=None) -> None:
     if align == "center":
         console.print(Align.center(string))
     else:
         console.print(string)
-def banner(string:str | None=None) -> None:
-    console.print(Rule(string))
+def info(msg: str) -> None:
+    console.print(msg, style="info")
+def ok(msg: str) -> None:
+    console.print(msg, style="ok")
+def warn(msg: str) -> None:
+    console.print(msg, style="warn")
+def err(msg: str) -> None:
+    console.print(msg, style="err")
+def divider(label: str | None=None, style: str = "dim", align: str = "center", characters: str = "-") -> None:
+    console.print(Rule(label, style=style, align=align, characters=characters))
 # print error to terminal
 def error_msg(error: str) -> None:
     msg_in_box(f"[bold red]error: {error}[/bold red]",style="red")
@@ -45,6 +81,7 @@ def group(tables: List[Table], title: str) -> None:
 # initialize table
 def set_table(title: str | None=None, style: str | None=None) -> Table:
     return Table(title=title, header_style=style)
+
 #==============#
 # PROGRESS BAR #
 #==============# 
@@ -65,3 +102,77 @@ def progress(verb: str, noun: str):
         TimeRemainingColumn(),
         console=console,
     ) 
+
+#==============#
+# TREES #
+#==============# 
+def make_tree(label: str, guide_style: str = "info") -> Tree:
+    return Tree(label, guide_style=guide_style)
+
+def dir_tree( root: str | Path, *, max_depth: int = 4,
+    max_entries_per_dir: int = 200, show_files: bool = True,
+    include: Optional[Callable[[Path], bool]] = None, sort: bool = True, ) -> Tree:
+    root = Path(root)
+    label = f"[bold]{root.name or str(root)}[/bold]"
+    tree = Tree(label)
+
+    def _walk(node: Tree, p: Path, depth: int) -> None:
+        if depth >= max_depth:
+            node.add("[dim]…[/dim]")
+            return
+
+        try:
+            entries = list(p.iterdir())
+        except Exception as e:
+            node.add(f"[red]!(cannot read)[/red] [dim]{e}[/dim]")
+            return
+
+        if include is not None:
+            entries = [e for e in entries if include(e)]
+
+        if sort:
+            entries.sort(key=lambda x: (not x.is_dir(), x.name.lower()))
+
+        # cap entries to keep output bounded
+        shown = entries[:max_entries_per_dir]
+        omitted = len(entries) - len(shown)
+
+        for e in shown:
+            if e.is_dir():
+                child = node.add(f"[bold]{e.name}[/bold]")
+                _walk(child, e, depth + 1)
+            else:
+                if show_files:
+                    node.add(f"[green]{e.name}[/green]")
+
+        if omitted > 0:
+            node.add(f"[dim]… {omitted} more[/dim]")
+
+    _walk(tree, root, 0)
+    return tree
+
+
+def print_dir_tree_panel(
+    root: str | Path,
+    *,
+    title: str | None = "directory",
+    max_depth: int = 10,
+    max_entries_per_dir: int = 200,
+    show_files: bool = True,
+    include: Optional[Callable[[Path], bool]] = None,
+) -> None:
+    t = dir_tree(
+        root,
+        max_depth=max_depth,
+        max_entries_per_dir=max_entries_per_dir,
+        show_files=show_files,
+        include=include,
+    )
+    console.print(
+        Align.center(Panel.fit(
+            Align.center(t),
+            title=title,
+            border_style="white",
+        )
+    ))
+

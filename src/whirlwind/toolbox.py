@@ -21,7 +21,8 @@ from . import paint
 
 def dispatch(args: argparse.Namespace) -> int:
     if args.cmd == "scan":
-        return scan(args)
+        with paint.status("SCANNING"):
+            return scan(args)
     paint.error_msg(f"not a directory: {root}")
 
 #============# 
@@ -75,13 +76,21 @@ def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
                 stats.add_file(p, st.st_size, top_n=top_n)
     paint.completed_msg("scan")
     paint.terminal(f"[[bold yellow]{stats.num_dirs}[/bold yellow]] directories scanned from {root}","center")
-    paint.banner()
+    paint.divider()
 
     return stats
 #===#
-def render_scan_report(root: Path, stats: ScanStats) -> None:
+def render_scan_report(root: Path, stats: ScanStats, tree: bool=True) -> None:
+    if tree:
+        paint.print_dir_tree_panel(
+            root,
+            title="scanned path",
+            max_depth=5,
+            max_entries_per_dir=100,
+            show_files=True,
+        )
 
-    inv = paint.set_table(title="inventory")
+    inv = paint.set_table()
     inv.add_column("metric")
     inv.add_column("value")
     inv.add_row("directories", str(stats.num_dirs))
@@ -89,7 +98,7 @@ def render_scan_report(root: Path, stats: ScanStats) -> None:
     inv.add_row("total size", format_bytes(stats.total_bytes))
 
     if stats.largest:
-        largest = paint.set_table(title="largest files", style="bold white")
+        largest = paint.set_table()
         largest.add_column("path", justify="left")
         largest.add_column("size", justify="center")
         for size, path in sorted(stats.largest, key=lambda x: x[0], reverse=True):
@@ -104,8 +113,8 @@ def render_scan_report(root: Path, stats: ScanStats) -> None:
                         )
                     )
 
-    content = paint.group([largest,inv], f"summary of scan on {root}")
-    paint.banner() 
+    content = paint.group([inv,largest], f"summary of scan on {root}")
+    paint.divider() 
 # ----------------------------
 # helpful tools
 # ----------------------------
