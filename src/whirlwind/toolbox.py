@@ -17,26 +17,24 @@ import argparse
 import heapq
 import os
 from dataclasses import dataclass, field
-from rich.console import Console, Group
-from rich.panel import Panel
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-    TimeRemainingColumn
-)
-from rich.table import Table
-from rich.text import Text
-from rich.align import Align
+from . import paint
 
-console = Console()
-
+def dispatch(args: argparse.Namespace) -> int:
+    if args.cmd == "scan":
+        return scan(args)
+    paint.error_msg(f"not a directory: {root}")
 
 #============# 
 #    SCAN    # 
 #============#
+def scan(args: argparse.Namespace) -> int:
+    root = Path(args.root).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        paint.error_msg(f"not a directory: {root}")
+        return 2 
+    stats = scan_directory(root,top_n=args.top_n)
+    render_scan_report(root,stats)
+    return 0
 
 @dataclass
 class ScanStats:
@@ -60,19 +58,11 @@ class ScanStats:
 def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
     stats = ScanStats()
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[bold]running scan on[/bold]"),
-        TextColumn("{task.completed} dirs"),
-        TimeElapsedColumn(),
-        TimeRemainingColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task("scan", total=None)
-
+    with paint.progress("running scan on",root) as progress:
+        task = paint.new_task(progress, "scan", total=None) 
         for dirpath, dirnames, filenames in os.walk(root):
             stats.num_dirs += 1
-            progress.update(task, advance=1)
+            paint.advance(progress,task,1)
 
             for name in filenames:
                 p = Path(dirpath) / name
@@ -83,12 +73,15 @@ def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
                 except OSError:
                     continue
                 stats.add_file(p, st.st_size, top_n=top_n)
+    paint.completed_msg("scan")
+    paint.terminal(f"[[bold yellow]{stats.num_dirs}[/bold yellow]] directories scanned from {root}","center")
+    paint.banner()
 
     return stats
 #===#
 def render_scan_report(root: Path, stats: ScanStats) -> None:
 
-    inv = Table(title="inventory", header_style="bold white")
+    inv = paint.set_table(title="inventory")
     inv.add_column("metric")
     inv.add_column("value")
     inv.add_row("directories", str(stats.num_dirs))
@@ -96,31 +89,23 @@ def render_scan_report(root: Path, stats: ScanStats) -> None:
     inv.add_row("total size", format_bytes(stats.total_bytes))
 
     if stats.largest:
-        largest = Table(title="largest files", header_style="bold white")
-        largest.add_column("path", justify="center")
+        largest = paint.set_table(title="largest files", style="bold white")
+        largest.add_column("path", justify="left")
         largest.add_column("size", justify="center")
         for size, path in sorted(stats.largest, key=lambda x: x[0], reverse=True):
             largest.add_row(
-                    Text(
+                    paint.text(
                         path,
-                        style=style_by_size(size)
+                        style_by_size(size)
                         ),
-                    Text(
+                    paint.text(
                         format_bytes(size),
                         style_by_size(size)
                         )
                     )
 
-    content = Group(
-            Align.center(largest),
-            Align.center(inv),
-            )
-    panel = Panel.fit(
-            content,
-            title=f"summary of scan on {root}",
-            )
-    console.print(panel)
-        
+    content = paint.group([largest,inv], f"summary of scan on {root}")
+    paint.banner() 
 # ----------------------------
 # helpful tools
 # ----------------------------

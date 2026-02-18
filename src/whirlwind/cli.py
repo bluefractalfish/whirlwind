@@ -2,13 +2,12 @@
 from typing import List, Optional
 import argparse
 #import toolbox from local directory
-from rich.console import Console
-from pathlib import Path
+#from rich.console import Console
+#from pathlib import Path
 from . import toolbox
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    console=Console()
     p = argparse.ArgumentParser(prog="whirlwind")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -18,19 +17,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = p.parse_args(argv)
 
-    if args.cmd == "scan":
-        root = Path(args.root).expanduser().resolve()
-        if not root.exists() or not root.is_dir():
-            console.print(f"[bold red]error:[/bold red] not a directory: {root}")
-            return 2
-
-        stats = toolbox.scan_directory(root, top_n=args.top_n)
-        toolbox.render_scan_report(root, stats)
-        return 0
-
-    return 1
-
-
+    return toolbox.dispatch(args)
 
 if __name__ == "__main__":
     raise SystemExit(main())
