@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from . import paint
 
 def dispatch(args: argparse.Namespace) -> int:
+    gdal.DontUseExceptions()
     if args.cmd == "scan":
         log("--scan--------------------------------------------------------")
         with paint.status("SCANNING"):
