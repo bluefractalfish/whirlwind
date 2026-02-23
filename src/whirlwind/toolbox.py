@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import re
 import uuid
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from datetime import datetime 
@@ -23,18 +24,20 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.cmd == "scan":
         with paint.status("SCANNING"):
             return scan(args)
-    paint.error_msg(f"not a directory: {root}")
 
 #============# 
 #    SCAN    # 
 #============#
 def scan(args: argparse.Namespace) -> int:
     root = Path(args.root).expanduser().resolve()
+    out = f"scan_metadata_{gen_fingerprint(root)}.csv"
     if not root.exists() or not root.is_dir():
         paint.error_msg(f"not a directory: {root}")
         return 2 
     stats = scan_directory(root,top_n=args.top_n)
     render_scan_report(root,stats)
+    write_metadata(args.root,out)
+    paint.info(f"csv written to: {out}")
     return 0
 
 @dataclass
@@ -80,7 +83,7 @@ def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
 
     return stats
 #===#
-def render_scan_report(root: Path, stats: ScanStats, tree: bool=True) -> None:
+def render_scan_report(root: Path, stats: ScanStats, tree: bool=False) -> None:
     if tree:
         paint.print_dir_tree_panel(
             root,
@@ -394,6 +397,14 @@ def created_at() -> str:
     now = datetime.now()
     return now.isoformat()
 
+def gen_fingerprint(path: str | Path) -> str:
+    "generate deterministic fingerprint from path, to use in metadata naming"
+    p = Path(path)
+    st = p.stat()
+    pl = f"{st.st_size}-{st.st_mtime_ns}"
+    return hashlib.blake2b(pl.encode(),digest_size=6).hexdigest()
+
+
 def iter_tifs(root: Path) -> Iterable[Path]:
     """
     Recursively yield .tif/.tiff file paths under `root`.
@@ -403,7 +414,7 @@ def iter_tifs(root: Path) -> Iterable[Path]:
             yield p
 
 
-def write_csv_mosaics(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
+def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
     """
     Walk `input_dir` consisting of mosaics, extract metadata for each tif/tiff, write CSV to `out_csv`.
 
@@ -439,3 +450,4 @@ def write_csv_mosaics(input_dir: str, out_csv: str, columns: Optional[List[str]]
         for r in rows:
             # Ensure all requested columns exist; fill missing with ""
             w.writerow({k: r.get(k, "") for k in columns})
+
