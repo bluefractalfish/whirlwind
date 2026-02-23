@@ -1,0 +1,178 @@
+-- a script to bootstrap database for storing raster (GeoTIFF/COG) metadata,
+--          pixel windows ("window:"), precomputed tiles, and annotations.
+
+-- =========================
+--       EXTENSIONS
+-- =========================
+
+CREATE EXTENSION IF NOT EXISTS postgis;   -- for loading PostGIS types/functions.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- provides cryptographic helpers 
+
+-- =========================
+--         MOSAIC 
+-- =========================
+--  a "mosaic" is a raster source (orthomosaic image), with one per row
+CREATE TABLE IF NOT EXISTS mosaic (                       
+
+  mosaic_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),   
+  uri TEXT NOT NULL,                                        
+  uri_etag TEXT,
+  byte_size BIGINT,                                         
+  crs TEXT,                                               
+  srid INTEGER,                                        -- EPSG Spatial reference id (if known)
+  pixel_width INTEGER NOT NULL,                        -- raster width in pixels (columns)
+  pixel_height INTEGER NOT NULL,                       -- raster height in pixels (rows)
+  band_count INTEGER NOT NULL,                         -- number of raster bands
+  dtype TEXT,                                          -- pixel data type 
+  nodata DOUBLE PRECISION,                             -- nodata value used in raster if available
+
+  footprint GEOMETRY(MULTIPOLYGON, 4326) NOT NULL,     -- spatial footprint stored in EPSG:4326
+  acquired_at TIMESTAMPTZ,                             -- when aquired
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()        -- when this row was inserted
+);                                                     -- end CREATE TABLE. 
+
+
+-- =========================
+--         WINDOWS 
+-- =========================
+-- A "window" is a rectangular window in pixel coordinates within a mosaic.
+-- This is useful if you want to persist sample windows, QA windows, or any repeatable subsets.
+
+CREATE TABLE IF NOT EXISTS window (                                 
+  window_id BIGSERIAL PRIMARY KEY,                    -- auto-incrementing integer primary key
+
+  mosaic_id UUID NOT NULL                             -- the mosaic this window comes from
+    REFERENCES mosaic(mosaic_id)                      -- foreign key points to mosaic(mosaic_id)
+    ON DELETE CASCADE,                                -- if a mosaic is deleted, delete windowes 
+
+  x_ori INTEGER NOT NULL,                             -- pixel x of window's top-left corner
+  y_ori INTEGER NOT NULL,                             -- pixel y of window's top-left corner
+  width INTEGER NOT NULL,                             -- window width in pixels
+  height INTEGER NOT NULL,                            -- window height in pixels
+
+  footprint GEOMETRY(POLYGON, 4326),                  -- window footprint for spatial queries
+  quality_score REAL,                                 -- accessory column for quality score 
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),      -- when this window row was inserted
+
+  CHECK (x_off >= 0),                                 -- ensure x offset isn't negative
+  CHECK (y_off >= 0),                                 -- ensure y offset isn't negative
+  CHECK (width > 0),                                  -- ensure width is positive
+  CHECK (height > 0)                                  -- ensure height is positive
+);                                                    -- End CREATE TABLE
+
+-- =========================
+--  PRECOMPUTED TILES 
+-- =========================
+-- a tile is a precomputed subset of a mosaic consisting of three parts:
+-- tile
+-- tile.metadata
+-- tile.thumbnail
+-- --------------
+-- tile and tile.thumbnail are both stored in object storage while their metadata
+-- is stored in a tile_metadata table. The difference between tile and tile.thumbnail is that
+-- the thumbnail only stores a compressed/downsampled rgb version of the tile, which stores all 
+-- the geographic and multispectral data found in its source mosaic. The thumbnail is to be used 
+-- for lightweight visualization and labeling. 
+CREATE TABLE IF NOT EXISTS tile_metadata (                                   
+  _id BIGSERIAL PRIMARY KEY,                          --  integer primary key shared with thumb
+
+  mosaic_id UUID NOT NULL                             -- mosaic this tile comes from
+    REFERENCES mosaic(mosaic_id)                      -- foreign key points to mosaic(mosaic_id).
+    ON DELETE CASCADE,                                -- if a mosaic is deleted, delete its tiles
+
+  -- for z/x/y hierarchy, same for tile and thumbnail
+  z INTEGER,                                          -- zoom level, z=1 if no zoom
+  x INTEGER,                                          -- tile column 
+  y INTEGER,                                          -- tile row 
+
+  tile_width INTEGER NOT NULL,                        -- tile width in pixels.
+  tile_height INTEGER NOT NULL,                       -- tile height in pixels.
+  overlap INTEGER NOT NULL DEFAULT 0,                 -- overlap pixels used when generating tiles
+  annotation TEXT,                                    -- annotation for comments or labeling tasks 
+  tile_uri TEXT NOT NULL,                             -- where the tile file lives 
+  tile_uri_etag TEXT,                                 -- etag for version control 
+  footprint GEOMETRY(POLYGON, 4326) NOT NULL,         -- tile footprint for spatial queries
+
+  nodata_frac REAL,                                   -- fraction of pixels that are NoData (0..1).
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),      -- when this tile row was inserted.
+
+  thumb_uri TEXT,                                     -- location of thumbnail, parallel to uri
+  thumb_width INTEGER,                                -- thumbnail width in pixels
+  thumb_height INTEGER,                               -- thumbnail height in pixels
+  thumb_dtype TEXT                                    -- e.g. webp, png
+);                                                    -- End CREATE TABLE.
+
+CREATE INDEX IF NOT EXISTS tile_idx                   -- create index if it doesn't already exist.
+  ON tile_metadata (mosaic_id);                       -- speeds filtering tiles by source mosaic.
+
+CREATE INDEX IF NOT EXISTS tile_gix                   -- create index if it doesn't already exist.
+  ON tile_metadata USING GIST (footprint);            -- speeds spatial filtering of tiles.
+
+CREATE INDEX IF NOT EXISTS tile_zxy_idx               -- create index if it doesn't already exist.
+  ON tile_metadata (z, x, y);                         -- speeds lookup when using a tile grid scheme.
+
+CREATE INDEX IF NOT EXISTS thumb_idx                  -- create index if it doesn't already exist.
+  ON tile_metadata (mosaic_id);                       -- speeds filtering tiles by source mosaic.
+
+CREATE INDEX IF NOT EXISTS thumb_gix                  -- create index if it doesn't already exist.
+  ON tile_metadata USING GIST (footprint);            -- speeds spatial filtering of tiles.
+
+CREATE INDEX IF NOT EXISTS thumb_zxy_idx              -- create index if it doesn't already exist.
+  ON tile_metadata (z, x, y);      
+
+-- ===========================
+-- STAGING TABLES 
+-- ===========================
+-- tables for copying csv into in order to ensure proper formatting
+-- in final tables. 
+
+CREATE TABLE IF NOT EXISTS mosaic_stage(
+  uri TEXT NOT NULL, 
+  uri_etag TEXT,    
+  byte_size TEXT,    -- cast to bigint
+  crs TEXT,
+  srid TEXT,
+  pixel_width TEXT,  -- cast to int
+  pixel_height TEXT, -- cast to int
+  band_count TEXT,   -- cast to int
+  dtype TEXT,
+  nodata TEXT,       -- cast to double precision
+  footprint TEXT,    -- cast to GEOMETRY(4326 MULTIPOLYGON)
+  acquired_at TEXT,  -- cast to TIMESTAMPTZ
+  -- for ingestion
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);                                                    -- end CREATE 
+
+-- for fast lookups of stage_table
+CREATE INDEX IF NOT EXISTS mosaic_stage_uri_idx
+  ON mosaic_stage (uri);
+
+
+CREATE TABLE IF NOT EXISTS tile_stage(
+
+  mosaic_uri TEXT NOT NULL, -- references the mosaic from which these tiles were generated                         
+
+  -- for z/x/y hierarchy, same for tile and thumbnai
+  z TEXT,                                        
+  x TEXT,                                        
+  y TEXT,                                        
+
+  tile_width TEXT,                      
+  tile_height TEXT,                     
+  overlap TEXT,               
+  annotation TEXT,                                   
+  tile_uri TEXT NOT NULL,                           
+  tile_uri_etag TEXT,                               
+  footprint TEXT,
+  nodata_frac TEXT,                                 
+  created_at TEXT,    
+
+  thumb_uri TEXT,                                   
+  thumb_width TEXT,                              
+  thumb_height TEXT,                             
+  thumb_dtype TEXT       
+); -- end CREATE TABLE
+
+CREATE INDEX IF NOT EXISTS tile_stage_mosaic_uri_idx
+  ON tile_stage(mosaic_uri);

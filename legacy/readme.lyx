@@ -1,0 +1,763 @@
+#LyX 2.4 created this file. For more info see https://www.lyx.org/
+\lyxformat 620
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children no
+\language american
+\language_package default
+\inputencoding utf8
+\fontencoding auto
+\font_roman "utopia" "default"
+\font_sans "helvet" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_roman_osf false
+\font_sans_osf false
+\font_typewriter_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\float_placement class
+\float_alignment class
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_formatted_ref 0
+\use_minted 0
+\use_lineno 0
+\backgroundcolor #0f0f0f
+\fontcolor #d8d8d8
+\index Index
+\shortcut idx
+\color #ff5500
+\end_index
+\leftmargin 0.5cm
+\topmargin 1cm
+\rightmargin 0.5cm
+\bottommargin 1cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tablestyle default
+\tracking_changes false
+\output_changes false
+\change_bars false
+\postpone_fragile_content true
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\docbook_table_output 0
+\docbook_mathml_prefix 1
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+
+\family sans
+\series bold
+\shape slanted
+WiRLWiND:
+ 
+\series default
+Wirlwind is Relational,
+ Labeled,
+ Wide-area Imagery in a Normalized Database
+\end_layout
+
+\begin_layout Section
+
+\family sans
+Definition of Terms:
+\end_layout
+
+\begin_layout Standard
+For ease of introduction here we will define necessary terms and datatypes,
+ first starting with those standard datatypes and file extensions:
+\end_layout
+
+\begin_layout Description
+
+\family sans
+TIFF
+\family default
+:
+ 
+\series bold
+T
+\series default
+agged 
+\series bold
+I
+\series default
+mage 
+\series bold
+F
+\series default
+ile 
+\series bold
+F
+\series default
+ormat:
+ raster image format which supports lossless compression.
+ A .TIFF is organized by its metadata which is embedded as a sequence of 
+\series bold
+Image File Directories (IFDs) 
+\series default
+using tag-value pairs.
+ Abstractly,
+ a .TIFF is a function:
+\begin_inset Formula 
+\[
+I:\mathbb{Z}^{2}\rightarrow\mathbb{R}^{C}
+\]
+
+\end_inset
+
+such that 
+\begin_inset Formula $I(x,y)$
+\end_inset
+
+ gives us a pixel value at coordinate 
+\begin_inset Formula $(x,y)\in\mathbb{Z}^{2}$
+\end_inset
+
+ with value 
+\begin_inset Formula $(r_{1},...,r_{c})$
+\end_inset
+
+ where 
+\begin_inset Formula $C$
+\end_inset
+
+ is the number of chanels (e.g.
+ 
+\begin_inset Formula $\text{RGB}\rightarrow C=3$
+\end_inset
+
+,
+ 
+\begin_inset Formula $\text{grayscale}\rightarrow C=1$
+\end_inset
+
+,
+ etc).
+ We call this space 
+\series bold
+raster space
+\series default
+,
+ or the space defined by a coordinate system and cooresponding data channels.
+ 
+\end_layout
+
+\begin_layout Description
+
+\family sans
+IFD
+\family default
+:
+ A section or subfile within a file to hold the bytes of an encoded image along with its metadata.
+ 
+\end_layout
+
+\begin_layout Description
+
+\family sans
+GeoTIFF
+\family default
+:
+ TIFF format that includes goegraphic metadata which supports accurate lat-long placement and cardinal orientation.
+ This geographic space,
+ or map space,
+ consisting of a scale,
+ orientation,
+ and spatial location,
+ is herein refered to as model space
+\series bold
+.
+
+\series default
+ This format includes the standard TIFF structure along with georeferencing tags such as:
+\begin_inset Newline linebreak
+\end_inset
+
+
+\series bold
+- 
+\family sans
+GeoKeyDirectoryTag
+\family default
+\series default
+:
+ defines the 
+\series bold
+model space
+\series default
+ and contains CRS information which defines the coordinate space,
+ how earth position is represented,
+ units,
+ axis order,
+ and geodetic data.
+ 
+\begin_inset Newline newline
+\end_inset
+
+
+\series bold
+- 
+\family sans
+TiepointTag
+\family default
+\series default
+ 
+\begin_inset Formula $(x_{r},y_{r},z_{r},X_{m},Y_{m},Y_{m})$
+\end_inset
+
+:
+ maps raster space 
+\begin_inset Formula $(x_{r},y_{r},z_{r})$
+\end_inset
+
+ to model space
+\series bold
+ 
+\begin_inset Formula $(X_{m},Y_{m},Z_{m})$
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+- 
+\family sans
+PixelScaleTag
+\family default
+\series default
+ 
+\begin_inset Formula $(\sigma_{x},\sigma_{y},\sigma_{z})$
+\end_inset
+
+:
+ defines pixel size in model units.
+ This is an x-scale 
+\begin_inset Formula $(\text{\ensuremath{\sigma_{x}}})$
+\end_inset
+
+ y-scale 
+\begin_inset Formula $(\sigma_{y})$
+\end_inset
+
+ (and z-scale) corresponding to the pixel width and height respective (e.g.
+ if one pixel corresponds to 50cm in model space then 
+\begin_inset Formula $(\sigma_{x}=\sigma_{y}=50,\sigma_{z}=0)$
+\end_inset
+
+ )
+\begin_inset Newline newline
+\end_inset
+
+ 
+\begin_inset Newline newline
+\end_inset
+
+ A GeoTIFF defines a spatial mapping:
+\begin_inset Formula 
+\[
+T:\mathbb{Z}^{2}\rightarrow\mathbb{R}^{2}
+\]
+
+\end_inset
+
+ where 
+\begin_inset Formula 
+\[
+T(x,y)=(x_{geo},y_{geo})=A\cdot\begin{pmatrix}x\\
+y\\
+1
+\end{pmatrix}
+\]
+
+\end_inset
+
+ Here 
+\begin_inset Formula $A$
+\end_inset
+
+ is an affine transformation matrix (preserves lines and parallelism) which translates pixel coordinates 
+\begin_inset Formula $(x,y)$
+\end_inset
+
+ in raster space to map coordinates 
+\begin_inset Formula $(x_{geo},y_{geo})$
+\end_inset
+
+ in model space.
+ If 
+\begin_inset Formula $X_{0},Y_{0}$
+\end_inset
+
+ is the coordinates of the top-left pixel 
+\begin_inset Formula $(0,0)$
+\end_inset
+
+ in model space,
+ the standard definition of this transformation is:
+\begin_inset Formula 
+\[
+A:=\left(\begin{array}{ccc}
+\sigma_{x} & 0 & X_{0}\\
+0 & -\sigma_{y} & Y_{0}\\
+0 & 0 & 1
+\end{array}\right)
+\]
+
+\end_inset
+
+So given a pixel 
+\begin_inset Formula $(x,y)$
+\end_inset
+
+ in the raster we can calculate the position of that pixel in model space:
+\begin_inset Formula 
+\begin{align*}
+T(x,y) & =\left(\begin{array}{ccc}
+\sigma_{x} & 0 & X_{0}\\
+0 & -\sigma_{y} & Y_{0}\\
+0 & 0 & 1
+\end{array}\right)\cdot\begin{pmatrix}x\\
+y\\
+1
+\end{pmatrix}=(x_{geo},y_{geo})\\
+x_{geo} & =X_{0}+x\sigma_{x}\\
+y_{geo} & =Y_{0}-y\sigma_{y}
+\end{align*}
+
+\end_inset
+
+ for example,
+ if 
+\family sans
+\series bold
+TiepointTag
+\family default
+
+\begin_inset Formula $=(0,0,0,500000,4500000,0)$
+\end_inset
+
+ 
+\series default
+and 
+\family sans
+\series bold
+PixelScaleTag
+\family default
+\series default
+
+\begin_inset Formula $=(50,50,0)$
+\end_inset
+
+:
+\begin_inset Formula 
+\[
+A=\left(\begin{array}{ccc}
+50 & 0 & 500000\\
+0 & -50 & 4500000\\
+0 & 0 & 1
+\end{array}\right)
+\]
+
+\end_inset
+
+and the pixel 
+\begin_inset Formula $(0,1)$
+\end_inset
+
+ maps to 
+\begin_inset Formula $(50000,4499950)$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Description
+
+\family sans
+COG
+\family default
+:
+
+\series bold
+ C
+\series default
+loud 
+\series bold
+O
+\series default
+ptimized 
+\series bold
+G
+\series default
+eoTIFFs- a georeferenced raster imagery format specifically designed for web.
+ It consists of a regular GeoTIFF that has been optimized for use in a cloud based environment such as a web server or a cloud storage service.
+ The key feature is a build-in organization that allows the client to access parts of the image as needed,
+ without having to download the entire file.
+\end_layout
+
+\begin_layout Standard
+For the workflow that follows,
+ and for ease of precise documentation,
+ 
+\end_layout
+
+\begin_layout Description
+
+\family sans
+mosaic:
+
+\family default
+ (sometimes denoted with 
+\begin_inset Formula $M$
+\end_inset
+
+) all raster data pertaining to a given wide-area ( e.g.
+ a GeoTIFF of a defined area at a fixed time) and any associated metadata.
+ The mosaic itself will be stored in object storage while 
+\family sans
+mosaic.metadata
+\family default
+ will exist in the database to avoid runaway database bloat.
+ A 
+\family sans
+mosaic
+\family default
+ is the highest order object within a given data pyramid,
+ with all lower order objects referring back to the source 
+\family sans
+mosaic
+\family default
+.
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+* The naming convention,
+ e.g.
+ for a 
+\family sans
+mosaic
+\family default
+ taken on 
+\family typewriter
+DD/MM/YY
+\family default
+ of 
+\family typewriter
+Someplace,
+ NA
+\family default
+ measured in the visible and near infrared with raster pixel type 
+\family typewriter
+Uint8
+\family default
+ will be:
+ YYMMDD_som_rgbn_uint8.GeoTiff.
+ (Here I will list other possible values for bands and pixel dtype)
+\end_layout
+
+\end_deeper
+\begin_layout Description
+
+\family sans
+tile.scheme:
+
+\family default
+ (herein denoted with 
+\begin_inset Formula $\tau$
+\end_inset
+
+) the scheme by which the source mosaic has been subdivided.
+ A scheme consists of:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+ (source_mosaic_id,version_num,tile_size,zoom) 
+\family default
+and will vary depending on the end use of the data.
+ If it is for machine learning purposes,
+ 
+\family typewriter
+zoom=null
+\family default
+ and zoom level is disregarded and defaulted to 1.
+ If the tile needs to be web-map compatible then the output will need to align with global web maps and the 
+\family sans
+tile.directory 
+\family default
+will abide by a strict z/x/y pyramid,
+ with each pyramid organized under 
+\family typewriter
+source_mosaic_id/version_num
+\family default
+/.
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+* In total there will be 
+\begin_inset Formula $z\cdot x\cdot y$
+\end_inset
+
+
+\family sans
+ 
+\family default
+tiles generated,
+ determinded by the size of the 
+\family typewriter
+source_mosaic
+\family default
+ and 
+\family typewriter
+tile_size
+\family default
+ (and whether zoom is desired or not)
+\end_layout
+
+\end_deeper
+\begin_layout Description
+
+\family sans
+tile:
+
+\family default
+ (herein denoted with 
+\begin_inset Formula $t_{z/x/y}$
+\end_inset
+
+) stores the 
+\begin_inset Formula $h\cdot w\cdot b$
+\end_inset
+
+ values of a subdivision of a source mosaic (with 
+\begin_inset Formula $h,w$
+\end_inset
+
+ the tiles height and width and 
+\begin_inset Formula $b$
+\end_inset
+
+ the bandcount) along with any geographic data.
+ These bytes are stored in
+\family sans
+ 
+\family typewriter
+
+\begin_inset Newline newline
+\end_inset
+
+source_mosaic_id/version_num/tiles/z/x/y.tif
+\family default
+.
+ 
+\end_layout
+
+\begin_layout Description
+
+\family sans
+tile.thumbnail:
+
+\family default
+ (herein denoted with 
+\begin_inset Formula $th_{z/x/y}$
+\end_inset
+
+) each tile will also have a rgb thumbnail of a reduced dimension,
+ stored parallel to 
+\family sans
+tile 
+\family default
+in object storage for lightweight visualization,
+ labeling,
+ and web integration tasks.
+ These bytes will be stored in 
+\family typewriter
+source_mosaic_id/version_num/thumbs/z/x/y.<webp
+\backslash
+png>.
+ 
+\end_layout
+
+\begin_layout Description
+
+\family sans
+tile.metadata:
+ 
+\family default
+(herein denoted with 
+\begin_inset Formula $m_{t_{z/x/y}}$
+\end_inset
+
+) each tile/thumb pair stored in object storage will have its metadata stored in the database for fast lookup.
+ 
+\end_layout
+
+\begin_layout Description
+
+\end_layout
+
+\begin_layout Section
+
+\family sans
+database initialization
+\end_layout
+
+\begin_layout Standard
+The following initialization file will be used to bootstrap basic functionality:
+ 
+\begin_inset CommandInset include
+LatexCommand verbatiminput
+filename "/home/rhea/dev/wirlwind/migration/initialize.sql"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+
+\family sans
+ingestion pipeline:
+\end_layout
+
+\begin_layout Standard
+At a glance,
+ we wish to create a database pipeline which takes in a (presumably large) source COG,
+ 
+\begin_inset Quotes eld
+\end_inset
+
+
+\family typewriter
+mosaic
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+ and a 
+\begin_inset Quotes eld
+\end_inset
+
+
+\family typewriter
+tiling_scheme
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+,
+ and populates object storage with 
+\begin_inset Quotes eld
+\end_inset
+
+
+\family typewriter
+tiles
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+,
+ and WiRLWiND with 
+\begin_inset Quotes erd
+\end_inset
+
+
+\family typewriter
+tile_metadata
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+ denoted by:
+ 
+\begin_inset Formula 
+\[
+(M,\tau)\rightarrow\underbrace{\text{\{t_{1},...,t_{n}\}}}_{\text{object storage}}+\underbrace{\{m_{t_{1}},...,m_{t_{n}}\}}_{\text{WiRLWiND}}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $t_{i}$
+\end_inset
+
+ correspond to the bytes of the raster subdivision and 
+\begin_inset Formula $m_{t_{i}}$
+\end_inset
+
+ is the associated metadata.
+\end_layout
+
+\begin_layout Section
+ToolBox
+\end_layout
+
+\end_body
+\end_document

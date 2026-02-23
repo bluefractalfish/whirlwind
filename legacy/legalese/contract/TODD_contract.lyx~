@@ -1,0 +1,364 @@
+#LyX 2.4 created this file. For more info see https://www.lyx.org/
+\lyxformat 620
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children no
+\language american
+\language_package default
+\inputencoding utf8
+\fontencoding auto
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_roman_osf false
+\font_sans_osf false
+\font_typewriter_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\float_placement class
+\float_alignment class
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_formatted_ref 0
+\use_minted 0
+\use_lineno 0
+\backgroundcolor #0f0f0f
+\fontcolor #d8d8d8
+\index Index
+\shortcut idx
+\color #ff5500
+\end_index
+\leftmargin 1cm
+\topmargin 1cm
+\rightmargin 1cm
+\bottommargin 1cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tablestyle default
+\tracking_changes false
+\output_changes false
+\change_bars false
+\postpone_fragile_content true
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\docbook_table_output 0
+\docbook_mathml_prefix 1
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
+Project:
+ 
+\series default
+Design and build a Tornadic Damage Database for Machine Learning (100-hour engagement)
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
+0.0)
+\begin_inset space ~
+\end_inset
+
+Background
+\series default
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Purpose:
+ Contractor will design and build a machine-learning-ready database of geospatial data for tornadic path and damage identification.
+ 
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Scope:
+ Engagement is capped at 100 billable hours
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Definitions:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+\begin_inset Quotes eld
+\end_inset
+
+Raw
+\begin_inset space ~
+\end_inset
+
+Data
+\begin_inset Quotes erd
+\end_inset
+
+:
+ data as obtained from Disaster Imaging geoserver prior to any selecting,
+ cleaning,
+ or processing
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+\begin_inset Quotes eld
+\end_inset
+
+Processed
+\begin_inset space ~
+\end_inset
+
+Dataset
+\begin_inset Quotes erd
+\end_inset
+
+:
+ Cleaned,
+ normalized data formatted according to the desired schema
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+\begin_inset Quotes eld
+\end_inset
+
+ML-Ready
+\begin_inset space ~
+\end_inset
+
+Dataset
+\begin_inset Quotes erd
+\end_inset
+
+:
+ Processed data plus labels/targets (split into train/val/test directories) and metadata necessary for ML 
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+\begin_inset Quotes eld
+\end_inset
+
+Database
+\begin_inset Quotes erd
+\end_inset
+
+:
+ Storage system containing the Processed Dataset
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
+1.0)
+\begin_inset space ~
+\end_inset
+
+Scope
+\begin_inset space ~
+\end_inset
+
+of
+\begin_inset space ~
+\end_inset
+
+Work:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Acquisition
+\begin_inset space ~
+\end_inset
+
+&
+\begin_inset space ~
+\end_inset
+
+Ingestion:
+ 1.1.1) Download / pull raw geospatial data from geoserver.
+ 1.1.2) Store raw data in a reproducible structure 
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Cleaning
+\begin_inset space ~
+\end_inset
+
+&
+\begin_inset space ~
+\end_inset
+
+Normalization:
+ 1.2.1) Reproject data to desired dimensions,
+ formats,
+ etc.
+ Normalize units,
+ attribute names,
+ and value encodings.
+ 1.2.2) Handle missing or invalid geometries,
+ edgecases 
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Data
+\begin_inset space ~
+\end_inset
+
+Transformations:
+ 1.3.1) Define tiling or sampling strategy (e.g.,
+ fixed-size tiles,
+ grid cells,
+ other) 1.3.2) Determine and Generate ML features (e.g.,
+ raster tiles,
+ vector features,
+ numeric attributes) 1.3.3) Generate labels/targets as specified by data and goal (e.g.,
+ presence/absence of damage,
+ damage type,
+ damage level).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Design
+\begin_inset space ~
+\end_inset
+
+&
+\begin_inset space ~
+\end_inset
+
+Implementation:
+ 1.4.1) Design target schema (tables,
+ indices) optimized for ML workloads.
+ 1.4.2) Implement schema with reproducible directory/file heirarchy 
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Documentation:
+ 1.5.1) Data dictionary (fields,
+ types,
+ units,
+ meaning,
+ etc) 1.5.2) Description of pipeline (steps,
+ tools,
+ parameters) 1.5.3) Instructions for querying and exporting data for ML pipelines.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
+2.0)
+\begin_inset space ~
+\end_inset
+
+Deliverables:
+
+\series default
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Data_Assets:
+ 2.1.1) A populated Database containing train/validation/test splits
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Schema:
+ 2.2.1) Data dictionary for tables and key attributes 2.2.2) Description of labeling scheme and class definitions.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Artifacts:
+ 2.3.1) Scripts used for:
+ Acquisition,
+ Cleaning and normalization,
+ Tiling / sampling,
+ Label generation,
+ README describing how to rerun these steps.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Documentation:
+ 2.4.1) Instructions for using database or replicating specified steps.
+ 2.4.2) Database schema and intended workflow for future ML applications 
+\end_layout
+
+\end_deeper
+\end_body
+\end_document

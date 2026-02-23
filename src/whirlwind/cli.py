@@ -1,6 +1,7 @@
 
 from typing import List, Optional
 import argparse
+import sys
 #import toolbox from local directory
 #from rich.console import Console
 #from pathlib import Path
@@ -17,8 +18,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = p.parse_args(argv)
 
-    return toolbox.dispatch(args)
+    try:
+        return toolbox.dispatch(args)
+    except KeyboardInterrupt:
+        toolbox.log("13")
+        sys.exit(130)
 
+        pass
 if __name__ == "__main__":
     raise SystemExit(main())
 

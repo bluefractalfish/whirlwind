@@ -1,6 +1,10 @@
 
 """
 toolbox.py
+
+helper library for 
+    - building staging-table CSVs from GeoTIFF/COG fieldnames
+
 """
 
 from __future__ import annotations
@@ -8,147 +12,16 @@ from __future__ import annotations
 import csv
 import re
 import uuid
-import hashlib
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from datetime import datetime 
 from osgeo import gdal
 from osgeo import osr  # SpatialReference + CoordinateTransformation
-import argparse
-import heapq
-import os
-from dataclasses import dataclass, field
-from . import paint
 
-def dispatch(args: argparse.Namespace) -> int:
-    if args.cmd == "scan":
-        log("--scan--------------------------------------------------------")
-        with paint.status("SCANNING"):
-            return scan(args)
 
-#============# 
-#    SCAN    # 
-#============#
-def scan(args: argparse.Namespace) -> int:
-    root = Path(args.root).expanduser().resolve()
-    out = f"scan_metadata_{gen_fingerprint(root)}.csv"
-    if not root.exists() or not root.is_dir():
-        error = f"not a directory you can scan: {root}"
-        paint.error_msg(error)
-        log(error+"returned error code 2")
-        return 2 
-    log(f"directory {root} scanned as root")
-    stats = scan_directory(root,top_n=args.top_n)
-    render_scan_report(root,stats)
-    write_metadata(args.root,out)
-    paint.info(f"csv written to: {out}")
-    log(f"{out} written")
-    log("0")
-    return 0
-
-@dataclass
-class ScanStats:
-    # how many directories, files, and bytes in root
-    num_dirs: int = 0
-    num_files: int = 0
-    total_bytes: int = 0
-    largest: List[Tuple[int, str]] = field(default_factory=list)
-
-    def add_file(self, path: Path, size: int, top_n: int) -> None:
-        self.num_files += 1
-        self.total_bytes += size
-        if top_n > 0:
-            item = (size, path.name)
-            if len(self.largest) < top_n:
-                heapq.heappush(self.largest, item)
-            else:
-                if size > self.largest[0][0]:
-                    heapq.heapreplace(self.largest, item)
-#===#
-def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
-    stats = ScanStats()
-
-    with paint.progress("running scan on",root) as progress:
-        task = paint.new_task(progress, "scan", total=None) 
-        for dirpath, dirnames, filenames in os.walk(root):
-            stats.num_dirs += 1
-            paint.advance(progress,task,1)
-
-            for name in filenames:
-                p = Path(dirpath) / name
-                if p.suffix.lower() not in ('.tif','.tiff'):
-                    continue
-                try:
-                    st = p.stat()
-                except OSError:
-                    continue
-                stats.add_file(p, st.st_size, top_n=top_n)
-    paint.completed_msg("scan")
-    paint.terminal(f"[[bold yellow]{stats.num_dirs}[/bold yellow]] directories scanned from {root}","center")
-    paint.divider()
-
-    return stats
-#===#
-def render_scan_report(root: Path, stats: ScanStats, tree: bool=False) -> None:
-    if tree:
-        paint.print_dir_tree_panel(
-            root,
-            title="scanned path",
-            max_depth=5,
-            max_entries_per_dir=100,
-            show_files=True,
-        )
-
-    inv = paint.set_table()
-    inv.add_column("metric")
-    inv.add_column("value")
-    inv.add_row("directories", str(stats.num_dirs))
-    inv.add_row("files", str(stats.num_files))
-    inv.add_row("total size", format_bytes(stats.total_bytes))
-
-    if stats.largest:
-        largest = paint.set_table()
-        largest.add_column("path", justify="left")
-        largest.add_column("size", justify="center")
-        for size, path in sorted(stats.largest, key=lambda x: x[0], reverse=True):
-            largest.add_row(
-                    paint.text(
-                        path,
-                        style_by_size(size)
-                        ),
-                    paint.text(
-                        format_bytes(size),
-                        style_by_size(size)
-                        )
-                    )
-
-    content = paint.group([inv,largest], f"summary of scan on {root}")
-    paint.divider() 
 # ----------------------------
 # helpful tools
 # ----------------------------
-def style_by_size(nbytes:int) -> str:
-    gb = 1024 ** 3 
-    mb = 1024 ** 2 
-    if nbytes >= 50 * gb:
-        return "bold purple"
-    elif nbytes >= 5 * gb:
-        return "red"
-    elif nbytes >= 2 * gb:
-        return "orange1"
-    elif nbytes >= 1 * gb:
-        return "yellow"
-    elif nbytes >= 50 * mb:
-        return "green3"
-    return "white"
-def format_bytes(n: int) -> str:
-    units = ["B", "KB", "MB", "GB", "TB", "PB"]
-    v = float(n)
-    for u in units:
-        if v < 1024.0 or u == units[-1]:
-            return f"{v:.2f} {u}" if u != "B" else f"{int(v)} {u}"
-        v /= 1024.0
-    return f"{n} B"
 def uuid_from_path(uri:str)->str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL,uri))
 def get_dtype(gdal_type: int) -> str:
@@ -403,14 +276,6 @@ def created_at() -> str:
     now = datetime.now()
     return now.isoformat()
 
-def gen_fingerprint(path: str | Path) -> str:
-    "generate deterministic fingerprint from path, to use in metadata naming"
-    p = Path(path)
-    st = p.stat()
-    pl = f"{st.st_size}-{st.st_mtime_ns}"
-    return hashlib.blake2b(pl.encode(),digest_size=6).hexdigest()
-
-
 def iter_tifs(root: Path) -> Iterable[Path]:
     """
     Recursively yield .tif/.tiff file paths under `root`.
@@ -420,14 +285,13 @@ def iter_tifs(root: Path) -> Iterable[Path]:
             yield p
 
 
-def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
+def write_csv_mosaics(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
     """
     Walk `input_dir` consisting of mosaics, extract metadata for each tif/tiff, write CSV to `out_csv`.
 
     If `columns` is None, a default mosaic_stage-compatible column list is used.
     """
     input_path = Path(input_dir)
-    output_path = Path("metadata/"+out_csv)
     rows: List[Dict[str, Any]] = []
 
     if columns is None:
@@ -448,20 +312,15 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
             "created_at"
         ]
 
-    log(f"columns extracted: {columns}")
     for tif in iter_tifs(input_path):
         rows.append(extract_metadata(str(tif), columns))
 
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
+    with open(out_csv, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=columns)
         w.writeheader()
         for r in rows:
             # Ensure all requested columns exist; fill missing with ""
             w.writerow({k: r.get(k, "") for k in columns})
 
-def log(msg: str, log_path: str | Path="logs/wind.log") -> None:
-    path = Path(log_path)
-    timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-    ln = f"{timestamp} | {msg} \n"
-    with path.open("a", encoding="utf-8") as f:
-        f.write(ln)
+def write_csv_tiles(input_dir: str, out_csv: str, columns: Optional[List[str]]=None)-> None:
+        return
