@@ -33,8 +33,7 @@ Recursively walks a root directory to:
 
 -   Count directories
 -   Identify `.tif` / `.tiff` files
--   Compute total byte size across GeoTIFFs
--   Track the top-N largest files
+-   Generate CSV with file metadata to use for scan reporting
 
 *For each GeoTIFF discovered:*
 
@@ -42,6 +41,7 @@ Recursively walks a root directory to:
 -   Extracts header-level metadata
 -   Computes spatial footprint -- needs work
 -   Emits structured CSV rows as a `scan_metadata_fingerprint.csv`
+-   Reads from structured CSV to report results of scan 
 
 All operations are safe for very large raster files because no pixel
 arrays are read.
@@ -102,7 +102,7 @@ The scan report includes:
 -   Number of directories scanned
 -   Number of GeoTIFF files
 -   Total size across all GeoTIFFs
--   Top-N largest files
+-   Top-N largest files with associated filetype, band count, etc
 
 Rendered using Rich components such as:
 

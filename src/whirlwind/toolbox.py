@@ -38,10 +38,14 @@ def scan(args: argparse.Namespace) -> int:
         paint.error_msg(error)
         log(error+"returned error code 2")
         return 2 
-    log(f"directory {root} scanned as root")
-    stats = scan_directory(root,top_n=args.top_n)
-    render_scan_report(root,stats)
+    log(f"directory {root} scanned as root")  
     write_metadata(args.root,out)
+    csv_path = Path(find_root()/ "metadata" / out)
+    stats = scan_from_metadata(csv_path)
+    # for walking system directly
+    #stats = scan_directory(root,top_n=args.top_n)
+
+    render_scan_report(root,stats)
     paint.info(f"csv written to: {out}")
     log(f"{out} written")
     log("0")
@@ -53,20 +57,99 @@ class ScanStats:
     num_dirs: int = 0
     num_files: int = 0
     total_bytes: int = 0
-    largest: List[Tuple[int, str]] = field(default_factory=list)
-
-    def add_file(self, path: Path, size: int, top_n: int) -> None:
+    largest: List[Tuple[int, str, str, str]] = field(default_factory=list)
+    # (size_bytes, uri, dtype, band_count)
+    def add_file(self, path: Path, size: int, dtype: str, band_count: str, top_n: int) -> None:
         self.num_files += 1
         self.total_bytes += size
         if top_n > 0:
-            item = (size, path.name)
+            item = (size, str(path), dtype, band_count)
+            # heap order still driven by size
             if len(self.largest) < top_n:
                 heapq.heappush(self.largest, item)
             else:
                 if size > self.largest[0][0]:
                     heapq.heapreplace(self.largest, item)
+
+def load_metadata_csv(csv_path: Path, key: str = "uri") -> Dict[str, Dict[str,str]]:
+    """
+    load scan metadata csv into index: key ---> full row ductionary 
+    """
+    idx: Dict[str, Dict[str, str]] = {}
+    if not csv_path.exists():
+        paint.error(f"no csv to load at: {csv_path}")
+        return idx
+       
+    with open(csv_path,newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            k = row.get(key, "")
+            if not k:
+                continue
+            idx[k] = row
+            # store full row
+    return idx
+            
+#===#
+def scan_from_metadata(csv_path: Path, top_n: int = 500) -> ScanStats:
+    """
+    build ScanStats from existing metadata CSV:
+    
+    currently uses columns:
+        uri
+        byte_size
+        dtype
+        band_count
+    populates:
+        num_files
+        total_btyes
+        largest()
+    """
+    stats = ScanStats()
+    parent_dirs = set()
+
+    if not csv_path.exists():
+        paint.error_msg(f"no csv to load at: {csv_path}")
+        return stats
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        r = csv.DictReader(f)
+        for row in r:
+            uri = (row.get("uri") or "").strip()
+            uri = Path(uri).name
+            if not uri:
+                continue
+            size_s = (row.get("byte_size") or "").strip()
+            try:
+                size=int(size_s) if size_s else 0
+            except ValueError:
+                size = 0 
+            dtype = (row.get("dtype") or "").strip()
+            band_count = (row.get("band_count") or "").strip()
+            stats.num_files += 1 
+            stats.total_bytes += size 
+
+            try:
+                parent_dirs.add(str(Path(uri).parent))
+            except Exception:
+                pass
+
+            # maintain top-N largest
+            if top_n > 0:
+                item = (size, uri, dtype, band_count)
+                if len(stats.largest) < top_n:
+                    heapq.heappush(stats.largest, item)
+                else:
+                    if size > stats.largest[0][0]:
+                        heapq.heapreplace(stats.largest, item)
+
+    stats.num_dirs = len(parent_dirs)
+    return stats
+
 #===#
 def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
+    """ only use this when no csv has been generated or isnt present
+        for better efficiency and architectural coherence, load scanned metadata
+        first then read from the csv"""
     stats = ScanStats()
 
     with paint.progress("running scan on",root) as progress:
@@ -90,7 +173,7 @@ def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
 
     return stats
 #===#
-def render_scan_report(root: Path, stats: ScanStats, tree: bool=False) -> None:
+def render_scan_report(root: Path, stats: ScanStats, largest: bool=True, tree: bool=False) -> None:
     if tree:
         paint.print_dir_tree_panel(
             root,
@@ -108,22 +191,26 @@ def render_scan_report(root: Path, stats: ScanStats, tree: bool=False) -> None:
     inv.add_row("total size", format_bytes(stats.total_bytes))
 
     if stats.largest:
-        largest = paint.set_table()
-        largest.add_column("path", justify="left")
-        largest.add_column("size", justify="center")
-        for size, path in sorted(stats.largest, key=lambda x: x[0], reverse=True):
-            largest.add_row(
+        largest_tbl = paint.set_table()
+        largest_tbl.add_column("uri", justify="left")
+        largest_tbl.add_column("size", justify="right")
+        largest_tbl.add_column("dtype", justify="center")
+        largest_tbl.add_column("bands", justify="center")
+        for size, uri, dtype, bands in sorted(stats.largest, key=lambda x: x[0], reverse=True):
+            largest_tbl.add_row(
                     paint.text(
-                        path,
+                        uri,
                         style_by_size(size)
                         ),
                     paint.text(
                         format_bytes(size),
                         style_by_size(size)
-                        )
+                        ),
+                        dtype, 
+                        bands,
                     )
 
-    content = paint.group([inv,largest], f"summary of scan on {root}")
+    content = paint.group([inv,largest_tbl], f"summary of scan on {root}")
     paint.divider() 
 # ----------------------------
 # helpful tools
@@ -428,7 +515,8 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
     If `columns` is None, a default mosaic_stage-compatible column list is used.
     """
     input_path = Path(input_dir)
-    output_path = Path("metadata/"+out_csv)
+    root = find_root()
+    output_path = Path(root/"metadata"/out_csv)
     rows: List[Dict[str, Any]] = []
 
     if columns is None:
@@ -460,9 +548,27 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
             # Ensure all requested columns exist; fill missing with ""
             w.writerow({k: r.get(k, "") for k in columns})
 
-def log(msg: str, log_path: str | Path="logs/wind.log") -> None:
-    path = Path(log_path)
+def log(msg: str, log_path: Path | None = None) -> None:
+    root = find_root()
+    default_log_path = root / "logs" / "wind.log"
+    path = (log_path or default_log_path).resolve()
     timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
     ln = f"{timestamp} | {msg} \n"
     with path.open("a", encoding="utf-8") as f:
         f.write(ln)
+
+def find_root(start: Path | None = None, markers: Iterable[str] = (".git", "pyproject.toml")) -> Path:
+    """
+    Walk upward from `start` (default: this file's directory) until a marker is found.
+    Markers can be files or directories.
+    """
+    here = (start or Path(__file__).resolve()).resolve()
+    if here.is_file():
+        here = here.parent
+
+    for p in (here, *here.parents):
+        for m in markers:
+            if (p / m).exists():
+                return p
+    # Fallback: last resort, anchor to this file's directory
+    return here

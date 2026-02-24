@@ -48,3 +48,57 @@
 2026-02-23T18:06:25Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
 2026-02-23T18:06:25Z | scan_metadata_64679d746192.csv written 
 2026-02-23T18:06:25Z | 0 
+2026-02-24T16:41:00Z | --scan-------------------------------------------------------- 
+2026-02-24T16:41:00Z | directory /home/rhea scanned as root 
+2026-02-24T16:41:03Z | 13 
+2026-02-24T16:52:08Z | --scan-------------------------------------------------------- 
+2026-02-24T16:52:08Z | directory /home/rhea/B scanned as root 
+2026-02-24T16:52:08Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T16:52:08Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T16:52:08Z | 0 
+2026-02-24T17:42:24Z | --scan-------------------------------------------------------- 
+2026-02-24T17:42:24Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:42:24Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T17:42:35Z | --scan-------------------------------------------------------- 
+2026-02-24T17:42:35Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:42:35Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T17:42:35Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T17:42:35Z | 0 
+2026-02-24T17:42:49Z | --scan-------------------------------------------------------- 
+2026-02-24T17:42:49Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:42:49Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T17:42:49Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T17:42:49Z | 0 
+2026-02-24T17:48:05Z | --scan-------------------------------------------------------- 
+2026-02-24T17:48:05Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:48:05Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T17:48:05Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T17:48:05Z | 0 
+2026-02-24T17:57:55Z | --scan-------------------------------------------------------- 
+2026-02-24T17:57:55Z | directory /home/rhea scanned as root 
+2026-02-24T17:58:47Z | --scan-------------------------------------------------------- 
+2026-02-24T17:58:47Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:58:47Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T17:59:35Z | --scan-------------------------------------------------------- 
+2026-02-24T17:59:35Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:59:35Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T17:59:35Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T17:59:35Z | 0 
+2026-02-24T17:59:49Z | --scan-------------------------------------------------------- 
+2026-02-24T17:59:49Z | directory /home/rhea/B scanned as root 
+2026-02-24T17:59:49Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T18:01:28Z | --scan-------------------------------------------------------- 
+2026-02-24T18:01:28Z | directory /home/rhea/B scanned as root 
+2026-02-24T18:01:28Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T18:01:28Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T18:01:28Z | 0 
+2026-02-24T18:01:44Z | --scan-------------------------------------------------------- 
+2026-02-24T18:01:44Z | directory /home/rhea/B scanned as root 
+2026-02-24T18:01:44Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T18:01:44Z | scan_metadata_39ec6496e744.csv written 
+2026-02-24T18:01:44Z | 0 
+2026-02-24T18:01:48Z | --scan-------------------------------------------------------- 
+2026-02-24T18:01:48Z | directory /home/rhea scanned as root 
+2026-02-24T18:01:48Z | columns extracted: ['mosaic_id', 'uri', 'uri_etag', 'byte_size', 'crs', 'srid', 'pixel_width', 'pixel_height', 'band_count', 'dtype', 'nodata', 'footprint', 'acquired_at', 'created_at'] 
+2026-02-24T18:02:09Z | scan_metadata_3e7bf47091b9.csv written 
+2026-02-24T18:02:09Z | 0 
