@@ -7,6 +7,10 @@ import sys
 #from pathlib import Path
 from . import toolbox
 
+def dispatch(args: argparse.Namespace)->int:
+    toolbox.init_gdal()
+    if args.cmd == "scan":
+        toolbox.dispatch_scan(args)
 
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="whirlwind")
@@ -19,7 +23,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = p.parse_args(argv)
 
     try:
-        return toolbox.dispatch(args)
+        return dispatch(args)
     except KeyboardInterrupt:
         toolbox.log("13")
         sys.exit(130)

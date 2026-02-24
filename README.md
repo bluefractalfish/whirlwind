@@ -12,6 +12,7 @@ given an unorganized bucket of rasters, vectors, geotags, etc **w:hirlwind** per
  - `toolbox.py`
  - `cli.py`
  - `paint.py`
+ - `scanner.py`
 
 ## dtypes
 ### the idea of a metamosaics
@@ -19,15 +20,16 @@ w:hirlwind helps organize geodata using a datacube abstraction, what we will cal
 ![metamosaic](assets/metamosaic.png)
 
 
-# toolbox
+## toolbox
 
 ------------------------------------------------------------------------
 
 ### Overview
 
-`toolbox.py` provides helper utilities for `cli.py`, the command line front-end for w:hirlwind. The available functions include:
+`toolbox.py` provides helper utilities for `cli.py`, the command line front-end for w:hirlwind. It is used alongside `scanner.py`
 
-## 1) SCAN
+
+
 
 Recursively walks a root directory to:
 
