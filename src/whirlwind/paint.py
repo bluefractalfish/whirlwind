@@ -51,13 +51,13 @@ def terminal(string:str, align: str=None) -> None:
     else:
         console.print(string)
 def info(msg: str) -> None:
-    console.print(msg, style="info")
+    msg_in_box(msg, style="info")
 def ok(msg: str) -> None:
-    console.print(msg, style="ok")
+    msg_in_box(msg, style="ok")
 def warn(msg: str) -> None:
-    console.print(msg, style="warn")
+    msg_in_box(msg, style="warn")
 def err(msg: str) -> None:
-    console.print(msg, style="err")
+    msg_in_box(msg, style="err")
 def divider(label: str | None=None, style: str = "dim", align: str = "center", characters: str = "-") -> None:
     console.print(Rule(label, style=style, align=align, characters=characters))
 # print error to terminal
@@ -68,8 +68,8 @@ def completed_msg(task: str) -> None:
     task = task.upper()
     msg_in_box(f"[bold green]{task} COMPLETED[/bold green]", style="green")
 # print simple message as box
-def msg_in_box(msg: str, title: str | None=None, style: str = "white"):
-    console.print(Panel(Align.center(msg),title=title,border_style=style))
+def msg_in_box(msg: str, title: str | None=None, style: str="white"):
+    console.print(Panel(Align.center(msg),title=title, style=style, border_style=style))
 # return text object
 def text(string: str, style) -> Text:
     return Text(string,style)

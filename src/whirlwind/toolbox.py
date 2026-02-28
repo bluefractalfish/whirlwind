@@ -5,6 +5,20 @@ toolbox.py
 
 from __future__ import annotations
 
+import argparse
+import io
+import json
+import math
+import sys
+import tarfile
+import time
+from dataclasses import dataclass
+from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
+
+import numpy as np
+import rasterio
+from rasterio.windows import Window
+from rasterio.warp import transform_bounds
 import csv
 import re
 import uuid
@@ -18,6 +32,8 @@ import argparse
 import heapq
 import os
 from dataclasses import dataclass, field
+
+# rich graphics
 from . import paint
 
 # utility imports
@@ -30,30 +46,11 @@ def dispatch_scan(args: argparse.Namespace) -> int:
     log("--scan--------------------------------------------------------")
     with paint.status("SCANNING"):
         return scanner.scan(args)
-
-def load_metadata_csv(csv_path: Path, key: str = "uri") -> Dict[str, Dict[str,str]]:
-    """
-    load scan metadata csv into index: key ---> full row ductionary 
-    """
-    idx: Dict[str, Dict[str, str]] = {}
-    if not csv_path.exists():
-        paint.error(f"no csv to load at: {csv_path}")
-        return idx
-       
-    with open(csv_path,newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            k = row.get(key, "")
-            if not k:
-                continue
-            idx[k] = row
-            # store full row
-    return idx
             
-#===#
-# ----------------------------
-# helpful tools
-# ----------------------------
+##################
+# format helpers #
+##################
+
 def style_by_size(nbytes:int) -> str:
     gb = 1024 ** 3 
     mb = 1024 ** 2 
@@ -76,193 +73,116 @@ def format_bytes(n: int) -> str:
             return f"{v:.2f} {u}" if u != "B" else f"{int(v)} {u}"
         v /= 1024.0
     return f"{n} B"
-def uuid_from_path(uri:str)->str:
-    return str(uuid.uuid5(uuid.NAMESPACE_URL,uri))
-def get_dtype(gdal_type: int) -> str:
+
+#######################
+# filesystem utilities#
+#######################
+def makedir(p: Path) -> None:
+    p.mkdir(parents=True,exist_ok=True)
+
+def find_root(start: Path | None = None, markers: Iterable[str] = (".git", "pyproject.toml")) -> Path:
     """
-    Convert a GDAL datatype enum (e.g., gdal.GDT_UInt16) to a readable string (e.g., "UInt16").
+    Walk upward from `start` (default: this file's directory) until a marker is found.
+    Markers can be files or directories.
     """
-    return gdal.GetDataTypeName(gdal_type) or ""
-#---#
-def get_byte_size(uri: str) -> str:
+    here = (start or Path(__file__).resolve()).resolve()
+    if here.is_file():
+        here = here.parent
+
+    for p in (here, *here.parents):
+        for m in markers:
+            if (p / m).exists():
+                return p
+    # Fallback: last resort, anchor to this file's directory
+    return here
+
+def iter_tifs(root: Path) -> Iterable[Path]:
     """
-    Best-effort file size in bytes for LOCAL files.
-
-    If `uri` is not a local path (e.g., /vsis3/..., http://..., s3://...),
-    Path(uri).exists() will usually fail; in that case this returns "".
+    Recursively yield .tif/.tiff file paths under `root`.
     """
-    try:
-        p = Path(uri)
-        if p.exists():
-            return str(p.stat().st_size)
-    except Exception:
-        pass
-    return ""
-#---#
-def get_crs(ds: gdal.Dataset) -> str:
-    """Return CRS as WKT, or empty string if missing."""
-    return ds.GetProjection() or ""
-#---#
-def get_srid(crs_wkt: str) -> str:
+    for p in root.rglob("*"):
+        if p.is_file() and p.suffix.lower() in (".tif", ".tiff"):
+            yield p
+def iter_uris(input_dir: Optional[str],input_csv: Optional[str]) -> Iterator[str]:
     """
-    Try to extract an EPSG code (SRID) from a WKT projection.
-
-    Returns:
-      - "4326" etc if available
-      - "" if no authority code can be found
+    yield geotiff uris from either:
+        - a metadata csv with uri column (see write/extract_metadata)
+        - a directory/glob
     """
-    if not crs_wkt:
-        return ""
+    if input_csv:
+        with open(input_csv, newline="", encoding="utf-8") as f:
+            r = csv.DictReader(f)
+            if "uri" not in (r.fieldnames or []):
+                raise ValueError(f"input CSV missing uri column: {input_csv}")
+            for row in r:
+                uri = (row.get("uri") or "").strip()
+                if uri:
+                    yield uri
+        return
+    if not input_dir:
+        raise ValueError("Provide either --input or --input-csv")
+    # if its a directory, recurse
+    s = input_dir
+    p = Path(s)
+     
+    if p.exists() and p.is_dir():
+        for tif in p.rglob("*"):
+            if tif.is_file() and tif.suffix.lower() in (".tif", ".tiff"):
+                yield str(tif)
+        return
 
-    srs = osr.SpatialReference()
-    srs.ImportFromWkt(crs_wkt)
+    # Otherwise treat as glob
+    for tif in Path().glob(s):
+        if tif.is_file() and tif.suffix.lower() in (".tif", ".tiff"):
+            yield str(tif)
 
-    # Force lon/lat axis order for EPSG:4326 style CRS
-    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-    epsg_code = srs.GetAuthorityCode(None)
-    return epsg_code or ""
-#---#
-def get_raster_shape(ds: gdal.Dataset) -> Tuple[str, str, str]:
+#######################
+# metadata read/write #
+#######################
+
+def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
     """
-    Return (pixel_width, pixel_height, band_count) as strings (staging-friendly).
+    Walk `input_dir` consisting of mosaics, extract metadata for each tif/tiff, write CSV to `out_csv`.
+
+    If `columns` is None, a default mosaic_stage-compatible column list is used.
     """
-    return str(ds.RasterXSize), str(ds.RasterYSize), str(ds.RasterCount)
-#---#
-def get_dtype_and_nodata(ds: gdal.Dataset) -> Tuple[str, str]:
-    """
-    Use band 1 as representative for dtype + nodata.
+    input_path = Path(input_dir)
+    root = find_root()
+    output_path = Path(root/"metadata"/out_csv)
+    rows: List[Dict[str, Any]] = []
 
-    Returns:
-      (dtype_str, nodata_str)
-    """
-    if ds.RasterCount < 1:
-        return "", ""
+    if columns is None:
+        columns = [
+            "mosaic_id",
+            "uri",
+            "uri_etag",
+            "byte_size",
+            "crs",
+            "srid",
+            "pixel_width",
+            "pixel_height",
+            "band_count",
+            "dtype",
+            "nodata",
+            "footprint",
+            "acquired_at",
+            "created_at"
+        ]
 
-    b1 = ds.GetRasterBand(1)
-    dtype = get_dtype(b1.DataType)
-
-    nd = b1.GetNoDataValue()
-    nodata = "" if nd is None else str(nd)
-    return dtype, nodata
-#---#
-def parse_aquired_at(path: Path, valid: bool = True) -> str:
-    """
-    Parse acquisition date from filename prefix.
-
-    Convention:
-      YYMMDD_loc_...  (example: 240119_denver_ortho.tif)
-
-    Returns:
-      "20YY-MM-DD"  (example: "2024-01-19")
-
-    If no match is found, returns "".
-
-    NOTE: function name kept as `parse_aquired_at` to match your existing calls
-    (spelling preserved).
-    """
-    name = path.name
-
-    if valid:
-        # Strict-ish month/day ranges
-        m = re.match(r"^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", name)
-    else:
-        m = re.match(r"^(\d{2})(\d{2})(\d{2})", name)
-
-    if not m:
-        return ""
-
-    yy, mm, dd = m.group(1), m.group(2), m.group(3)
-    return f"20{yy}-{mm}-{dd}"
-
-
-# ----------------------------
-# Footprint computation
-# ----------------------------
-
-def get_footprint(ds: gdal.Dataset, target_epsg: int = 4326) -> str:
-    """
-    Compute raster bbox footprint as EWKT in target_epsg (default 4326).
-
-    Returns:
-      "SRID=4326;POLYGON((lon lat, lon lat, ...))"
-
-    Requirements:
-      - dataset must have a geotransform and projection
-    """
-    gt = ds.GetGeoTransform(can_return_null=True)
-    if gt is None:
-        return ""
-
-    src_wkt = ds.GetProjection() or ""
-    if not src_wkt:
-        return ""
-
-    width = ds.RasterXSize
-    height = ds.RasterYSize
-
-    def pix_to_geo(px: float, py: float) -> Tuple[float, float]:
-        x = gt[0] + px * gt[1] + py * gt[2]
-        y = gt[3] + px * gt[4] + py * gt[5]
-        return x, y
-
-    # corners in source CRS (closed ring)
-    corners = [
-        pix_to_geo(0, 0),
-        pix_to_geo(width, 0),
-        pix_to_geo(width, height),
-        pix_to_geo(0, height),
-        pix_to_geo(0, 0),
-    ]
-
-    src = osr.SpatialReference()
-    src.ImportFromWkt(src_wkt)
-    dst = osr.SpatialReference()
-    dst.ImportFromEPSG(target_epsg)
-
-    src.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-    dst.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-
-    tx = osr.CoordinateTransformation(src, dst)
-
-    corners_out = []
-    for x, y in corners:
-        lon, lat, _ = tx.TransformPoint(x, y)
-        corners_out.append((lon, lat))
-
-    coords = ",".join(f"{lon:.8f} {lat:.8f}" for lon, lat in corners_out)
-    return f"SRID={target_epsg};POLYGON(({coords}))"
-
-
-# ----------------------------
-# Main extraction
-# ----------------------------
-
-def parse_columns(path):
-    """
-    NEEDS WORK
-    parse column names from file, returning dict
-    expects:
-    ---
-    table1
-    ---
-    a 
-    b 
-    ---
-    table2
-    ---
-    c 
-    ---
-    returns: {"table1": 'a','b'
-              "table2": 'c'}
-    """
-    out = {}
-    _key = None
-    collect = False
-    i = 0
-    with open(path,"r") as f:
-        lines = [ln.strip() for ln in f]
-    return lines
+    log(f"columns extracted: {columns}")
+    with paint.progress("extracting metadata from", input_dir) as progress:
+        task = paint.new_task(progress, "extracting...", total=None)
+        for tif in iter_tifs(input_path):
+            paint.advance(progress,task,1)
+            rows.append(extract_metadata(str(tif), columns))
+    paint.completed_msg("extraction",)
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=columns)
+        w.writeheader()
+        for r in rows:
+            # Ensure all requested columns exist; fill missing with ""
+            w.writerow({k: r.get(k, "") for k in columns})
 
 def extract_metadata(uri: str, columns: List[str]) -> Dict[str, Any]:
     """
@@ -326,88 +246,259 @@ def extract_metadata(uri: str, columns: List[str]) -> Dict[str, Any]:
 
     return out
 
+def load_metadata_csv(csv_path: Path, key: str = "uri") -> Dict[str, Dict[str,str]]:
+    """
+    load scan metadata csv into index: key ---> full row ductionary 
+    """
+    idx: Dict[str, Dict[str, str]] = {}
+    if not csv_path.exists():
+        paint.error(f"no csv to load at: {csv_path}")
+        return idx
+       
+    with open(csv_path,newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            k = row.get(key, "")
+            if not k:
+                continue
+            idx[k] = row
+            # store full row
+    return idx
+
+####################
+# metadata helpers #
+####################
+
+
+def get_dtype(gdal_type: int) -> str:
+    """
+    Convert a GDAL datatype enum (e.g., gdal.GDT_UInt16) to a readable string (e.g., "UInt16").
+    """
+    return gdal.GetDataTypeName(gdal_type) or ""
+
+def get_byte_size(uri: str) -> str:
+    """
+    Best-effort file size in bytes for LOCAL files.
+
+    If `uri` is not a local path (e.g., /vsis3/..., http://..., s3://...),
+    Path(uri).exists() will usually fail; in that case this returns "".
+    """
+    try:
+        p = Path(uri)
+        if p.exists():
+            return str(p.stat().st_size)
+    except Exception:
+        pass
+    return ""
+
+def get_crs(ds: gdal.Dataset) -> str:
+    """Return CRS as WKT, or empty string if missing."""
+    return ds.GetProjection() or ""
+
+def get_srid(crs_wkt: str) -> str:
+    """
+    Try to extract an EPSG code (SRID) from a WKT projection.
+
+    Returns:
+      - "4326" etc if available
+      - "" if no authority code can be found
+    """
+    if not crs_wkt:
+        return ""
+
+    srs = osr.SpatialReference()
+    srs.ImportFromWkt(crs_wkt)
+
+    # Force lon/lat axis order for EPSG:4326 style CRS
+    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+    epsg_code = srs.GetAuthorityCode(None)
+    return epsg_code or ""
+
+def get_raster_shape(ds: gdal.Dataset) -> Tuple[str, str, str]:
+    """
+    Return (pixel_width, pixel_height, band_count) as strings (staging-friendly).
+    """
+    return str(ds.RasterXSize), str(ds.RasterYSize), str(ds.RasterCount)
+
+def get_dtype_and_nodata(ds: gdal.Dataset) -> Tuple[str, str]:
+    """
+    Use band 1 as representative for dtype + nodata.
+
+    Returns:
+      (dtype_str, nodata_str)
+    """
+    if ds.RasterCount < 1:
+        return "", ""
+
+    b1 = ds.GetRasterBand(1)
+    dtype = get_dtype(b1.DataType)
+
+    nd = b1.GetNoDataValue()
+    nodata = "" if nd is None else str(nd)
+    return dtype, nodata
+
+def parse_aquired_at(path: Path, valid: bool = True) -> str:
+    """
+    Parse acquisition date from filename prefix.
+
+    Convention:
+      YYMMDD_loc_...  (example: 240119_denver_ortho.tif)
+
+    Returns:
+      "20YY-MM-DD"  (example: "2024-01-19")
+
+    If no match is found, returns "".
+
+    NOTE: function name kept as `parse_aquired_at` to match your existing calls
+    (spelling preserved).
+    """
+    name = path.name
+
+    if valid:
+        # Strict-ish month/day ranges
+        m = re.match(r"^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", name)
+    else:
+        m = re.match(r"^(\d{2})(\d{2})(\d{2})", name)
+
+    if not m:
+        return ""
+
+    yy, mm, dd = m.group(1), m.group(2), m.group(3)
+    return f"20{yy}-{mm}-{dd}"
+
+def get_footprint(ds: gdal.Dataset, target_epsg: int = 4326) -> str:
+    """
+    Compute raster bbox footprint as EWKT in target_epsg (default 4326).
+
+    Returns:
+      "SRID=4326;POLYGON((lon lat, lon lat, ...))"
+
+    Requirements:
+      - dataset must have a geotransform and projection
+    """
+    gt = ds.GetGeoTransform(can_return_null=True)
+    if gt is None:
+        return ""
+
+    src_wkt = ds.GetProjection() or ""
+    if not src_wkt:
+        return ""
+
+    width = ds.RasterXSize
+    height = ds.RasterYSize
+
+    def pix_to_geo(px: float, py: float) -> Tuple[float, float]:
+        x = gt[0] + px * gt[1] + py * gt[2]
+        y = gt[3] + px * gt[4] + py * gt[5]
+        return x, y
+
+    # corners in source CRS (closed ring)
+    corners = [
+        pix_to_geo(0, 0),
+        pix_to_geo(width, 0),
+        pix_to_geo(width, height),
+        pix_to_geo(0, height),
+        pix_to_geo(0, 0),
+    ]
+
+    src = osr.SpatialReference()
+    src.ImportFromWkt(src_wkt)
+    dst = osr.SpatialReference()
+    dst.ImportFromEPSG(target_epsg)
+
+    src.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    dst.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+    tx = osr.CoordinateTransformation(src, dst)
+
+    corners_out = []
+    for x, y in corners:
+        lon, lat, _ = tx.TransformPoint(x, y)
+        corners_out.append((lon, lat))
+
+    coords = ",".join(f"{lon:.8f} {lat:.8f}" for lon, lat in corners_out)
+    return f"SRID={target_epsg};POLYGON(({coords}))"
+
+def window_bounds(ds: rasterio.DatasetReader, win: Window) -> Tuple[float, float, float, float]:
+    """Bounds in dataset CRS."""
+    return rasterio.windows.bounds(win, ds.transform)
+
+def affine_to_list(a: rasterio.Affine) -> List[float]:
+    """Store affine as 6 params [a,b,c,d,e,f]."""
+    return [a.a, a.b, a.c, a.d, a.e, a.f]
+
+def list_to_affine(v: Sequence[float]) -> rasterio.Affine:
+    return rasterio.Affine(v[0], v[1], v[2], v[3], v[4], v[5])
+
+def npy_bytes(arr: np.ndarray) -> bytes:
+    bio = io.BytesIO()
+    np.save(bio, arr, allow_pickle=False)
+    return bio.getvalue()
+
+def json_bytes(obj: dict) -> bytes:
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+def utc_now() -> str:
+    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
 def created_at() -> str:
     now = datetime.now()
     return now.isoformat()
 
+##############
+# generators #
+##############
+def uuid_from_path(uri:str)->str:
+    return str(uuid.uuid5(uuid.NAMESPACE_URL,uri))
 def gen_fingerprint(path: str | Path) -> str:
     "generate deterministic fingerprint from path, to use in metadata naming"
     p = Path(path)
     st = p.stat()
     pl = f"{st.st_size}-{st.st_mtime_ns}"
     return hashlib.blake2b(pl.encode(),digest_size=6).hexdigest()
-
-
-def iter_tifs(root: Path) -> Iterable[Path]:
-    """
-    Recursively yield .tif/.tiff file paths under `root`.
-    """
-    for p in root.rglob("*"):
-        if p.is_file() and p.suffix.lower() in (".tif", ".tiff"):
-            yield p
-
-
-def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
-    """
-    Walk `input_dir` consisting of mosaics, extract metadata for each tif/tiff, write CSV to `out_csv`.
-
-    If `columns` is None, a default mosaic_stage-compatible column list is used.
-    """
-    input_path = Path(input_dir)
-    root = find_root()
-    output_path = Path(root/"metadata"/out_csv)
-    rows: List[Dict[str, Any]] = []
-
-    if columns is None:
-        columns = [
-            "mosaic_id",
-            "uri",
-            "uri_etag",
-            "byte_size",
-            "crs",
-            "srid",
-            "pixel_width",
-            "pixel_height",
-            "band_count",
-            "dtype",
-            "nodata",
-            "footprint",
-            "acquired_at",
-            "created_at"
-        ]
-
-    log(f"columns extracted: {columns}")
-    for tif in iter_tifs(input_path):
-        rows.append(extract_metadata(str(tif), columns))
-
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=columns)
-        w.writeheader()
-        for r in rows:
-            # Ensure all requested columns exist; fill missing with ""
-            w.writerow({k: r.get(k, "") for k in columns})
+def gen_tile_id(mosaic_id: str, row: int, col: int) -> str:
+    return f"{mosaic_id}_r{row:07d}_c{col:07d}"
+##################
+# logging+debugs #
+##################
 
 def log(msg: str, log_path: Path | None = None) -> None:
     root = find_root()
     default_log_path = root / "logs" / "wind.log"
     path = (log_path or default_log_path).resolve()
-    timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    timestamp = utc_now()
     ln = f"{timestamp} | {msg} \n"
     with path.open("a", encoding="utf-8") as f:
         f.write(ln)
+##########
+# legacy #
+##########
 
-def find_root(start: Path | None = None, markers: Iterable[str] = (".git", "pyproject.toml")) -> Path:
+def parse_columns(path):
     """
-    Walk upward from `start` (default: this file's directory) until a marker is found.
-    Markers can be files or directories.
+    NEEDS WORK
+    parse column names from file, returning dict
+    expects:
+    ---
+    table1
+    ---
+    a 
+    b 
+    ---
+    table2
+    ---
+    c 
+    ---
+    returns: {"table1": 'a','b'
+              "table2": 'c'}
     """
-    here = (start or Path(__file__).resolve()).resolve()
-    if here.is_file():
-        here = here.parent
+    out = {}
+    _key = None
+    collect = False
+    i = 0
+    with open(path,"r") as f:
+        lines = [ln.strip() for ln in f]
+    return lines
 
-    for p in (here, *here.parents):
-        for m in markers:
-            if (p / m).exists():
-                return p
-    # Fallback: last resort, anchor to this file's directory
-    return here
+

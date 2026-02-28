@@ -1,3 +1,17 @@
+"""
+WHIRLWIND scanner (v1): scan unorganized directory and retrieve metadata
+
+Design goals: 
+    - separate shared utilities into paint and toolbox 
+    - generate metadata as csv and read file size, path, dtype, etc from csv
+    - render scan report to terminal
+    - save metadata as source manifest
+Outputs (default):
+    - csv containing source mosaic metadata 
+    - scan report of top-n largest files before compression,
+        number of directories, tif files, etc.  
+
+"""
 from . import toolbox
 from .import paint
 import csv
@@ -15,28 +29,30 @@ import os
 from dataclasses import dataclass, field
 
 
-
 #============# 
 #    SCAN    # 
 #============#
 def scan(args: argparse.Namespace) -> int:
     root = Path(args.root).expanduser().resolve()
-    out = f"scan_metadata_{toolbox.gen_fingerprint(root)}.csv"
+    out = f"scan_{toolbox.gen_fingerprint(root)}.csv"
     if not root.exists() or not root.is_dir():
         error = f"not a directory you can scan: {root}"
         paint.error_msg(error)
         toolbox.log(error+"returned error code 2")
         return 2 
     toolbox.log(f"directory {root} scanned as root")  
-    toolbox.write_metadata(args.root,out)
     csv_path = Path(toolbox.find_root()/ "metadata" / out)
+    if not csv_path.exists():
+        toolbox.write_metadata(args.root,out)
+        paint.info(f"csv written to: {csv_path}")
+        toolbox.log(f"{out} written")
+    else:
+        paint.ok(f"CSV FOUND AT: \n  {csv_path} ")
     stats = scan_from_metadata(csv_path)
     # for walking system directly
     #stats = scan_directory(root,top_n=args.top_n)
 
-    render_scan_report(root,stats)
-    paint.info(f"csv written to: {out}")
-    toolbox.log(f"{out} written")
+    render_scan_report(csv_path.name,stats)
     toolbox.log("0")
     return 0
 
@@ -73,6 +89,14 @@ def scan_from_metadata(csv_path: Path, top_n: int = 500) -> ScanStats:
         num_files
         total_btyes
         largest()
+    with paint.progress("running scan on",root) as progress:
+        task = paint.new_task(progress, "scan", total=None) 
+        for dirpath, dirnames, filenames in os.walk(root):
+            paint.advance(progress,task,1)
+    paint.completed_msg("scan")
+    paint.terminal(f"[[bold yellow]{stats.num_dirs}[/bold yellow]] directories scanned from {root}","center")
+    paint.divider()
+
     """
     stats = ScanStats()
     parent_dirs = set()
@@ -82,34 +106,40 @@ def scan_from_metadata(csv_path: Path, top_n: int = 500) -> ScanStats:
         return stats
     with open(csv_path, newline="", encoding="utf-8") as f:
         r = csv.DictReader(f)
-        for row in r:
-            uri = (row.get("uri") or "").strip()
-            uri = Path(uri).name
-            if not uri:
-                continue
-            size_s = (row.get("byte_size") or "").strip()
-            try:
-                size=int(size_s) if size_s else 0
-            except ValueError:
-                size = 0 
-            dtype = (row.get("dtype") or "").strip()
-            band_count = (row.get("band_count") or "").strip()
-            stats.num_files += 1 
-            stats.total_bytes += size 
+        with paint.progress("SCANNING: ", csv_path.name) as progress:
+            task = paint.new_task(progress, "scan", total=None)
+            for row in r:
+                paint.advance(progress, task, 1)
+                uri = (row.get("uri") or "").strip()
+                uri = Path(uri).name
+                if not uri:
+                    continue
+                size_s = (row.get("byte_size") or "").strip()
+                try:
+                    size=int(size_s) if size_s else 0
+                except ValueError:
+                    size = 0 
+                dtype = (row.get("dtype") or "").strip()
+                band_count = (row.get("band_count") or "").strip()
+                stats.num_files += 1 
+                stats.total_bytes += size 
 
-            try:
-                parent_dirs.add(str(Path(uri).parent))
-            except Exception:
-                pass
+                try:
+                    parent_dirs.add(str(Path(uri).parent))
+                except Exception:
+                    pass
 
-            # maintain top-N largest
-            if top_n > 0:
-                item = (size, uri, dtype, band_count)
-                if len(stats.largest) < top_n:
-                    heapq.heappush(stats.largest, item)
-                else:
-                    if size > stats.largest[0][0]:
-                        heapq.heapreplace(stats.largest, item)
+                # maintain top-N largest
+                if top_n > 0:
+                    item = (size, uri, dtype, band_count)
+                    if len(stats.largest) < top_n:
+                        heapq.heappush(stats.largest, item)
+                    else:
+                        if size > stats.largest[0][0]:
+                            heapq.heapreplace(stats.largest, item)
+
+    paint.completed_msg("scan")
+    paint.divider()
 
     stats.num_dirs = len(parent_dirs)
     return stats
@@ -121,7 +151,7 @@ def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
         first then read from the csv"""
     stats = ScanStats()
 
-    with paint.progress("running scan on",root) as progress:
+    with paint.progress("SCANNING: ",root) as progress:
         task = paint.new_task(progress, "scan", total=None) 
         for dirpath, dirnames, filenames in os.walk(root):
             stats.num_dirs += 1
@@ -159,7 +189,8 @@ def render_scan_report(root: Path, stats: ScanStats, largest: bool=True, tree: b
     inv.add_row("files", str(stats.num_files))
     inv.add_row("total size", toolbox.format_bytes(stats.total_bytes))
 
-    if stats.largest:
+    largest_tbl = paint.set_table()
+    if stats.largest and largest:
         largest_tbl = paint.set_table()
         largest_tbl.add_column("uri", justify="left")
         largest_tbl.add_column("size", justify="right")
@@ -178,6 +209,6 @@ def render_scan_report(root: Path, stats: ScanStats, largest: bool=True, tree: b
                         dtype, 
                         bands,
                     )
-
+    
     content = paint.group([inv,largest_tbl], f"summary of scan on {root}")
     paint.divider() 
