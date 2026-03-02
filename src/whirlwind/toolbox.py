@@ -266,9 +266,30 @@ def load_metadata_csv(csv_path: Path, key: str = "uri") -> Dict[str, Dict[str,st
     return idx
 
 ####################
-# metadata helpers #
-####################
+# geometadata helpers #
+#######################
 
+def _quant_dtype(dtype: str) -> np.dtype:
+    d = dtype.lower()
+    if d == "float32":
+        return np.float32 
+    if d == "uint16":
+        return np.uint16
+    if d == "uint8":
+        return np.uint8
+    paint.error_msg(f"unsupported dtype: {dtype}")
+    raise ValueError(f"unsuported dtype, see wind.log")
+
+def _dst_range(dtype: str) -> Tuple[float, float]:
+    d = dtype.lower()
+    if d == "uint16":
+        return 0.0, 65535.0
+    if d == "uint8":
+        return 0.0, 255.0
+    if d == "float32":
+        return 0.0, 1.0
+    paint.error_msg(f"unsupported dst range: {dtype}")
+    raise ValueError("unsuported dtype, see wind.log")
 
 def get_dtype(gdal_type: int) -> str:
     """
@@ -459,6 +480,7 @@ def gen_fingerprint(path: str | Path) -> str:
     return hashlib.blake2b(pl.encode(),digest_size=6).hexdigest()
 def gen_tile_id(mosaic_id: str, row: int, col: int) -> str:
     return f"{mosaic_id}_r{row:07d}_c{col:07d}"
+
 ##################
 # logging+debugs #
 ##################
