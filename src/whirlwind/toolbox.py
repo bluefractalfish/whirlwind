@@ -38,6 +38,7 @@ from . import paint
 
 # utility imports
 from . import scanner
+from . import injester
 
 def init_gdal() -> None:
     gdal.DontUseExceptions()
@@ -46,7 +47,12 @@ def dispatch_scan(args: argparse.Namespace) -> int:
     log("--scan--------------------------------------------------------")
     with paint.status("SCANNING"):
         return scanner.scan(args)
-            
+
+def dispatch_ingest(args: argparse):
+    log("--ingesting------------------")
+    with paint.status("INGESTING"):
+        return injester.ingest(args)
+
 ##################
 # format helpers #
 ##################

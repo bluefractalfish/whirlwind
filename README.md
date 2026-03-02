@@ -26,10 +26,9 @@ w:hirlwind helps organize geodata using a datacube abstraction, what we will cal
 
 ### Overview
 
-`toolbox.py` provides helper utilities for `cli.py`, the command line front-end for w:hirlwind. It is used alongside `scanner.py`
+`toolbox.py` provides helper utilities for `cli.py`, the command line front-end for w:hirlwind. It is used alongside `scanner.py`, `ingest.py`
 
-
-
+### 1) SCANNER 
 
 Recursively walks a root directory to:
 
@@ -251,8 +250,34 @@ No raster pixel arrays are loaded into memory.
 
 ------------------------------------------------------------------------
 ## 2) INGEST
+
+collection of sub functions for tiling while mosaics into webdatasets, serving
+parquet manifests for quick machine learning, converting between geotiffs and COGS,
+downsampling/compressing, quantizing datatypes for better storage performance
+------------------------------------------------------------------------
 ### Requirements
+ - python 3.10+
+ - rasterio 
+ - numpy
+ - pyarrow (for parquet manifest)
+------------------------------------------------------------------------
 ### Usage
+Adter sourcing `.venv/bin/activate`:
+```bash
+whirlwind ingest 
+```
+default outputs:
+`out/
+    shards/
+       tiles-000001.tar 
+       tiles-000002.tar 
+       ...
+    manifest.parquet
+    ingest.json (run config + summary)`
+where each tile sample in WebDataset tar contains:
+    - <tile_id>.npy : array in `(bands,H,W), dtype`
+    - <tile_id>.json : metadata `(crs, transform, bounds, window, source_uri)`
+------------------------------------------------------------------------
 ### INGEST flow
 ------------------------------------------------------------------------
 ## 3) RELATE 
