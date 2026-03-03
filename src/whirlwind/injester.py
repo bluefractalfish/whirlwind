@@ -212,7 +212,7 @@ def quantize_tile(
             }
     for bi in range(nb):
         b = bi + 1
-        scr_lo, scr_hi = band_bounds.get(b, (0.0,1.0))
+        src_lo, src_hi = band_bounds.get(b, (0.0,1.0))
         if not np.isfinite(src_lo) or not np.isfinite(src_hi) or src_hi <= src_lo:
             src_lo, src_hi = 0.0, 1.0
 
