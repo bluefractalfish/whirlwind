@@ -1,8 +1,16 @@
-## program overview
+
 # W:HIRLWIND
+------------------------------------------------------------------------
+
 w:hirlwind is a recursive acronym that also describes its function:
 `WHIRLWIND: Helps Ingest, Relate, Label, Wrangle, Index, Normalize Datacubes`
+# Table of Contents:
+- [toolbox](README#toolbox)
+- [paint](#PAINT)
+- [scan](#SCANNER)
+- [ingest](#INGEST)
 
+  
 The primary goal of **w:hirlwind** is to serve as a coordinating program
 between an **unorganized drive** and a **database of datacubes or
 "metamosaics"**.
@@ -21,9 +29,7 @@ Given an unorganized bucket of rasters, vectors, geotags, etc.,
 -   **INDEXING** spatial and metadata relationships
 -   **NORMALIZING** datasets to ensure consistency and reduce redundancy
 
-------------------------------------------------------------------------
-
-# directory overview
+## directory overview
 
     toolbox.py
     cli.py
@@ -33,11 +39,11 @@ Given an unorganized bucket of rasters, vectors, geotags, etc.,
 
 Each module provides a focused component of the WHIRLWIND pipeline.
 
-------------------------------------------------------------------------
 
-# dtypes
 
-## the idea of a metamosaic
+## dtypes
+
+### the idea of a metamosaic
 
 WHIRLWINDs `relate` feature organizes geodata using a **datacube abstraction** called a
 **metamosaic**.
@@ -63,11 +69,11 @@ effort over that footprint.
 
 ------------------------------------------------------------------------
 
-# toolbox
+## TOOLBOX
 
 ------------------------------------------------------------------------
 
-## Overview
+### Overview
 
 `toolbox.py` provides **core utility functions** used across the
 WHIRLWIND codebase.
@@ -82,23 +88,18 @@ It acts as the **shared infrastructure layer** supporting:
 -   logging and debugging
 -   helper utilities used by scanner and ingest pipelines
 
-
-------------------------------------------------------------------------
-
-## Responsibilities
+### Responsibilities
 
 `toolbox.py` provides utilities for:
 
-### Command Dispatch
+#### Command Dispatch
 
 Routes CLI commands to their execution pipelines.
 
     dispatch_scan()
     dispatch_ingest()
 
-------------------------------------------------------------------------
-
-### Filesystem Utilities
+#### Filesystem Utilities
 
 Utilities for navigating dataset directories.
 
@@ -116,9 +117,7 @@ Capabilities:
 -   create required output directories
 -   identify project root paths
 
-------------------------------------------------------------------------
-
-### Metadata Extraction
+#### Metadata Extraction
 
 GeoTIFF metadata extraction is handled through GDAL.
 
@@ -143,9 +142,7 @@ Metadata fields include:
 -   acquisition time
 -   creation timestamp
 
-------------------------------------------------------------------------
-
-### Dataset Identity Utilities
+#### Dataset Identity Utilities
 
 Deterministic identifiers are generated for datasets and tiles.
 
@@ -153,9 +150,7 @@ Deterministic identifiers are generated for datasets and tiles.
     gen_tile_id()
     gen_fingerprint()
 
-------------------------------------------------------------------------
-
-### Logging
+#### Logging
 
 WHIRLWIND logs events to:
 
@@ -164,14 +159,13 @@ WHIRLWIND logs events to:
 Each entry contains:
 
     timestamp | message
+------------------------------------------------------------------------
+
+## PAINT
 
 ------------------------------------------------------------------------
 
-# paint
-
-------------------------------------------------------------------------
-
-## Overview
+### Overview
 
 `paint.py` provides **terminal rendering utilities** used throughout
 WHIRLWIND.
@@ -187,9 +181,8 @@ It wraps the `rich` library to standardize:
 
 All user-facing CLI output is routed through `paint.py`.
 
-------------------------------------------------------------------------
 
-## Message Rendering
+#### Message Rendering
 
 Terminal messages are printed using stylized panels.
 
@@ -201,9 +194,8 @@ Available message types:
     paint.err()
     paint.error_msg()
 
-------------------------------------------------------------------------
 
-## Progress Bars
+#### Progress Bars
 
 Long running operations use progress bars.
 
@@ -217,9 +209,8 @@ Common use cases:
 -   metadata extraction
 -   ingest pipelines
 
-------------------------------------------------------------------------
 
-## Tables
+#### Tables
 
 Formatted CLI reports use Rich tables.
 
@@ -232,9 +223,9 @@ Tables commonly render:
 -   largest file lists
 -   metadata reports
 
-------------------------------------------------------------------------
 
-## Directory Trees
+
+#### Directory Trees
 
 `paint.py` can render directory structures for debugging and inspection.
 
@@ -242,8 +233,11 @@ Tables commonly render:
     dir_tree()
 
 
+------------------------------------------------------------------------
 
-### 1) SCANNER 
+## SCANNER 
+
+------------------------------------------------------------------------
 
 Recursively walks a root directory to:
 
@@ -262,7 +256,7 @@ Recursively walks a root directory to:
 All operations are safe for very large raster files because no pixel
 arrays are read.
 
-------------------------------------------------------------------------
+
 
 ### Requirements
 
@@ -279,7 +273,7 @@ pip install rich
 
 Ensure GDAL is installed and accessible in your environment.
 
-------------------------------------------------------------------------
+
 
 ### Usage
 After sourcing `.venv/bin/activate`:
@@ -309,7 +303,6 @@ When `scan` is executed:
 
 If the root directory is invalid, exit code `2` is returned.
 
-------------------------------------------------------------------------
 
 ### Terminal Report
 
@@ -327,9 +320,9 @@ Rendered using Rich components such as:
 -   `Align`
 -   `Group`
 
-------------------------------------------------------------------------
 
-## Metadata Export
+
+### Metadata Export
 
 Mosaic metadata export is handled by:
 
@@ -354,66 +347,66 @@ Each row in the CSV represents one GeoTIFF.
 -   `acquired_at`
 -   `created_at`
 
-------------------------------------------------------------------------
 
-## Metadata Fields
 
-### mosaic_id
+### Metadata Fields
+
+#### mosaic_id
 
 Deterministic UUIDv5 derived from the file URI.
 
-### uri
+#### uri
 
 Full file path.
 
-### uri_etag
+#### uri_etag
 
 Currently unused (placeholder for future versioning).
 
-### byte_size
+#### byte_size
 
 Filesystem-reported file size (local paths only).
 
-### crs
+#### crs
 
 CRS WKT from GDAL.
 
-### srid
+#### srid
 
 EPSG authority code extracted from CRS if available.
 
-### pixel_width / pixel_height
+#### pixel_width / pixel_height
 
 Raster dimensions.
 
-### band_count
+#### band_count
 
 Number of raster bands.
 
-### dtype
+#### dtype
 
 Data type of band 1.
 
-### nodata
+#### nodata
 
 Nodata value of band 1, if defined.
 
-### footprint
+#### footprint
 
 EWKT polygon of raster bounds, reprojected to EPSG:4326.
 
-### acquired_at
+#### acquired_at
 
 Parsed from filename prefix `YYMMDD_loc_...` and converted to ISO format
 `20YY-MM-DD`.
 
-### created_at
+#### created_at
 
 Timestamp at metadata extraction time (ISO format).
 
-------------------------------------------------------------------------
 
-### Estimated Performance Characteristics
+
+#### Estimated Performance Characteristics
 
   Operation             Memory Usage   IO Pattern
   --------------------- -------------- --------------------------
@@ -423,28 +416,27 @@ Timestamp at metadata extraction time (ISO format).
 
 No raster pixel arrays are loaded into memory.
 
-------------------------------------------------------------------------
 
-### Design Principles
 
-#### Memory Safety
+#### Design Principles
+
+##### Memory Safety
 
 -   Filesystem `stat()` for file sizes
 -   GDAL header-only access
 -   No full-raster reads
 
-#### Deterministic Identity
+##### Deterministic Identity
 
 -   UUIDv5 derived from URI
 -   Stable per path string
 
-#### CRS Normalization
+##### CRS Normalization
 
 -   Footprints should always be emitted as `EPSG:4326 EWKT`
 
-------------------------------------------------------------------------
 
-### Known Issues
+#### Known Issues
 
 -   `dispatch()` references `root` in error message without defining it.
 -   `render_scan_report()` may reference `console` without
@@ -453,9 +445,8 @@ No raster pixel arrays are loaded into memory.
 -   `uri_etag` is currently unused, will probably reference directory versioning index.
 -   `parse_columns()` is marked incomplete.
 
-------------------------------------------------------------------------
 
-### Intended Use Cases
+#### Intended Use Cases
 
 -   Inventorying orthomosaic archives upon receipt of unstructured drive
 -   Preparing data for populating database
@@ -464,7 +455,10 @@ No raster pixel arrays are loaded into memory.
 -   Pre-indexing datasets before chip extraction, will probably be used in `INGEST`
 
 ------------------------------------------------------------------------
-## 2) INGEST
+## INGEST
+
+------------------------------------------------------------------------
+
 
 `injester.py` implements the **WHIRLWIND ingestion pipeline**.
 
@@ -480,9 +474,7 @@ The ingestion process produces:
 All operations use **windowed raster reads** to ensure scalability for
 extremely large mosaics.
 
-------------------------------------------------------------------------
-
-## Requirements
+### Requirements
 
 -   Python 3.10+
 -   rasterio
@@ -493,9 +485,8 @@ Install dependencies:
 
     pip install rasterio numpy pyarrow
 
-------------------------------------------------------------------------
 
-## Usage
+### Usage
 
     whirlwind ingest tiles --input /path/to/mosaics --out out/
 
@@ -503,14 +494,13 @@ or using metadata from a scan:
 
     whirlwind ingest tiles --input-csv metadata/scan_xxxx.csv --out out/
 
-------------------------------------------------------------------------
 
-## Default Output Structure
+### Default Output Structure
 
     out/
        shards/
-          tiles-000000.tar
-          tiles-000001.tar
+          TILES-000000.tar
+          TILES-000001.tar
           ...
        manifest.parquet
        ingest.json
@@ -520,11 +510,9 @@ Each shard contains:
     <tile_id>.npy
     <tile_id>.json
 
-------------------------------------------------------------------------
+### Tile Format
 
-## Tile Format
-
-### Tile Array
+#### Tile Array
 
     (bands, height, width)
 
@@ -534,9 +522,8 @@ Supported dtypes:
 -   uint16
 -   uint8
 
-------------------------------------------------------------------------
 
-### Tile Metadata
+#### Tile Metadata
 
 Each tile includes:
 
@@ -548,9 +535,8 @@ Each tile includes:
 -   band count
 -   data type
 
-------------------------------------------------------------------------
 
-## Quantization and Scaling
+#### Quantization and Scaling
 
 Available normalization strategies:
 
@@ -563,22 +549,19 @@ Available normalization strategies:
 Scaling statistics are estimated using sampled windows to avoid full
 raster scans.
 
-------------------------------------------------------------------------
 
-## INGEST Flow
+### INGEST Flow
 
 1.  Input GeoTIFF URIs are discovered.
 2.  Each mosaic is opened using rasterio.
 3.  A deterministic tiling grid is generated.
 4.  Raster data is read using windowed reads.
 5.  Pixel scaling and quantization are applied.
-6.  Tile arrays and metadata are written into shard archives.
+6.  Tile arrays and metadata are written into shard archives - (WORK ON SEPARATION OF SHARDS).
 7.  A tile manifest is generated.
-8.  An ingestion summary is written to `ingest.json`.
+8.  An ingestion summary is written to.
 
-------------------------------------------------------------------------
-
-## Estimated Performance Characteristics
+### Estimated Performance Characteristics
 
   Operation            Memory Usage   IO Pattern
   -------------------- -------------- -------------------
@@ -588,9 +571,7 @@ raster scans.
 
 Memory usage scales with **tile size**, not mosaic size.
 
-------------------------------------------------------------------------
-
-## Intended Use Cases
+### Intended Use Cases
 
 -   preparing orthomosaic datasets for machine learning
 -   converting GeoTIFF archives into tile datasets
@@ -600,18 +581,24 @@ Memory usage scales with **tile size**, not mosaic size.
 
 ------------------------------------------------------------------------
 ## 3) RELATE 
+------------------------------------------------------------------------
+
 ### Requirements
 ### Usage
 ### flow
 
 ------------------------------------------------------------------------
 ## 4) LABEL
+------------------------------------------------------------------------
+
 ### Requirements
 ### Usage
 ###  flow
 
 ------------------------------------------------------------------------
 ## 4) WRANGLE
+------------------------------------------------------------------------
+
 ### Requirements
 ### Usage
 ###  flow
