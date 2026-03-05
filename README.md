@@ -5,7 +5,7 @@
 w:hirlwind is a recursive acronym that also describes its function:
 `WHIRLWIND: Helps Ingest, Relate, Label, Wrangle, Index, Normalize Datacubes`
 # Table of Contents:
-- [toolbox](README#toolbox)
+- [toolbox](#TOOLBOX)
 - [paint](#PAINT)
 - [scan](#SCANNER)
 - [ingest](#INGEST)
