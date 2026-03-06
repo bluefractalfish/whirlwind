@@ -104,10 +104,13 @@ def scan_from_metadata(csv_path: Path, top_n: int = 500) -> ScanStats:
     if not csv_path.exists():
         paint.error_msg(f"no csv to load at: {csv_path}")
         return stats
+    with open(csv_path) as f:
+        r = csv.reader(f)
+        n_rows = sum(1 for _ in r) - 1
     with open(csv_path, newline="", encoding="utf-8") as f:
         r = csv.DictReader(f)
-        with paint.progress("SCANNING: ", csv_path.name) as progress:
-            task = paint.new_task(progress, "scan", total=None)
+        with paint.progress("scanning: ", csv_path.name) as progress:
+            task = paint.new_task(progress, "scan", total=n_rows)
             for row in r:
                 paint.advance(progress, task, 1)
                 uri = (row.get("uri") or "").strip()
@@ -150,9 +153,9 @@ def scan_directory(root: Path, top_n: int = 500) -> ScanStats:
         for better efficiency and architectural coherence, load scanned metadata
         first then read from the csv"""
     stats = ScanStats()
-
-    with paint.progress("SCANNING: ",root) as progress:
-        task = paint.new_task(progress, "scan", total=None) 
+    n_files = sum(1 for p in root.iterdir() if p.is_file())
+    with paint.progress("scanning: ",root) as progress:
+        task = paint.new_task(progress, "scan", total=n_files) 
         for dirpath, dirnames, filenames in os.walk(root):
             stats.num_dirs += 1
             paint.advance(progress,task,1)

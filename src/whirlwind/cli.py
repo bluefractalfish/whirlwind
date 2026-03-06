@@ -2,6 +2,7 @@
 from typing import List, Optional
 import argparse
 import sys
+import yaml
 #import toolbox from local directory
 #from rich.console import Console
 #from pathlib import Path
@@ -16,8 +17,24 @@ def dispatch(args: argparse.Namespace)->int:
     if args.cmd == "ingest":
         toolbox.dispatch_ingest(args)
 
+def apply_config(parser, tiles_parser, argv=None):
+    args, _ = parser.parse_known_args(argv)
+
+    if not getattr(args, "config", None):
+        return parser.parse_args(argv)
+
+    with open(args.config) as f:
+        cfg = yaml.safe_load(f) or {}
+
+    if args.cmd == "ingest" and args.ingest_cmd == "tiles":
+        tiles_parser.set_defaults(**cfg.get("tiles", {}))
+
+    return parser.parse_args(argv)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="whirlwind")
+    p.add_argument("--config", type=str, help="path to config.yaml")
     sub = p.add_subparsers(dest="cmd", required=True)
     # scan
     scan = sub.add_parser("scan", help="Scan a directory and summarize files")
@@ -30,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     tiles = ingest_sub.add_parser("tiles", help="tile whole mosaics into shards + manifest (v1)")
     tiles.add_argument("--input", type=str, default=None, help="directory or glob for GeoTIFFs")
     tiles.add_argument("--input-csv", type=str, default=None, help="scan metadata CSV with 'uri' column")
-    tiles.add_argument("--out", type=str, required=True, help="output directory")
+    tiles.add_argument("--out", type=str, default=None, help="output directory")
 
     tiles.add_argument("--tile-size", type=int, default=512)
     tiles.add_argument("--stride", type=int, default=None, help="default: tile-size (non-overlapping)")
@@ -55,10 +72,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     tiles.add_argument("--resume", action="store_true", default=False)
 
-    return p
+    return p, tiles
 
 def main(argv: Optional[List[str]] = None) -> int:
-    args = build_parser().parse_args(argv)
+    p, tiles_parser = build_parser()
+    args = apply_config(p, tiles_parser, argv)
+
+    if args.cmd == "ingest" and args.ingest_cmd == "tiles" and not args.out:
+        p.error("ingest tiles requires --out or tiles.out in config")
 
     try:
         return dispatch(args)
@@ -66,7 +87,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         toolbox.log("13")
         sys.exit(130)
 
-        pass
 if __name__ == "__main__":
     raise SystemExit(main())
 

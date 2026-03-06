@@ -1,0 +1,24 @@
+tiles:
+  input: data/mosaics
+  input_csv: null
+  out: shards
+
+  tile_size: 512
+  stride: 512
+  drop_partial: true
+
+  shard_size: 4096
+  shard_prefix: NA
+
+  manifest: csv
+
+  dtype: uint16
+  scale: none
+
+  p_low: 0.5
+  p_high: 99.5
+
+  stats: sample
+  num_samples: 2048
+
+  resume: false

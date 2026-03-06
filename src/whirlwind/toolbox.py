@@ -177,8 +177,9 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
         ]
 
     log(f"columns extracted: {columns}")
+    n_files = sum(1 for p in input_path.rglob("*") if p.is_file())
     with paint.progress("extracting metadata from", input_dir) as progress:
-        task = paint.new_task(progress, "extracting...", total=None)
+        task = paint.new_task(progress, "extracting...", total=n_files)
         for tif in iter_tifs(input_path):
             paint.advance(progress,task,1)
             rows.append(extract_metadata(str(tif), columns))

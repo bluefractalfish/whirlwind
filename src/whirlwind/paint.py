@@ -98,6 +98,7 @@ def progress(verb: str, noun: str):
         SpinnerColumn(),
         TextColumn(f"[bold]{verb}[/bold]"),
         TextColumn(f"{noun}"),
+        TextColumn("{task.completed}/{task.total}"),
         TimeElapsedColumn(),
         TimeRemainingColumn(),
         console=console,

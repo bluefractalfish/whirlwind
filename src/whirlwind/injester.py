@@ -1,9 +1,9 @@
 """
-WHIRLWIND ingest pipeline (v1): tile whole mosaics into WebDataset shards + Parquet manifest.
+WHIRLWIND ingest pipeline (v1): ile whole mosaics into WebDataset shards + Parquet manifest.
 
 Design goals:
 - NEVER read full rasters into memory
-- Windowed reads only (tile-by-tile)
+- Windowed reads only 
 - Deterministic, non-overlapping grid (stride == tile_size by default)
 - Sharded output for ML scalability (tens/hundreds of thousands of tiles)
 - Per-tile georeferencing metadata preserved (CRS + affine transform + bounds)
@@ -12,8 +12,8 @@ Design goals:
 Outputs (default):
 out/
   shards/
-    tiles-000000.tar
-    tiles-000001.tar
+    mosaic_id-000.tar
+    mosaic_id-001.tar
     ...
   manifest.parquet   (or manifest.csv)
   ingest.json        (run config + summary)
@@ -241,7 +241,7 @@ class ShardWriter:
     out_dir: Path
     prefix: str
     shard_size: int
-    shard_index: int = 0 
+    shard_index: int = 1 
     sample_in_shard: int = 0 
     tar: Optional[tarfile.TarFile] = None
     tar_path: Optional[Path] = None
@@ -249,7 +249,7 @@ class ShardWriter:
     def _open_next(self) -> None:
         if self.tar is not None:
             self.tar.close()
-        name = f"{self.prefix}-{self.shard_index:07d}.tar"
+        name = f"{self.prefix}-{self.shard_index:03d}.tar"
         self.tar_path = self.out_dir / name
         self.tar = tarfile.open(self.tar_path, "w")  # uncompressed tar for faster IO
         self.sample_in_shard = 0
@@ -438,7 +438,6 @@ def ingest_tiles(
                 tid = (row.get("tile_id") or "").strip()
                 if tid:
                     seen.add(tid)
-    writer = ShardWriter(out_dir=shards_dir, prefix=shard_prefix, shard_size=shard_size)
     n_tiles = 0 
     n_written = 0 
     n_skipped = 0 
@@ -446,14 +445,16 @@ def ingest_tiles(
     paint.ok("ingesting tiles")
     toolbox.log("ingesting tiles started")
     
-    with paint.progress("ingesting tiles to", out_dir) as progress:
-        task = paint.new_task(progress, "ingesting...", total=None)
+    with paint.progress("tiling mosaics to", out_dir) as progress:
+        task = paint.new_task(progress, "ingesting mosaics...", total=len(uris))
         for uri in uris:
             paint.advance(progress, task, 1)
+
             uri = uri.strip()
             if not uri: 
                 continue
             mosaic_id = toolbox.uuid_from_path(uri)
+            writer = ShardWriter(out_dir=shards_dir, prefix=mosaic_id, shard_size=shard_size)
             try:
                 with rasterio.open(uri) as ds:
                     crs_str = ds.crs.to_string() if ds.crs else ""
@@ -463,7 +464,6 @@ def ingest_tiles(
                     # Bounds for scaling computed once per mosaic when scaling requested
                     band_bounds: Dict[int, Tuple[float, float]] = {}
                     if qp.scale != "none":
-                        # v1: treat compute/from-metadata as sample
                         band_bounds = sample_band(ds, tile_size, stride, qp)
 
                     for r_i, c_i, win in iter_windows(ds, tile_size, stride, drop_partial):
@@ -507,7 +507,6 @@ def ingest_tiles(
                             if q_meta:
                                 meta["scaling"] = q_meta
 
-                            # Optional: include WGS84 bounds for easier search later
                             try:
                                 if ds.crs:
                                     wgs84 = transform_bounds(ds.crs, "EPSG:4326", minx, miny, maxx, maxy, densify_pts=0)
@@ -549,6 +548,8 @@ def ingest_tiles(
                             n_written += 1
 
                         except KeyboardInterrupt:
+                            writer.close()
+                            sink.close()
                             toolbox.log("-1 | keyboard interrupt")
                             raise
                         except Exception as e:
@@ -564,9 +565,9 @@ def ingest_tiles(
                 n_errors += 1
                 toolbox.log(f"ERROR | raster failed | uri={uri} | {type(e).__name__}: {e}")
                 continue
-
-        writer.close()
-        sink.close()
+            finally:
+                writer.close()
+                sink.close()
 
         summary = {
             "finished_at": toolbox.utc_now(),
@@ -586,6 +587,7 @@ def ingest_tiles(
             "tiles_skipped": n_skipped,
             "errors": n_errors,
         }
+
         (out_dir / "ingest.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
         toolbox.log(f"ingestion tiles done | written={n_written} skipped={n_skipped} errors={n_errors}")
