@@ -7,16 +7,16 @@ tiles:
   stride: 512
   drop_partial: true
 
-  shard_size: 4096
+  shard_size: 2024
   shard_prefix: NA
 
   manifest: csv
 
-  dtype: uint16
-  scale: none
+  dtype: uint8
+  scale: percentile
 
-  p_low: 0.5
-  p_high: 99.5
+  p_low: 2
+  p_high: 98
 
   stats: sample
   num_samples: 2048

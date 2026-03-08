@@ -94,8 +94,8 @@ def ingest(args):
 class QuantizationParams:
     dtype: str # "float32" | "uint16" | "uint8"
     scale: str= "none" # "none" | "minmax" | "percentile"
-    p_low: float = 0.5
-    p_high: float = 99.5
+    p_low: float = 2
+    p_high: float = 98
     per_band: bool = True
     stats: str = "sample" # "sample"  | "compute" (compute = full pass; slower)
     num_samples: int = 2048 # number of sampled windows per band 
@@ -116,52 +116,64 @@ def sample_band(
     if qp.scale == "none":
         toolbox.log(f"sample_band called for qp with scale=none")
         return {}
+    # number of bands
     nb = ds.count
     lo_hi: Dict[int, List[float]] = {b: [] for b in range(1, nb+1)}
     need = max(1, qp.num_samples)
 
+
     tiles_x = max(1, (ds.width - tile_size) // stride + 1)
     tiles_y = max(1, (ds.height - tile_size) // stride + 1)
     n_tiles = tiles_x * tiles_y
+    
+    toolbox.log(f"--------SAMPLING---------")
+    toolbox.log(f"sampling using {qp.scale}") 
+    toolbox.log(f"number of bands: {nb}")
+    toolbox.log(f"number of samples: {need}")
+    toolbox.log(f"number of tiles: {n_tiles}")
+    
 
     # Deterministic sparse sampling of tile origins
     step = max(1, int(math.sqrt(n_tiles / need)))
+    sparse = math.ceil(tiles_y/step)*math.ceil(tiles_x/step)
     sampled = 0
+    with paint.progress(f"{qp.scale} sampling of {nb} band(s)","") as sampling_progress:
+        sampling_task = paint.new_task(sampling_progress,"sampling...",total=need)
+        for ty in range(0, tiles_y, step):
+            y = ty * stride
+            for tx in range(0, tiles_x, step):
+                paint.advance(sampling_progress, sampling_task,1)
+                x = tx * stride
+                win = Window(x, y, tile_size, tile_size)
 
-    for ty in range(0, tiles_y, step):
-        y = ty * stride
-        for tx in range(0, tiles_x, step):
-            x = tx * stride
-            win = Window(x, y, tile_size, tile_size)
+                # masked read avoids nodata bias
+                data = ds.read(window=win, out_dtype=np.float32, masked=True)  # (bands, H, W)
 
-            # masked read avoids nodata bias
-            data = ds.read(window=win, out_dtype=np.float32, masked=True)  # (bands, H, W)
+                for bi in range(nb):
+                    band = data[bi]
+                    if getattr(band, "mask", None) is not None and band.mask.all():
+                        continue
+                    vals = band.compressed() if hasattr(band, "compressed") else band.ravel()
+                    if vals.size == 0:
+                        continue
 
-            for bi in range(nb):
-                band = data[bi]
-                if getattr(band, "mask", None) is not None and band.mask.all():
-                    continue
-                vals = band.compressed() if hasattr(band, "compressed") else band.ravel()
-                if vals.size == 0:
-                    continue
+                    if qp.scale == "minmax":
+                        lo_hi[bi + 1].append(float(np.min(vals)))
+                        lo_hi[bi + 1].append(float(np.max(vals)))
+                    elif qp.scale == "percentile":
+                        lo = float(np.percentile(vals, qp.p_low))
+                        hi = float(np.percentile(vals, qp.p_high))
+                        lo_hi[bi + 1].append(lo)
+                        lo_hi[bi + 1].append(hi)
+                    else:
+                        # unknown -> no bounds
+                        pass
 
-                if qp.scale == "minmax":
-                    lo_hi[bi + 1].append(float(np.min(vals)))
-                    lo_hi[bi + 1].append(float(np.max(vals)))
-                elif qp.scale == "percentile":
-                    lo = float(np.percentile(vals, qp.p_low))
-                    hi = float(np.percentile(vals, qp.p_high))
-                    lo_hi[bi + 1].append(lo)
-                    lo_hi[bi + 1].append(hi)
-                else:
-                    # unknown -> no bounds
-                    pass
-
-            sampled += 1
+                sampled += 1
+                if sampled >= need:
+                    break
             if sampled >= need:
                 break
-        if sampled >= need:
-            break
 
     out: Dict[int, Tuple[float, float]] = {}
     for b in range(1, nb + 1):
@@ -170,6 +182,7 @@ def sample_band(
             out[b] = (0.0, 1.0)
         else:
             out[b] = (min(xs), max(xs))
+    toolbox.log(f"--------SUCCESS---------")
     return out
 
 def quantize_tile(
@@ -193,6 +206,7 @@ def quantize_tile(
     
     if qp.scale == "none":
         if qp.dtype.lower() == "float32":
+            toolbox.log("no scaling, returning as float32")
             return arr.astype(np.float32, copy=False), {"scale": "none", "dtype": "float32"}
         dst_lo, dst_hi = toolbox._dst_range(qp.dtype)
         clipped = np.clip(arr, dst_lo, dst_hi)
@@ -421,7 +435,8 @@ def ingest_tiles(
     toolbox.makedir(out_dir)
     shards_dir = out_dir/ "shards"
     toolbox.makedir(shards_dir)
-
+    
+    # make manifest for entire engestion
     manifest_path = out_dir / ("manifest.parquet" if manifest_kind.lower() == "parquet" else "manifest.csv")
     sink = make_manifest_sink(manifest_kind, manifest_path)
 
@@ -442,55 +457,50 @@ def ingest_tiles(
     n_written = 0 
     n_skipped = 0 
     n_errors = 0
-    paint.ok("ingesting tiles")
-    toolbox.log("ingesting tiles started")
     
-    with paint.progress("tiling mosaics to", out_dir) as progress:
-        task = paint.new_task(progress, "ingesting mosaics...", total=len(uris))
-        for uri in uris:
-            paint.advance(progress, task, 1)
+    for uri in uris:
+        """
+        manifest_path = out_dir / ("manifest.parquet" if manifest_kind.lower() == "parquet" else "manifest.csv")
+        sink = make_manifest_sink(manifest_kind, manifest_path)
 
-            uri = uri.strip()
-            if not uri: 
-                continue
-            mosaic_id = toolbox.uuid_from_path(uri)
-            writer = ShardWriter(out_dir=shards_dir, prefix=mosaic_id, shard_size=shard_size)
-            try:
-                with rasterio.open(uri) as ds:
-                    crs_str = ds.crs.to_string() if ds.crs else ""
-                    bands = ds.count
-
-
-                    # Bounds for scaling computed once per mosaic when scaling requested
-                    band_bounds: Dict[int, Tuple[float, float]] = {}
-                    if qp.scale != "none":
-                        band_bounds = sample_band(ds, tile_size, stride, qp)
-
+        """
+        
+        uri = uri.strip()
+        if not uri: 
+            continue
+        mosaic_id = toolbox.uuid_from_path(uri)
+        writer = ShardWriter(out_dir=shards_dir, prefix=mosaic_id, shard_size=shard_size)
+        try:
+            with rasterio.open(uri) as ds:
+                crs_str = ds.crs.to_string() if ds.crs else ""
+                bands = ds.count
+                total_tiles = toolbox.num_tiles(ds,tile_size,stride)
+                # Bounds for scaling computed once per mosaic when scaling requested
+                band_bounds: Dict[int, Tuple[float, float]] = {}
+                if qp.scale != "none":
+                    band_bounds = sample_band(ds, tile_size, stride, qp)
+                with paint.progress("tiling",uri) as tiling_progress:
+                    tt = paint.new_task(tiling_progress, "tiling...", total=total_tiles)
                     for r_i, c_i, win in iter_windows(ds, tile_size, stride, drop_partial):
+                        paint.advance(tiling_progress,tt,1)
                         tid = toolbox.gen_tile_id(mosaic_id, r_i, c_i)
                         n_tiles += 1
-
                         if resume and tid in seen:
                             n_skipped += 1
                             continue
-
                         try:
                             # Read window only; masked to handle nodata robustly
                             arr = ds.read(window=win, masked=True, out_dtype=np.float32)  # (bands, h, w)
-
                             # Fill masked values with 0 for ML tensors; retain mask info optionally
                             if np.ma.isMaskedArray(arr):
                                 arr = np.ma.filled(arr, 0.0).astype(np.float32, copy=False)
                             else:
                                 arr = arr.astype(np.float32, copy=False)
-
                             # Apply scaling/quantization (can output float32 normalized or uint*)
                             out_arr, q_meta = quantize_tile(arr, qp, band_bounds)
-
                             # Build per-tile georef metadata
                             t_transform = rasterio.windows.transform(win, ds.transform)
                             minx, miny, maxx, maxy = toolbox.window_bounds(ds, win)
-
                             meta = {
                                 "tile_id": tid,
                                 "source_uri": uri,
@@ -506,7 +516,6 @@ def ingest_tiles(
                             }
                             if q_meta:
                                 meta["scaling"] = q_meta
-
                             try:
                                 if ds.crs:
                                     wgs84 = transform_bounds(ds.crs, "EPSG:4326", minx, miny, maxx, maxy, densify_pts=0)
@@ -518,12 +527,10 @@ def ingest_tiles(
                                     }
                             except Exception:
                                 pass
-
                             # Serialize and write to shard
                             npy = toolbox.npy_bytes(out_arr)
                             js = toolbox.json_bytes(meta)
                             shard_name, key = writer.write_sample(tid, npy, js)
-
                             # Manifest row
                             sink.write(
                                 ManifestRow(
@@ -557,39 +564,38 @@ def ingest_tiles(
                             toolbox.log(f"ERROR | tile failed | uri={uri} | tile_id={tid} | {type(e).__name__}: {e}")
                             continue
 
-            except KeyboardInterrupt:
-                writer.close()
-                sink.close()
-                raise
-            except Exception as e:
-                n_errors += 1
-                toolbox.log(f"ERROR | raster failed | uri={uri} | {type(e).__name__}: {e}")
-                continue
-            finally:
-                writer.close()
-                sink.close()
 
-        summary = {
-            "finished_at": toolbox.utc_now(),
-            "out_dir": str(out_dir),
-            "tile_size": tile_size,
-            "stride": stride,
-            "drop_partial": drop_partial,
-            "dtype": dtype,
-            "scale": scale,
-            "p_low": p_low,
-            "p_high": p_high,
-            "manifest": str(manifest_path),
-            "shard_size": shard_size,
-            "shard_prefix": shard_prefix,
-            "tiles_total_seen": n_tiles,
-            "tiles_written": n_written,
-            "tiles_skipped": n_skipped,
-            "errors": n_errors,
-        }
+        except KeyboardInterrupt:
+            writer.close()
+            sink.close()
+            raise
+        except Exception as e:
+            n_errors += 1
+            toolbox.log(f"ERROR | raster failed | uri={uri} | {type(e).__name__}: {e}")
+            continue
+        finally:
+            writer.close()
+    sink.close()
+    summary = {
+        "finished_at": toolbox.utc_now(),
+        "out_dir": str(out_dir),
+        "tile_size": tile_size,
+        "stride": stride,
+        "drop_partial": drop_partial,
+        "dtype": dtype,
+        "scale": scale,
+        "p_low": p_low,
+        "p_high": p_high,
+        "manifest": str(manifest_path),
+        "shard_size": shard_size,
+        "shard_prefix": shard_prefix,
+        "tiles_total_seen": n_tiles,
+        "tiles_written": n_written,
+        "tiles_skipped": n_skipped,
+        "errors": n_errors, }
+    # TODO change injest.json to injestion00n.json 
+    (out_dir / "ingest.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
-        (out_dir / "ingest.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-
-        toolbox.log(f"ingestion tiles done | written={n_written} skipped={n_skipped} errors={n_errors}")
-        return 0
+    toolbox.log(f"ingestion tiles done | written={n_written} skipped={n_skipped} errors={n_errors}")
+    return 0
 

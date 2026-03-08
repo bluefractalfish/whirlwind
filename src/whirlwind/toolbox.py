@@ -275,7 +275,10 @@ def load_metadata_csv(csv_path: Path, key: str = "uri") -> Dict[str, Dict[str,st
 ####################
 # geometadata helpers #
 #######################
-
+def num_tiles(ds: rasterio.DatasetReader, tile_size: int, stride: int) -> int:
+    tiles_x = max(1, (ds.width - tile_size) // stride + 1)
+    tiles_y = max(1, (ds.height - tile_size) // stride + 1)
+    return tiles_x * tiles_y
 def _quant_dtype(dtype: str) -> np.dtype:
     d = dtype.lower()
     if d == "float32":
