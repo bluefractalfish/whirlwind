@@ -11,15 +11,16 @@ ingest:
     shard_prefix: tiles
 
   tiles:
-    input: ./data/geotiffs
+    input: ./metadata/*
     tile_size: 512
     stride: 512
     drop_partial: true
 
     dtype: uint8
     scale: percentile
-    p_low: 0.5
-    p_high: 99.5
+    p_low: 2
+    p_high: 98
+    per_band: true
 
     stats: sample
     num_samples: 2048

@@ -60,12 +60,12 @@ class InspectCommand(Command):
 
     def run(self, args: argparse.Namespace) -> int:
         geo._init()
-        root = du._get_root(args.root)
+        root = du._get_root_(args.root)
         out = f"{ids.gen_fingerprint(root)}.csv"
         if not root.exists() or not root.is_dir():
             # HANDLE ERROR
             return 2
-        csv_path = Path(du._find_home() / "metadata" / out )
+        csv_path = Path(du._find_home_() / "metadata" / out )
         #return toolbox.dispatch_scan(args)
         if not csv_path.exists():
             # if there is no csv already, write one
