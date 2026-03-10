@@ -13,7 +13,7 @@ from typing import Dict, Iterable
 
 
 from .commands.base import Command
-from .commands.scan import ScanCommand
+from .commands.inspect import InspectCommand
 from .commands.ingest import IngestCommand
 
 # WHIRLWIND APP
@@ -28,8 +28,6 @@ class WhirlwindApp:
         return list(self._commands.values())
 
     def run(self,args:argparse.Namespace) -> int:
-        # move this to utils/geo
-        toolbox.init_gdal() 
 
         cmd_ = getattr(args,"cmd",None)
         if not cmd_:
@@ -42,11 +40,11 @@ class WhirlwindApp:
 #####################################################
 ### BUILD APP
 
-def _build_() -> WhirlwindApp:
+def _build() -> WhirlwindApp:
     """create the application with all registered commands"""
     return WhirlwindApp(
             commands=[
-                ScanCommand(),
+                InspectCommand(),
                 IngestCommand(),
             ]
         )

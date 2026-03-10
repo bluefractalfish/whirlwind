@@ -26,7 +26,7 @@ from rich.progress import (
 from rich.live import Live
 from rich.layout import Layout
 from rich.status import Status
-from . import toolbox
+
 _DEFAULT_THEME = Theme (
         {
             "info": "white",
@@ -63,7 +63,6 @@ def divider(label: str | None=None, style: str = "dim", align: str = "center", c
 # print error to terminal
 def error_msg(error: str) -> None:
     msg_in_box(f"[bold red]error: {error}[/bold red]",style="red")
-    toolbox.log(error)
 # TASK COMPLETED
 def completed_msg(task: str) -> None:
     msg_in_box(f"[bold green]{task.upper()} COMPLETED[/bold green]", style="green")

@@ -1,92 +1,103 @@
+from __future__ import annotations
 
-from typing import List, Optional
 import argparse
 import sys
+from pathlib import Path
+from typing import Any, Optional, Sequence
+
 import yaml
-#import toolbox from local directory
-#from rich.console import Console
-#from pathlib import Path
-from . import toolbox
 
-def dispatch(args: argparse.Namespace)->int:
-    toolbox.init_gdal()
-    # dispatch scan
-    if args.cmd == "scan":
-        toolbox.dispatch_scan(args)
-    # dispatch ingest
-    if args.cmd == "ingest":
-        toolbox.dispatch_ingest(args)
-
-def apply_config(parser, tiles_parser, argv=None):
-    args, _ = parser.parse_known_args(argv)
-
-    if not getattr(args, "config", None):
-        return parser.parse_args(argv)
-
-    with open(args.config) as f:
-        cfg = yaml.safe_load(f) or {}
-
-    if args.cmd == "ingest" and args.ingest_cmd == "tiles":
-        tiles_parser.set_defaults(**cfg.get("tiles", {}))
-
-    return parser.parse_args(argv)
-
+from .app import _build
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="whirlwind")
-    p.add_argument("--config", type=str, help="path to config.yaml")
-    sub = p.add_subparsers(dest="cmd", required=True)
-    # scan
-    scan = sub.add_parser("scan", help="Scan a directory and summarize files")
-    scan.add_argument("root", type=str, help="Root directory to scan")
-    scan.add_argument("--top-n", type=int, default=500, help="Show top N largest files (0 disables)")
-    # ingest
-    ingest = sub.add_parser("ingest", help="ingestion workflow")
-    ingest_sub = ingest.add_subparsers(dest="ingest_cmd", required=True)
-    # tile ingestion
-    tiles = ingest_sub.add_parser("tiles", help="tile whole mosaics into shards + manifest (v1)")
-    tiles.add_argument("--input", type=str, default=None, help="directory or glob for GeoTIFFs")
-    tiles.add_argument("--input-csv", type=str, default=None, help="scan metadata CSV with 'uri' column")
-    tiles.add_argument("--out", type=str, default=None, help="output directory")
+    parser = argparse.ArgumentParser(prog="whirlwind")
 
-    tiles.add_argument("--tile-size", type=int, default=512)
-    tiles.add_argument("--stride", type=int, default=None, help="default: tile-size (non-overlapping)")
-    tiles.add_argument("--drop-partial", action="store_true", default=True)
-    tiles.add_argument("--keep-partial", action="store_false", dest="drop_partial")
+def normalize_keys(data: Any) -> Any:
+    if isinstance(data, dict):
+        return {
+            str(key).replace("-","_"): normalize_keys(value)
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [normalize_keys(item) for item in data]
+    return data
 
-    tiles.add_argument("--shard-size", type=int, default=4096)
-    tiles.add_argument("--shard-prefix", type=str, default="tiles")
+def load_config(path_str: str | None) -> dict[str, Any]:
+    if not path_str:
+        return {}
+    path = Path(path_str).expanduser().resolve()
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise ValueError("Config file must contain a top level map")
+    return normalize_keys(data)
 
-    tiles.add_argument("--manifest", choices=["parquet", "csv", "none"], default="parquet")
+def extract_command_path(args: argparse.Namespace) -> list[str]:
+    path: list[str] = []
+    cmd = getattr(args, "cmd", None)
+    if cmd:
+        path.append(cmd)
+    # sub commands for ingestion
+    ingest_cmd = getattr(args, "ingest_cmd",None)
+    if ingest_cmd:
+        path.append(ingest_cmd)
+    return path
 
-    tiles.add_argument("--dtype", choices=["float32", "uint16", "uint8"], default="float32",
-                       help="Output dtype. float32 keeps float output; with --scale it becomes normalized [0,1].")
-    tiles.add_argument("--scale", choices=["none", "minmax", "percentile"], default="none",
-                       help="Scaling strategy. If not 'none', scaling is applied even for float32 output.")
-    tiles.add_argument("--p-low", type=float, default=0.5)
-    tiles.add_argument("--p-high", type=float, default=99.5)
-    tiles.add_argument("--stats", choices=["sample", "compute", "from-metadata"], default="sample",
-                       help="v1: all modes treated as sample; compute/full-pass can be added later.")
-    tiles.add_argument("--num-samples", type=int, default=2048,
-                       help="Number of sampled windows used to estimate scaling bounds.")
+def merge_config(config: dict[str, Any], path: list[str]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
 
-    tiles.add_argument("--resume", action="store_true", default=False)
+    global_conf = config.get("global", {})
+    if isinstance(global_conf, dict):
+        merged.update(global_conf)
+    current: Any = config 
+    for index, part in enumerate(path):
+        if not isinstance(current, dict):
+            break
+        current = current.get(part, {})
+        if not isinstance(current, dict):
+            break
+        is_last = index == len(path) -1
+        if is_last:
+            for key, value in current.items():
+                if key != "global":
+                    merged[key] = value
+        else:
+            nested_global = current.get("global", {})
+            if isinstance(nested_global, dict):
+                merged.update(nested_global)
+        return merged
 
-    return p, tiles
+def build_parser() -> argparse.ArgumentParser:
+    app = _build()
 
-def main(argv: Optional[List[str]] = None) -> int:
-    p, tiles_parser = build_parser()
-    args = apply_config(p, tiles_parser, argv)
+    parser = argparse.ArgumentParser(prog="whirlwind")
+    parser.add_argument(
+            "--config", type=str, default="config.yaml",
+            help="path to yaml config, default config.yaml"
+            )
+    subparser = parser.add_subparsers(dest="cmd", required = True)
 
-    if args.cmd == "ingest" and args.ingest_cmd == "tiles" and not args.out:
-        p.error("ingest tiles requires --out or tiles.out in config")
+    for command in app.commands:
+        command.configure(subparser)
+    return parser
 
-    try:
-        return dispatch(args)
-    except KeyboardInterrupt:
-        toolbox.log("13")
-        sys.exit(130)
+def parse_args(argv: Optional[Sequence[str]]==None) -> argparse.Namespace:
+    parser = build_parser()
+    # parse first pass: discover --config and command path
+    primal_args, _ = parser.parse_known_args(argv)
+    config = load_config(getattr(primal_args, "config",None))
+    command_path = extract_command_path(primal_args)
+    defaults = merge_config(config, command_path)
+    if defaults:
+        parser.set_defaults(**defaults)
+    # parse second pass: apply config defaults, then cli flags win
+    return parser.parse_args(argv)
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def main(argv: Optional[Sequence[str]]=None) -> int:
+    args = parse_args(argv)
+    app = _build()
+    return app.run(args)
+
+if __name__=="__main__":
+    raise SystemExit(main(sys.argv[1:]))
 
