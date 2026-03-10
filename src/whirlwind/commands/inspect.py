@@ -27,11 +27,14 @@ from osgeo import osr  # SpatialReference + CoordinateTransformation
 import argparse
 import heapq
 import os
+# for painting to terminal
 from ..ui import paint
-from ..utils import dirutil as du 
+# for directory utilities
+from ..utils import durs as du 
+# for generating, searching file/path ids
 from ..utils import ids
 from ..utils import geo
-from ..utils import readerwriters as rwr
+from ..utils import rwriters as rwr
 from .base import Command 
 
 

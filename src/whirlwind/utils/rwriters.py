@@ -29,7 +29,7 @@ import heapq
 import os
 from dataclasses import dataclass, field
 from ..ui import paint
-from . import dirutil as du 
+from . import durs as du 
 from . import geo
 
 def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
