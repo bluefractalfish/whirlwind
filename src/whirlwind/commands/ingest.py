@@ -142,6 +142,7 @@ class Tiler:
     def __init__(self,args):
         print(args)
         uris = list(rwr._iter_uris(args.input, args.input_csv))
+        # CATCH ERRORS
         out_dir = du._get_root_(args.out)
         stride = args.stride if args.stride is not None else args.tile_size
         self.tp = TParams(
