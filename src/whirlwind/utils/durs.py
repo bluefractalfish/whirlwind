@@ -5,9 +5,10 @@ utilites to help with finding, creating, measuring directories
 
 from pathlib import Path
 
-def _get_root_(root: str) -> Path:
-    return Path(root).expanduser().resolve()
-
+def _get_root_(out_dir: str | Path) -> Path:
+    root = Path(out_dir).expanduser().resolve()
+    _mkdir_(root)
+    return root
 def _find_home_(start: Path | None = None, markers: Iterable[str] = (".git", "pyproject.toml")) -> Path:
     """
     Walk upward from `start` (default: this file's directory) until a marker is found.

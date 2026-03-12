@@ -24,4 +24,3 @@ ingest:
 
     stats: sample
     num_samples: 2048
-    resume: true

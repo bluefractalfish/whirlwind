@@ -28,6 +28,7 @@ from rasterio.warp import transform_bounds
 from .base import Command
 from ..utils import durs as du
 from ..utils import rwriters as rwr
+from ..utils import geo
 
 # INGEST #############################################
 
@@ -35,21 +36,16 @@ class IngestCommand(Command):
     name = "ingest"
 
     def configure(self, subparsers: argparse._SubParsersAction) -> None:
-        parser = subparsers.add_parser(
-            self.name,
-            help="Ingestion workflow",
-        )
-
+        parser = subparsers.add_parser(self.name, help="Ingestion workflow",)
         ingest_subparsers = parser.add_subparsers(dest="ingest_cmd", required=True)
-
+        # tile subcommand
         self._configure_tiles(ingest_subparsers)
+        # shard subcommand etc
 
     def _configure_tiles(self, subparsers: argparse._SubParsersAction) -> None:
         
-        tiles = subparsers.add_parser(
-            "tiles",
-            help="Tile whole mosaics into shards + manifest",
-        )
+        tiles = subparsers.add_parser("tiles",
+            help="Tile whole mosaics into shards + manifest",)
 
         self._add_io_args(tiles)
         self._add_tiling_args(tiles)
@@ -61,14 +57,9 @@ class IngestCommand(Command):
             "--input",
             type=str,
             default=None,
-            help="Directory or glob for GeoTIFFs",
+            help="csv, directory or glob",
         )
-        parser.add_argument(
-            "--input-csv",
-            type=str,
-            default=None,
-            help="CSV with a 'uri' column",
-        )
+    
         parser.add_argument(
             "--out",
             type=str,
@@ -127,7 +118,6 @@ class IngestCommand(Command):
             default="sample",
         )
         parser.add_argument("--num-samples", type=int, default=2048)
-        parser.add_argument("--resume", action="store_true", default=False)
 
     def run(self, args: argparse.Namespace) -> int:
         if args.ingest_cmd == "tiles":
@@ -140,9 +130,7 @@ class IngestCommand(Command):
 @dataclass
 class Tiler:
     def __init__(self,args):
-        print(args)
-        uris = list(rwr._iter_uris(args.input, args.input_csv))
-        # CATCH ERRORS
+        uris = list(rwr._iter_uris(args.input))
         out_dir = du._get_root_(args.out)
         stride = args.stride if args.stride is not None else args.tile_size
         self.tp = TParams(
@@ -154,7 +142,6 @@ class Tiler:
                         shard_size=args.shard_size,
                         shard_prefix=args.shard_prefix,
                         manifest_kind=args.manifest,
-                        resume=args.resume,       
                         )
         self.qp = QParams(dtype = args.dtype, 
                           scale=args.scale, 
@@ -164,11 +151,40 @@ class Tiler:
                           stats = args.stats, 
                           num_samples = args.num_samples,
                           )
+    def _make_directories(self) -> dict[str, Path]:
+        """constructor for directories """
+        root = self.tp.out_dir
+        dirs = {
+                "root": root,
+                "shards": root / "shards",
+                "manifest": root / "manifest"
+                }
+        for d in dirs.values():
+            d.mkdir(parents=True, exist_ok=True)
+        return dirs
+
     def _tesselate(self) -> None:
-        print(self.tp)
-        print(self.qp)
+        dirs = self._make_directories()
+        shards_dir = dirs["shards"]
+        man_dir = dirs["manifest"]
+        for uri in self.tp.uris:
+            uri = uri.strip()
+            if not uri:
+                continue
+            # cut mosaic with uri, write shards and return
+            # mosaic_id, number of tiles seen (n), 
+            # number written (w)
+            # number of erros (e)
+            # number of skipped (s)
+            summary = geo.cut_mosaic(uri, 
+                                     man_dir, 
+                                     shards_dir, 
+                                     self.qp, 
+                                     self.tp)
 
+            mid, n, w, e, s = summary
 
+                    
 # param classes 
 @dataclass(frozen=True)
 class TParams:
@@ -181,7 +197,6 @@ class TParams:
     shard_size: int
     shard_prefix: str
     manifest_kind: str
-    resume: bool
     
 
 @dataclass(frozen=True)
