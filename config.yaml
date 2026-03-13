@@ -11,8 +11,8 @@ ingest:
     shard_prefix: prefix
 
   tiles:
-    tile_size: 24
-    stride: 24
+    tile_size: 1024
+    stride: 1024
     drop_partial: true
 
     dtype: uint8

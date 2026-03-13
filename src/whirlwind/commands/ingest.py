@@ -142,20 +142,20 @@ class Tiler:
 
         return cls(tp=tp, qp=qp)
 
-    def _dirs(self) -> tuple[Path, Path]:
-        shards_dir = self.tp.out_dir / "shards"
-        manifest_dir = self.tp.out_dir / "manifest"
+    def _dirs(self, idx) -> tuple[Path, Path]:
+        shards_dir = self.tp.out_dir / str(idx) / "shards"
+        manifest_dir = self.tp.out_dir / str(idx) / "manifest"
         shards_dir.mkdir(parents=True, exist_ok=True)
         manifest_dir.mkdir(parents=True, exist_ok=True)
         return shards_dir, manifest_dir
 
     def run(self) -> None:
-        shards_dir, manifest_dir = self._dirs()
-
+        idx = 0
         for uri in self.tp.uris:
             uri = uri.strip()
             if not uri:
                 continue
+            shards_dir, manifest_dir = self._dirs(idx)
 
             summary = geo.cut_mosaic(
                 uri,
@@ -164,6 +164,7 @@ class Tiler:
                 self.qp,
                 self.tp,
             )
+            idx = idx + 1
 
             mosaic_id, seen, written, errors, skipped = summary
             print(
