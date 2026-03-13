@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from .app import _build
+from .core.app import _build
 
 
 def normalize_keys(data: Any) -> Any:

@@ -8,6 +8,8 @@ from .base import Command
 from ..utils import pathfinder as pf
 from ..utils import geo
 from ..utils import readwrite as rwr
+#from .tessera import tiles 
+#from .tessera.tiles import Tiler
 
 
 class IngestCommand(Command):
