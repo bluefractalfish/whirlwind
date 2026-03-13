@@ -30,8 +30,8 @@ import os
 from dataclasses import dataclass, field
 
 from . import ids
-from . import datahelpers as dh
-from . import rwriters as rwr
+from . import datahelp as dh
+from . import readwrite as rwr
 
 def _init() -> None:
     gdal.UseExceptions()
@@ -451,7 +451,6 @@ def quantize_tile(
             -> uint16/uin8: quantized integer tiles 
     """
     out_dtype = _quant_dtype(qp.dtype)
-    
     if qp.scale == "none":
         if qp.dtype.lower() == "float32":
             return arr.astype(np.float32, copy=False), {"scale": "none", "dtype": "float32"}
@@ -463,7 +462,6 @@ def quantize_tile(
     nb = arr.shape[0]
     
     scaled = np.empty_like(arr, dtype=np.float32)
-
     meta: Dict[str, object] = {
             "scale": qp.scale,
             "dtype": qp.dtype.lower(),

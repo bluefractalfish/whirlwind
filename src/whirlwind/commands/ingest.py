@@ -1,214 +1,172 @@
-"""
-owns all ingestion logic
+from __future__ import annotations
 
-IngestCommand
-
-InJester
-"""
-
-import argparse
-import csv
-import io
-import json
-import math
-import os
-import sys
-import tarfile
-import time
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
-
-import numpy as np
-import rasterio
-from rasterio.windows import Window
-from rasterio.warp import transform_bounds
+from typing import Any
 
 from .base import Command
-from ..utils import durs as du
-from ..utils import rwriters as rwr
+from ..utils import pathfinder as pf
 from ..utils import geo
+from ..utils import readwrite as rwr
 
-# INGEST #############################################
 
 class IngestCommand(Command):
     name = "ingest"
 
-    def configure(self, subparsers: argparse._SubParsersAction) -> None:
-        parser = subparsers.add_parser(self.name, help="Ingestion workflow",)
-        ingest_subparsers = parser.add_subparsers(dest="ingest_cmd", required=True)
-        # tile subcommand
-        self._configure_tiles(ingest_subparsers)
-        # shard subcommand etc
+    def run(self, tokens: list[str], config: dict[str, Any]) -> int:
+        if not tokens:
+            raise ValueError("ingest requires a subcommand")
 
-    def _configure_tiles(self, subparsers: argparse._SubParsersAction) -> None:
-        
-        tiles = subparsers.add_parser("tiles",
-            help="Tile whole mosaics into shards + manifest",)
+        subcommand = tokens[0]
+        input = tokens[1]
 
-        self._add_io_args(tiles)
-        self._add_tiling_args(tiles)
-        self._add_shard_args(tiles)
-        self._add_quantization_args(tiles)
-
-    def _add_io_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--input",
-            type=str,
-            default=None,
-            help="csv, directory or glob",
-        )
-    
-        parser.add_argument(
-            "--out",
-            type=str,
-            default=None,
-            help="Output directory",
-        )
-
-    def _add_tiling_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--tile-size", type=int, default=512)
-        parser.add_argument(
-            "--stride",
-            type=int,
-            default=None,
-            help="Default: tile-size (non-overlapping)",
-        )
-        parser.add_argument(
-            "--drop-partial",
-            action="store_true",
-            default=True,
-            help="Drop partial edge tiles",
-        )
-        parser.add_argument(
-            "--keep-partial",
-            action="store_false",
-            dest="drop_partial",
-            help="Keep partial edge tiles",
-        )
-
-    def _add_shard_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--shard-size", type=int, default=4096)
-        parser.add_argument("--shard-prefix", type=str, default="tiles")
-        parser.add_argument(
-            "--manifest",
-            choices=["parquet", "csv", "none"],
-            default="csv",
-        )
-
-    def _add_quantization_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--dtype",
-            choices=["float32", "uint16", "uint8"],
-            default="float32",
-            help="Output dtype",
-        )
-        parser.add_argument(
-            "--scale",
-            choices=["none", "minmax", "percentile"],
-            default="none",
-            help="Scaling strategy",
-        )
-        parser.add_argument("--p-low", type=float, default=0.5)
-        parser.add_argument("--p-high", type=float, default=99.5)
-        parser.add_argument(
-            "--stats",
-            choices=["sample", "compute"],
-            default="sample",
-        )
-        parser.add_argument("--num-samples", type=int, default=2048)
-
-    def run(self, args: argparse.Namespace) -> int:
-        if args.ingest_cmd == "tiles":
-            t = Tiler(args=args)
-            t._tesselate()
+        if subcommand == "tiles":
+            conf = self._config_tiler(input,config)
+            tiler = Tiler.source_(conf)
+            tiler.run()
             return 0
-         
-######################################################
+
+        raise ValueError(f"unknown ingest subcommand: {subcommand}")
+
+    def _config_tiler(self, input: str, config: dict[str, Any]) -> dict[str, Any]:
+        root_global = config.get("global", {})
+        ingest_cfg = config.get("ingest", {})
+        ingest_global = ingest_cfg.get("global", {})
+        tiles_cfg = ingest_cfg.get("tiles", {})
+
+        if not isinstance(root_global, dict):
+            root_global = {}
+        if not isinstance(ingest_cfg, dict):
+            ingest_cfg = {}
+        if not isinstance(ingest_global, dict):
+            ingest_global = {}
+        if not isinstance(tiles_cfg, dict):
+            tiles_cfg = {}
+        
+        # ensure all params are set
+        cfg = {
+            "input": input,
+            "out": "./artifacts",
+            "tile_size": 512,
+            "stride": None,
+            "drop_partial": True,
+            "shard_size": 4096,
+            "shard_prefix": "tiles",
+            "manifest": "csv",
+            "dtype": "float32",
+            "scale": "none",
+            "p_low": 2.0,
+            "p_high": 98.0,
+            "per_band": True,
+            "stats": "sample",
+            "num_samples": 2048,
+        }
+
+        cfg.update(root_global)
+        cfg.update(ingest_global)
+        cfg.update(tiles_cfg)
+
+        if cfg["input"] is None:
+            raise ValueError("ingest.tiles requires config value: input")
+
+        if cfg["stride"] is None:
+            cfg["stride"] = cfg["tile_size"]
+
+        if cfg["tile_size"] <= 0:
+            raise ValueError("tile_size must be > 0")
+
+        if cfg["stride"] <= 0:
+            raise ValueError("stride must be > 0")
+
+        if cfg["scale"] == "percentile":
+            if not (0 <= cfg["p_low"] < cfg["p_high"] <= 100):
+                raise ValueError("percentile scaling requires 0 <= p_low < p_high <= 100")
+
+        return cfg
+
+
+@dataclass(frozen=True)
+class TParams:
+    uris: list[str]
+    out_dir: Path
+    tile_size: int
+    stride: int
+    drop_partial: bool
+    shard_size: int
+    shard_prefix: str
+    manifest_kind: str
+
+
+@dataclass(frozen=True)
+class QParams:
+    dtype: str
+    scale: str
+    p_low: float
+    p_high: float
+    per_band: bool
+    stats: str
+    num_samples: int
+
 
 @dataclass
 class Tiler:
-    def __init__(self,args):
-        uris = list(rwr._iter_uris(args.input))
-        out_dir = du._get_root_(args.out)
-        stride = args.stride if args.stride is not None else args.tile_size
-        self.tp = TParams(
-                        uris=uris, 
-                        out_dir=out_dir,
-                        tile_size = args.tile_size,
-                        stride = stride,
-                        drop_partial=args.drop_partial,
-                        shard_size=args.shard_size,
-                        shard_prefix=args.shard_prefix,
-                        manifest_kind=args.manifest,
-                        )
-        self.qp = QParams(dtype = args.dtype, 
-                          scale=args.scale, 
-                          p_low = args.p_low, 
-                          p_high = args.p_high,
-                          per_band = True, 
-                          stats = args.stats, 
-                          num_samples = args.num_samples,
-                          )
-    def _make_directories(self) -> dict[str, Path]:
-        """constructor for directories """
-        root = self.tp.out_dir
-        dirs = {
-                "root": root,
-                "shards": root / "shards",
-                "manifest": root / "manifest"
-                }
-        for d in dirs.values():
-            d.mkdir(parents=True, exist_ok=True)
-        return dirs
+    tp: TParams
+    qp: QParams
 
-    def _tesselate(self) -> None:
-        dirs = self._make_directories()
-        shards_dir = dirs["shards"]
-        man_dir = dirs["manifest"]
+    @classmethod
+    def source_(cls, cfg: dict[str, Any]) -> "Tiler":
+
+        uris = list(rwr._iter_uris(cfg["input"]))
+        out_dir = pf._get_root_(cfg["out"])
+
+        tp = TParams(
+            uris=uris,
+            out_dir=out_dir,
+            tile_size=cfg["tile_size"],
+            stride=cfg["stride"],
+            drop_partial=cfg["drop_partial"],
+            shard_size=cfg["shard_size"],
+            shard_prefix=cfg["shard_prefix"],
+            manifest_kind=cfg["manifest"],
+        )
+
+        qp = QParams(
+            dtype=cfg["dtype"],
+            scale=cfg["scale"],
+            p_low=cfg["p_low"],
+            p_high=cfg["p_high"],
+            per_band=cfg["per_band"],
+            stats=cfg["stats"],
+            num_samples=cfg["num_samples"],
+        )
+
+        return cls(tp=tp, qp=qp)
+
+    def _dirs(self) -> tuple[Path, Path]:
+        shards_dir = self.tp.out_dir / "shards"
+        manifest_dir = self.tp.out_dir / "manifest"
+        shards_dir.mkdir(parents=True, exist_ok=True)
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        return shards_dir, manifest_dir
+
+    def run(self) -> None:
+        shards_dir, manifest_dir = self._dirs()
+
         for uri in self.tp.uris:
             uri = uri.strip()
             if not uri:
                 continue
-            # cut mosaic with uri, write shards and return
-            # mosaic_id, number of tiles seen (n), 
-            # number written (w)
-            # number of erros (e)
-            # number of skipped (s)
-            summary = geo.cut_mosaic(uri, 
-                                     man_dir, 
-                                     shards_dir, 
-                                     self.qp, 
-                                     self.tp)
 
-            mid, n, w, e, s = summary
+            summary = geo.cut_mosaic(
+                uri,
+                manifest_dir,
+                shards_dir,
+                self.qp,
+                self.tp,
+            )
 
-                    
-# param classes 
-@dataclass(frozen=True)
-class TParams:
-    """ tiling instance parameterization """
-    uris: Iterator[str]
-    out_dir: Path
-    tile_size: int
-    stride: int
-    drop_partial: bool 
-    shard_size: int
-    shard_prefix: str
-    manifest_kind: str
-    
-
-@dataclass(frozen=True)
-class QParams:
-    """ quantization parameters """
-    dtype: str # "float32" | "uint16" | "uint8"
-    scale: str= "none" # "none" | "minmax" | "percentile"
-    p_low: float = 2
-    p_high: float = 98
-    per_band: bool = True 
-    stats: str = "sample" # "sample"  | "compute" (compute = full pass; slower)
-    num_samples: int = 2048 # number of sampled windows per band 
-
-
-
+            mosaic_id, seen, written, errors, skipped = summary
+            print(
+                f"{mosaic_id} "
+                f"seen={seen} written={written} errors={errors} skipped={skipped}"
+            )

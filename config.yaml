@@ -7,13 +7,12 @@ inspect:
 
 ingest:
   global:
-    shard_size: 4096
-    shard_prefix: tiles
+    shard_size: 2096
+    shard_prefix: prefix
 
   tiles:
-    input: ./metadata/*
-    tile_size: 512
-    stride: 512
+    tile_size: 24
+    stride: 24
     drop_partial: true
 
     dtype: uint8

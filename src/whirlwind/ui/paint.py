@@ -102,7 +102,7 @@ def progress(verb: str, noun: str):
     ) 
 
 #==============#
-# TREES #
+# TREES        #
 #==============# 
 def make_tree(label: str, guide_style: str = "info") -> Tree:
     return Tree(label, guide_style=guide_style)

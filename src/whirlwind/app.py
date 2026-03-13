@@ -1,50 +1,34 @@
-
-"""
-APP.PY 
-
-owns command registration and dispatch methods
-    WhirlwindApp: application container for all command dispatching
-"""
 from __future__ import annotations
 
-import argparse
-from dataclasses import dataclass 
 from typing import Dict, Iterable
 
-
 from .commands.base import Command
-from .commands.inspect import InspectCommand
 from .commands.ingest import IngestCommand
+from .commands.inspect import InspectCommand
 
-# WHIRLWIND APP
+
 class WhirlwindApp:
-    """Application container for command dispatchers"""
     def __init__(self, commands: Iterable[Command]) -> None:
-        self._commands: Dict[str,Command] = {
-                    command.name: command for command in commands
-                    }
-    @property 
-    def commands(self) -> List[Command]:
-        return list(self._commands.values())
+        self._commands: Dict[str, Command] = {
+            command.name: command for command in commands
+        }
 
-    def run(self,args:argparse.Namespace) -> int:
+    def run(self, tokens: list[str], config: dict) -> int:
+        if not tokens:
+            return 0
 
-        cmd_ = getattr(args,"cmd",None)
-        if not cmd_:
-            return 2
-        command = self._commands.get(cmd_)
+        head = tokens[0]
+        command = self._commands.get(head)
         if command is None:
-            return 2
-        return command.run(args)
-        
-#####################################################
-### BUILD APP
+            raise ValueError(f"unknown command: {head}")
+
+        return command.run(tokens[1:], config)
+
 
 def _build() -> WhirlwindApp:
-    """create the application with all registered commands"""
     return WhirlwindApp(
-            commands=[
-                InspectCommand(),
-                IngestCommand(),
-            ]
-        )
+        commands=[
+            InspectCommand(),
+            IngestCommand(),
+        ]
+    )

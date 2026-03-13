@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 
-import argparse
 import io
 import json
 import math
@@ -10,7 +9,6 @@ import tarfile
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
-
 import numpy as np
 import rasterio
 from rasterio.windows import Window
@@ -20,16 +18,14 @@ import re
 import uuid
 import hashlib
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
 from datetime import datetime 
 from osgeo import gdal
 from osgeo import osr  # SpatialReference + CoordinateTransformation
-import argparse
 import heapq
 import os
 from dataclasses import dataclass, field
 from ..ui import paint
-from . import durs as du 
+from . import pathfinder as pf
 from . import geo
 
 @dataclass
@@ -109,7 +105,7 @@ class ManifestSink:
 class CSVSink(ManifestSink):
     def __init__(self, path: Path):
         self.path = path
-        du._mkdir_(path.parent)
+        pf._mkdir_(path.parent)
         self.f = open(path, "w", newline="",encoding="utf-8")
         self.w = csv.DictWriter(
             self.f,
@@ -128,7 +124,7 @@ class CSVSink(ManifestSink):
 class Parquet(ManifestSink):
     def __init__(self, path: Path):
         self.path = path
-        du._mkdir_(path.parent)
+        pf._mkdir_(path.parent)
         self.rows: List[dict] =[]
         try:
             import pyarrow as pa 
@@ -139,7 +135,13 @@ class Parquet(ManifestSink):
         self.pq = pq
 
     def _write(self, row: ManifestRow) -> None:
-        self.rows.append(row.__dict__)
+        record = {}
+        for key, value in row.__dict__.items():
+            if isinstance(value,Path):
+                record[key] = str(value)
+            else:
+                record[key] = value
+        self.rows.append(record)
 
     def _close(self) -> None:
         table = self.pa.Table.from_pylist(self.rows)
@@ -165,7 +167,7 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
     If `columns` is None, a default mosaic_stage-compatible column list is used.
     """
     input_path = Path(input_dir)
-    output_path = Path(du._find_home_()/"metadata"/out_csv)
+    output_path = Path(pf._find_home_()/"metadata"/out_csv)
     rows: List[Dict[str, Any]] = []
 
     if columns is None:
@@ -222,7 +224,7 @@ def _iter_uris(source: str, extensions: tuple[str,...]=(".tif",".tiff")) -> Iter
         with open(source, newline="", encoding="utf-8") as f:
             r = csv.DictReader(f)
             if "uri" not in (r.fieldnames or []):
-                raise ValueError(f"input CSV missing uri column: {input_csv}")
+                raise ValueError(f"input CSV missing uri column: {source}")
             for row in r:
                 uri = (row.get("uri") or "").strip()
                 if uri:
@@ -243,6 +245,6 @@ def _iter_uris(source: str, extensions: tuple[str,...]=(".tif",".tiff")) -> Iter
             yield str(tif)
     if matches:
         return
-    raise ValueError(f"could not resolve input as csv, directory, or glob: {input}")
+    raise ValueError(f"could not resolve input as csv, directory, or glob: {source}")
 
 
