@@ -5,6 +5,8 @@ from typing import Dict, Iterable
 from ..commands.base import Command
 from ..commands.ingest import IngestCommand
 from ..commands.inspect import InspectCommand
+from ..utils.logger import Logger
+
 
 
 class WhirlwindApp:

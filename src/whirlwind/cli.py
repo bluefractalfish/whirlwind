@@ -10,6 +10,8 @@ import yaml
 
 from .core.app import _build
 from .utils import configure as conf
+from .utils.logger import Logger
+from .utils.pathfinder import _find_home_
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,11 +23,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    log = Logger(_find_home_()/"logs"/"wind.jsonl", level="INFO",component="cli")
     app = _build()
     config = conf.load_(args.config)
-
     while True:
         try:
+            log.debug("opened loop","success")
             line = input("W: ").strip()
         except EOFError:
             return 0
@@ -38,10 +41,6 @@ def main(argv: list[str] | None = None) -> int:
         if line in {"quit", "exit"}:
             return 0
 
-        if line == "reload":
-            config = load_config(args.config)
-            print("reloaded")
-            continue
 
         if line == "help":
             print("commands: inspect, ingest tiles, reload, quit")
