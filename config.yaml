@@ -1,0 +1,26 @@
+global:
+  out: ./artifacts
+  manifest: csv
+  log: ./log/wind.log
+
+inspect:
+  top_n: 100
+
+ingest:
+  global:
+    shard_size: 2096
+    shard_prefix: prefix
+
+  tiles:
+    tile_size: 512
+    stride: 512
+    drop_partial: true
+
+    dtype: uint8
+    scale: percentile
+    p_low: 2
+    p_high: 98
+    per_band: true
+
+    stats: sample
+    num_samples: 2048

@@ -1,0 +1,2 @@
+[console_scripts]
+whirlwind = whirlwind.cli:main

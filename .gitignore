@@ -1,0 +1,11 @@
+shards/
+metadata/
+mnt/
+artifacts/
+assets/
+logs/
+440c7/
+__pycache__/ 
+*.pyc 
+*.pyo
+*.pyd
