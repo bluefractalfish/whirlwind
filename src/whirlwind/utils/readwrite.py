@@ -15,7 +15,6 @@ from datetime import datetime
 from osgeo import gdal
 from osgeo import osr  # SpatialReference + CoordinateTransformation
 from dataclasses import dataclass, field
-from ..ui import paint
 from . import pathfinder as pf
 from . import geo
 
