@@ -3,7 +3,7 @@
 # handle config loading 
 # handle key normalization 
 # hold ShellState 
-from ..ui.ui import UI 
+from ..ui.tui import TUI 
 import shlex 
 
 
@@ -14,7 +14,7 @@ class WShell:
        self.app = app_instance
        self.config = config
        self.log = log 
-       self.ui = UI() 
+       self.ui = TUI() 
 
 
     def _run(self) -> int:

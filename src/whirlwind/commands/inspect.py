@@ -11,14 +11,14 @@ from ..utils import pathfinder as pf
 from ..utils import ids
 from ..utils import readwrite as rwr
 from ..utils import logger
-from ..ui.ui import UI 
+from ..ui.tui import TUI 
 
 class InspectCommand(Command):
     name = "inspect"
     
     def __init__(self, logger):
         self.log = logger.child(self.name)
-        self.ui = UI()
+        self.ui = TUI()
 
     def run(self, tokens: list[str], config: dict[str, Any]) -> int:
         

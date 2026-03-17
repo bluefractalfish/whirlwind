@@ -8,7 +8,7 @@ from .core.app import _build
 from .utils import configure as confio
 from .utils.logger import Logger
 from .utils.pathfinder import _find_home_
-from .ui.ui import UI
+from .ui.tui import TUI
 from .core.shell import WShell
 
 
@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 def main(argv: list[str] | None = None) -> int:
-    ui = UI()
+    ui = TUI()
     args = build_parser().parse_args(argv)
     ui.info(f"sourcing configuration from {args.config}...")
     config = confio.load_(args.config) 

@@ -5,7 +5,7 @@ from typing import Any
 from .base import Command
 from ..utils import geo
 from .tessera.tile import _tesselate_
-from ..ui.ui import UI
+from ..ui.tui import TUI
 
 
 class IngestCommand(Command):
@@ -14,7 +14,7 @@ class IngestCommand(Command):
 
     def __init__(self, logger):
         self.log = logger.child(self.name)
-        self.ui = UI()
+        self.ui = TUI()
 
     def run(self, tokens: list[str], config: dict[str, Any]) -> int:
 

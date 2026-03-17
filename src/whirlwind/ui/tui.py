@@ -4,14 +4,14 @@ from rich.rule import Rule
 from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn
 
 
-class UI:
+class TUI:
 
     def __init__(self):
         self._console = Console()
 
     # generic printing
     def print(self, msg: str) -> None:
-        self._console.print(f"[bold white]{msg}[/]")
+        self._console.print(f"[white]{msg}[/]")
 
     def info(self, msg: str) -> None:
         self._console.print(f"[cyan]{msg}[/]")
