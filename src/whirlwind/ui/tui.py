@@ -1,20 +1,27 @@
 from rich.console import Console
 from rich.table import Table
 from rich.rule import Rule
-from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn
+from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn, TextColumn
+from rich.panel import Panel
+from rich.align import Align
 
 
 class TUI:
 
     def __init__(self):
         self._console = Console()
-
+    
+    def c_box(self, msg:str, title: str | None=None ) -> None:
+        self._console.print(Panel(Align.center(msg),title=title))
     # generic printing
     def print(self, msg: str) -> None:
         self._console.print(f"[white]{msg}[/]")
 
     def info(self, msg: str) -> None:
         self._console.print(f"[cyan]{msg}[/]")
+
+    def row(self, c1: str, c2) -> None:
+        self._console.print(f"[cyan]{c1}[/]: [white]{c2}[/]")
 
     def success(self, msg: str) -> None:
         self._console.print(f"[bold green]{msg}[/]")
@@ -46,8 +53,8 @@ class TUI:
 
         return Progress(
             SpinnerColumn(),
-            "[progress.description]{task.description}",
-            BarColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            TextColumn("{task.completed}/{task.total}"),
             TimeElapsedColumn(),
             console=self._console,
         )

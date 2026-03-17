@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import shlex
 import sys
 
 from .core.app import _build
@@ -20,11 +19,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     ui = TUI()
-    args = build_parser().parse_args(argv)
-    ui.info(f"sourcing configuration from {args.config}...")
-    config = confio.load_(args.config) 
-    ui.success(f"configuration loaded")
-    log = Logger(_find_home_()/"logs"/"wind.jsonl")
+    ui.c_box("W:HIRLWIND")
+    config = confio.load_(build_parser().parse_args(argv).config)
+    ui.success(f"configuration loaded successfuly")
+    lp = config.get("global").get("log")
+    log = Logger(lp)
     app = _build(log)  
     shell = WShell(app,config,log) 
     return shell._run()

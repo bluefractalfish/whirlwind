@@ -21,8 +21,11 @@ from dataclasses import dataclass
 from . import ids
 from . import datahelp as dh
 from . import readwrite as rwr
+from ..ui.tui import TUI 
 
+ui = TUI()
 def _init() -> None:
+    ui.info("initializing gdal: UseExceptions = True")
     gdal.UseExceptions()
 
 def extract_metadata(uri: str, columns: List[str]) -> Dict[str, Any]:
@@ -323,40 +326,44 @@ def sample_band(
     step = max(1, int(math.sqrt(n_tiles / need)))
     sparse = math.ceil(tiles_y/step)*math.ceil(tiles_x/step)
     sampled = 0
-    for ty in range(0, tiles_y, step):
-        y = ty * stride
-        for tx in range(0, tiles_x, step):
-            x = tx * stride
-            win = Window(x, y, tile_size, tile_size)
+    
+    with ui.progress() as p:
+        t = p.add_task(description="sampling bands", total=need)
+        for ty in range(0, tiles_y, step):
+            y = ty * stride
+            for tx in range(0, tiles_x, step):
+                p.update(t, advance=1)
+                x = tx * stride
+                win = Window(x, y, tile_size, tile_size)
 
-            # masked read avoids nodata bias
-            data = ds.read(window=win, out_dtype=np.float32, masked=True)  # (bands, H, W)
+                # masked read avoids nodata bias
+                data = ds.read(window=win, out_dtype=np.float32, masked=True)  # (bands, H, W)
 
-            for bi in range(nb):
-                band = data[bi]
-                if getattr(band, "mask", None) is not None and band.mask.all():
-                    continue
-                vals = band.compressed() if hasattr(band, "compressed") else band.ravel()
-                if vals.size == 0:
-                    continue
+                for bi in range(nb):
+                    band = data[bi]
+                    if getattr(band, "mask", None) is not None and band.mask.all():
+                        continue
+                    vals = band.compressed() if hasattr(band, "compressed") else band.ravel()
+                    if vals.size == 0:
+                        continue
 
-                if qp.scale == "minmax":
-                    lo_hi[bi + 1].append(float(np.min(vals)))
-                    lo_hi[bi + 1].append(float(np.max(vals)))
-                elif qp.scale == "percentile":
-                    lo = float(np.percentile(vals, qp.p_low))
-                    hi = float(np.percentile(vals, qp.p_high))
-                    lo_hi[bi + 1].append(lo)
-                    lo_hi[bi + 1].append(hi)
-                else:
-                    # unknown -> no bounds
-                    pass
+                    if qp.scale == "minmax":
+                        lo_hi[bi + 1].append(float(np.min(vals)))
+                        lo_hi[bi + 1].append(float(np.max(vals)))
+                    elif qp.scale == "percentile":
+                        lo = float(np.percentile(vals, qp.p_low))
+                        hi = float(np.percentile(vals, qp.p_high))
+                        lo_hi[bi + 1].append(lo)
+                        lo_hi[bi + 1].append(hi)
+                    else:
+                        # unknown -> no bounds
+                        pass
 
-            sampled += 1
+                sampled += 1
+                if sampled >= need:
+                    break
             if sampled >= need:
                 break
-        if sampled >= need:
-            break
 
     out: Dict[int, Tuple[float, float]] = {}
     for b in range(1, nb + 1):
@@ -494,81 +501,100 @@ def cut_mosaic(uri: str,
                shard_dir: Path, 
                qp: QParams, 
                tp: TParams) -> tuple[str,int,int,int,int]:
+    _init()
     n_seen = 0 
     n_skipped = 0 
     n_errors = 0 
     n_written = 0 
     mosaic_id = ids.uuid_from_path(uri)
+    ui.div(f"cutting: {mosaic_id}")
     writer = rwr.ShardWriter(
             out_dir=shard_dir,prefix=mosaic_id,shard_size=tp.shard_size)
+    qp.table()
+    tp.table()
+    ui.success(f"shardwriter opened for {shard_dir}")
     k = tp.manifest_kind.lower()
     mosaic_man_path = man_dir/(f"{mosaic_id}.parquet" if k == "parquet" else f"{mosaic_id}.csv")
+    ui.print(f"tring to write {k} manifest to {mosaic_man_path}...")
     sink = rwr.make_sink(k,mosaic_man_path)
+    ui.success("SUCCESS")
     try:
+        ui.print(f"trying to open mosaic at {uri}...")
         with rasterio.open(uri) as ds:
+            ui.success("SUCCESS")
             tile_size = tp.tile_size
             stride = tp.stride
             total_tiles = num_tiles(ds, tile_size, stride) 
             band_bounds = {}
             if qp.scale != "none":
                 band_bounds = sample_band(ds, tile_size, stride, qp) 
-            for r_i, c_i, win in iter_windows(ds,tp):
-                # one tile per iteration
-                n_seen += 1
-                try:
-                    tid = ids.gen_tile_id(mosaic_id, r_i, c_i)
-                    #cut_tile returns Tile object
-                    tile = Tile(
-                            tid = tid,
-                            mid = mosaic_id,
-                            source_uri = uri,
-                            row_id = r_i,
-                            col_id = c_i,
-                            window = win,
-                            transform = ds.transform,
-                            crs=ds.crs.to_string() if ds.crs else None,
+                ui.success("SUCCESS")
+            with ui.progress() as p:
+                t = p.add_task(description="tiling",total=total_tiles)
+                for r_i, c_i, win in iter_windows(ds,tp):
+                    p.update(t, advance=1)
+                    # one tile per iteration
+                    n_seen += 1
+                    try:
+                        tid = ids.gen_tile_id(mosaic_id, r_i, c_i)
+                        #cut_tile returns Tile object
+                        tile = Tile(
+                                tid = tid,
+                                mid = mosaic_id,
+                                source_uri = uri,
+                                row_id = r_i,
+                                col_id = c_i,
+                                window = win,
+                                transform = ds.transform,
+                                crs=ds.crs.to_string() if ds.crs else None,
+                                )
+                        npy, js, meta = cut_tile( tile, ds, qp, tp, band_bounds, writer)
+                        writer._write_sample(tid,npy,js)
+                        bounds = meta["bounds_wgs84"]
+                        manifest_row = rwr.ManifestRow(
+                            tile_id=tid,
+                            shard=writer.tar_path,
+                            key=tid,
+                            source_uri=uri,
+                            x_off=int(win.col_off),
+                            y_off=int(win.row_off),
+                            w=int(win.width),
+                            h=int(win.height),
+                            crs=tile.crs,
+                            minx=bounds["minx"],
+                            miny=bounds["miny"],
+                            maxx=bounds["maxx"],
+                            maxy=bounds["maxy"],
+                            bands=int(ds.count),
+                            dtype=meta["dtype"],
                             )
-                    npy, js, meta = cut_tile( tile, ds, qp, tp, band_bounds, writer)
-                    writer._write_sample(tid,npy,js)
-                    bounds = meta["bounds_wgs84"]
-                    manifest_row = rwr.ManifestRow(
-                        tile_id=tid,
-                        shard=writer.tar_path,
-                        key=tid,
-                        source_uri=uri,
-                        x_off=int(win.col_off),
-                        y_off=int(win.row_off),
-                        w=int(win.width),
-                        h=int(win.height),
-                        crs=tile.crs,
-                        minx=bounds["minx"],
-                        miny=bounds["miny"],
-                        maxx=bounds["maxx"],
-                        maxy=bounds["maxy"],
-                        bands=int(ds.count),
-                        dtype=meta["dtype"],
-                        )
-                    sink._write(manifest_row)
-                    n_written += 1 
-                except KeyboardInterrupt:
-                    writer._close()
-                    sink._close()
-                    raise
-                except Exception as e:
-                    print(e)
-                    n_errors += 1
-                    continue
-
+                        sink._write(manifest_row)
+                        n_written += 1 
+                    except KeyboardInterrupt:
+                        ui.warn("closing shard writer")
+                        writer._close()
+                        ui.warn("closing manifest")
+                        sink._close()
+                        raise
+                    except Exception as e:
+                        ui.error(f"{e}")
+                        n_errors += 1
+                        continue
     except KeyboardInterrupt:
+        ui.warn("closing shard writer")
+        ui.warn("closing manifest")
         writer._close()
         sink._close()
         raise
     except Exception as e:
-        print(e)
+        ui.error(f"{e}")
         n_errors += 1
     finally:
+        ui.info("closing shard writer")
         writer._close()
+        ui.info("closing manifest")
         sink._close()
+    ui.success("SUCCESS")
     return mosaic_id, n_seen, n_written, n_errors, n_skipped
 
 

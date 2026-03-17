@@ -9,11 +9,12 @@ from ...utils import ids
 from ...utils import readwrite as rwr
 from ...utils import pathfinder as pf
 from ...utils import geo
+from ...ui.tui import TUI 
 
-
+ui = TUI()
 def _tesselate_(tokens: list[str], config: dict[str, Any], log) -> int:
     if len(tokens) !=  1:
-        print("tiling expects one input field")
+        ui.error("tiling expects one input field")
     input = tokens[0]
     t = Tiler(input, config,log)
     t.run()
@@ -29,9 +30,10 @@ class Tiler:
     def __init__(self, i: str, c: dict[str, Any], log):
         self.log = log
         cfg = self._parse_config(i,c)
+        ui.info("attempting to open IO paths...")
         uris = list(rwr._iter_uris(cfg["input"]))
         out_dir = pf._get_root_(cfg["out"])
-
+    
         self.tp = TParams(
             uris=uris,
             out_dir=out_dir,
@@ -134,10 +136,10 @@ class Tiler:
             )
 
             mosaic_id, seen, written, errors, skipped = summary
-            print(
-                f"{mosaic_id} "
-                f"seen={seen} written={written} errors={errors} skipped={skipped}"
-            )
+            ui.table(f"tiling summary for {uri}",
+                     ["manifest","shards","mosaic id", "seen","written","errors","skipped"],
+                     [[shards_dir, manifest_dir, mosaic_id, seen, written, errors, skipped]],
+                    )
 
 @dataclass(frozen=True)
 class TParams:
@@ -149,6 +151,19 @@ class TParams:
     shard_size: int
     shard_prefix: str
     manifest_kind: str
+    
+    def table(self) -> None:
+        title = "TPARAMS"
+        c = ["params","value"] 
+        r = [
+                ["out",self.out_dir],
+                ["tile_size", self.tile_size],
+                ["stride", self.stride],
+                ["shard_size", self.shard_size],
+                ["drop_partial", self.drop_partial],
+                ["shard_size",self.shard_size]
+            ]
+        ui.table(title,c,r)
 
 
 @dataclass(frozen=True)
@@ -161,4 +176,16 @@ class QParams:
     stats: str
     num_samples: int
 
-
+    def table(self) -> None:
+        title = "QPARAMS"
+        c = ["params","values"] 
+        r = [
+                ["dtype", self.dtype],
+                ["scale", self.scale],
+                ["p_low", self.p_low],
+                ["p_hi", self.p_high],
+                ["per_band", self.per_band],
+                ["stats", self.stats],
+                ["num_sampels", self.num_samples]
+            ]
+        ui.table(title,c,r)

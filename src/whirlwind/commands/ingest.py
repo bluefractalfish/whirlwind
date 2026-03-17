@@ -34,7 +34,6 @@ class IngestCommand(Command):
             return 2
 
         if subcommand == "tiles":
-            self.ui.info("trying to tesselate")
             return _tesselate_(tokens[1:],config,self.log)
 
 

@@ -11,6 +11,9 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
+from .pathfinder import _find_home_ 
+from ..ui.tui import TUI 
+ui = TUI()
 
 class Logger:
     LEVELS = {
@@ -19,7 +22,7 @@ class Logger:
             "WARN": 30,
             "ERROR": 40,
             }
-
+    
     def __init__(
             self,
             path: str | Path,
@@ -28,18 +31,27 @@ class Logger:
             run_id: str | None = None,
             ) -> None:
 
-        self.path = Path(path).expanduser().resolve()
-        self.path.parent.mkdir(parents=True,exist_ok=True)
+        ui.row(f"looking for log at",f"{path}")
+        dir =  Path(path).expanduser().resolve()
+        self.js = dir/"wind.jsonl"
+        self.hr = dir/"wind.log"
+        dir.parent.mkdir(parents=True,exist_ok=True)
+        ui.info("opening logs: ")
+        ui.row(f"    for machines",f"{self.js}")
+        ui.row(f"    for humans",f"{self.hr}")
         self.level = level.upper()
         self.component = component or "app"
-        self.run_id = run_id or str(uuid.uuid4())[:6]
+        self.run_id = run_id or "ww"+str(uuid.uuid4())[:6]
+        ui.success(f"opening log for iteration {self.run_id} at {self._utc_now()}")
 
 
     def child(self, component: str, **context: Any) -> "ChildLogger":
         return ChildLogger(self, component=component, context=context)
 
     def _utc_now(self) -> str:
-        return datetime.now(timezone.utc).isoformat(timespec="seconds")
+        dt =  datetime.now(timezone.utc).isoformat(timespec="minutes") 
+        dt = dt[2:].replace("-","") + "Z"
+        return dt
 
     def _enabled(self, level: str) -> bool:
         return self.LEVELS[level] >= self.LEVELS[self.level]
@@ -56,30 +68,37 @@ class Logger:
         return value
 
 
-    def _write(self, record: dict[str, Any]) -> None:
-        with self.path.open("a", encoding="utf-8") as l:
+    def _write_js(self, record: dict[str, Any]) -> None:
+        with self.js.open("a", encoding="utf-8") as l:
             l.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
-
+    def _write_hr(self, record: dict[str, Any]) -> None:
+        ln =  "\n  ___"
+        for a in record.values():
+            ln = ln + f":{a}:"
+        with self.hr.open("a", encoding="utf8") as hl:
+            hl.write(ln + "\n")
     def log(
             self,
             level: str,
-            message: str, 
+            message: str | None = None, 
             component: str | None=None,
-            **data: Any,
+            **data: Any ,
             ) -> dict[str, Any]:
 
         level = level.upper()
         if not self._enabled(level):
             return {}
         record = {
-                "ts": self._utc_now(),
                 "level": level,
                 "run_id": self.run_id,
+                "ts": self._utc_now(),
                 "component": component or self.component,
                 "message": str(message),
-                "data": self._normalize(data)
+                "data": "" if data == {} else self._normalize(data) 
                 }
-        self._write(record)
+
+        self._write_js(record)
+        self._write_hr(record)
         return record 
 
     def debug(self, message: str, **data: Any) -> None:
@@ -94,32 +113,8 @@ class Logger:
     def error(self, message: str, **data: Any) -> None:
         self.log("ERROR",  message,  **data) 
 
-    @contextmanager
-    def timed(self,  message: str = "", **data: Any):
-        start = datetime.now(timezone.utc)
-        self.info( message or "Started", **data)
-        try:
-            yield
-        except Exception as exc:
-            end = datetime.now(timezone.utc)
-            self.exception(
-                exc,
-                message="Timed operation failed",
-                started_at=start.isoformat(timespec="seconds"),
-                ended_at=end.isoformat(timespec="seconds"),
-                duration_s=(end - start).total_seconds(),
-                **data,
-            )
-            raise
-        else:
-            end = datetime.now(timezone.utc)
-            self.info(
-                "Completed",
-                started_at=start.isoformat(timespec="seconds"),
-                ended_at=end.isoformat(timespec="seconds"),
-                duration_s=(end - start).total_seconds(),
-                **data,
-            )
+    def breakpoint(self) -> None:
+        self.log("DEBUG", "breakpoint")
 
 class ChildLogger:
     def __init__(self, base: Logger, component: str, context: Mapping[str, Any] | None = None) -> None:
