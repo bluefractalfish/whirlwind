@@ -54,6 +54,8 @@ class Tiler:
             stats=cfg["stats"],
             num_samples=cfg["num_samples"],
         )
+        self.tp.table()
+        self.qp.table()
 
     def _parse_config(self, input: str, config: dict[str, Any]) -> dict[str, Any]:
         root_global = config.get("global", {})
@@ -136,7 +138,7 @@ class Tiler:
             )
 
             mosaic_id, seen, written, errors, skipped = summary
-            ui.table(f"tiling summary for {uri}",
+            ui.table("",
                      ["manifest","shards","mosaic id", "seen","written","errors","skipped"],
                      [[shards_dir, manifest_dir, mosaic_id, seen, written, errors, skipped]],
                     )
@@ -153,8 +155,8 @@ class TParams:
     manifest_kind: str
     
     def table(self) -> None:
-        title = "TPARAMS"
-        c = ["params","value"] 
+        title = ""
+        c = ["",""] 
         r = [
                 ["out",self.out_dir],
                 ["tile_size", self.tile_size],
@@ -177,8 +179,8 @@ class QParams:
     num_samples: int
 
     def table(self) -> None:
-        title = "QPARAMS"
-        c = ["params","values"] 
+        title = ""
+        c = ["",""] 
         r = [
                 ["dtype", self.dtype],
                 ["scale", self.scale],

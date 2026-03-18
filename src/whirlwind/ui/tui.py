@@ -1,7 +1,8 @@
 from rich.console import Console
+from rich.text import Text
 from rich.table import Table
 from rich.rule import Rule
-from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn, TextColumn
+from rich.progress import Progress, ProgressColumn, SpinnerColumn, BarColumn, TimeElapsedColumn, TextColumn, Task
 from rich.panel import Panel
 from rich.align import Align
 
@@ -18,13 +19,13 @@ class TUI:
         self._console.print(f"[white]{msg}[/]")
 
     def info(self, msg: str) -> None:
-        self._console.print(f"[cyan]{msg}[/]")
+        self._console.print(f"[bold white]{msg}[/]")
 
     def row(self, c1: str, c2) -> None:
-        self._console.print(f"[cyan]{c1}[/]: [white]{c2}[/]")
+        self._console.print(f"[bold white]{c1}[/]: [white]{c2}[/]")
 
     def success(self, msg: str) -> None:
-        self._console.print(f"[bold green]{msg}[/]")
+        self._console.print(f"[green]{msg}[/]")
 
     def warn(self, msg: str) -> None:
         self._console.print(f"[yellow]{msg}[/]")
@@ -38,7 +39,7 @@ class TUI:
     # table display
     def table(self, title: str, columns: list[str], rows: list[list]) -> None:
 
-        table = Table(title=title)
+        table = Table(title=title,box=None,show_lines=False)
 
         for col in columns:
             table.add_column(col)
@@ -52,9 +53,31 @@ class TUI:
     def progress(self):
 
         return Progress(
-            SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
+            TextColumn("["),
+            AsciiBar(),
+            TextColumn("]"),
+            TextColumn("{task.percentage:>3.0f}"),
             TextColumn("{task.completed}/{task.total}"),
             TimeElapsedColumn(),
-            console=self._console,
-        )
+            transient=False,
+            console=self._console,)
+
+class AsciiBar(ProgressColumn):
+
+        def __init__(self, width: int=40, done_char: str = "#", empty_char: str = "-") -> None:
+            super().__init__()
+            self.width=width 
+            self.done_char=done_char
+            self.empty_char=empty_char
+        def render(self, task: Task) -> Text:
+            if task.total is None:
+                return Text("["+"-"*self.width+"]")
+            total = task.total or 0
+            completed = min(task.completed, total) if total else task.completed 
+            ratio = 0.0 if total == 0 else completed / total 
+            filled = min(self.width, max(0, int(ratio*self.width)))
+            empty = self.width-filled 
+
+            bar =  "#" * filled + "-" * empty 
+            return Text(bar)

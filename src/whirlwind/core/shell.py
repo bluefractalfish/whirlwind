@@ -45,6 +45,7 @@ class WShell:
                 self.ui.success(f"quitting with keyboard interruption")
                 return 0
             except Exception as exc:
+                raise exc
                 self.ui.error(f"{exc}")
         return 0
 

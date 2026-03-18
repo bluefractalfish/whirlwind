@@ -30,7 +30,7 @@ class WhirlwindApp:
 def _build(log) -> WhirlwindApp:
     return WhirlwindApp(
         commands=[
-            InspectCommand(log),
+            InspectCommand(),
             IngestCommand(log),
         ]
     )

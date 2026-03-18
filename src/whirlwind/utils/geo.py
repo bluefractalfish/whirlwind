@@ -501,7 +501,6 @@ def cut_mosaic(uri: str,
                shard_dir: Path, 
                qp: QParams, 
                tp: TParams) -> tuple[str,int,int,int,int]:
-    _init()
     n_seen = 0 
     n_skipped = 0 
     n_errors = 0 
@@ -510,25 +509,20 @@ def cut_mosaic(uri: str,
     ui.div(f"cutting: {mosaic_id}")
     writer = rwr.ShardWriter(
             out_dir=shard_dir,prefix=mosaic_id,shard_size=tp.shard_size)
-    qp.table()
-    tp.table()
-    ui.success(f"shardwriter opened for {shard_dir}")
+    ui.info(f"shardwriter opened for {shard_dir}")
     k = tp.manifest_kind.lower()
     mosaic_man_path = man_dir/(f"{mosaic_id}.parquet" if k == "parquet" else f"{mosaic_id}.csv")
     ui.print(f"tring to write {k} manifest to {mosaic_man_path}...")
     sink = rwr.make_sink(k,mosaic_man_path)
-    ui.success("SUCCESS")
     try:
         ui.print(f"trying to open mosaic at {uri}...")
         with rasterio.open(uri) as ds:
-            ui.success("SUCCESS")
             tile_size = tp.tile_size
             stride = tp.stride
             total_tiles = num_tiles(ds, tile_size, stride) 
             band_bounds = {}
             if qp.scale != "none":
                 band_bounds = sample_band(ds, tile_size, stride, qp) 
-                ui.success("SUCCESS")
             with ui.progress() as p:
                 t = p.add_task(description="tiling",total=total_tiles)
                 for r_i, c_i, win in iter_windows(ds,tp):
@@ -590,11 +584,9 @@ def cut_mosaic(uri: str,
         ui.error(f"{e}")
         n_errors += 1
     finally:
-        ui.info("closing shard writer")
+        ui.print("closing shard and manifest writers")
         writer._close()
-        ui.info("closing manifest")
         sink._close()
-    ui.success("SUCCESS")
     return mosaic_id, n_seen, n_written, n_errors, n_skipped
 
 

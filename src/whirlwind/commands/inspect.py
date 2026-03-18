@@ -16,13 +16,11 @@ from ..ui.tui import TUI
 class InspectCommand(Command):
     name = "inspect"
     
-    def __init__(self, logger):
-        self.log = logger.child(self.name)
+    def __init__(self):
         self.ui = TUI()
 
     def run(self, tokens: list[str], config: dict[str, Any]) -> int:
         
-        self.log.info("inspection started")
 
 
         cfg = self._config(config)
@@ -33,12 +31,10 @@ class InspectCommand(Command):
             cfg["root"] = tokens[0]
         else: 
             self.ui.error("root path needed")
-            self.log.error("root path needed for inspect", tokens=tokens)
         root = Path(cfg["root"])
 
         if not root.exists() or not root.is_dir():
             self.ui.error(f"not a valid path: {root}")
-            self.log.error("not a valid path", path=root)
             return 2
 
         out_name = f"{ids.gen_fingerprint(root)}.csv"

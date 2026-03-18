@@ -1,7 +1,8 @@
 global:
-  out: ./artifacts
+  in: ../_W/_S/
+  out: ../_W/artifacts
   manifest: csv
-  log: ./log/wind.log
+  log: ../_W/log/
 
 inspect:
   top_n: 100
