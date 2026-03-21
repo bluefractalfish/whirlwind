@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from typing_extensions import Dict
 
 from .base import Command
 from ..utils import geo
@@ -39,4 +40,15 @@ class IngestCommand(Command):
 
         self.ui.error(f"unknown ingest subcommand: {subcommand}")
         return 2
+
+    def help(self) -> dict[str,str]:
+        tr = {
+                "ingest" : "this command is for the ingesting of geodata packaged in a directory or referenced by a manifest. it is used alongside the following subcommands: ",
+                "tiles" : "using ingest tiles <input csv/directory> a shardwriter tesselates the given uris into tiles of --tile-size",
+                "shards": "not yet constructed",
+                "mosaics": "not yet constructed",
+        }
+        
+        return tr
+
 

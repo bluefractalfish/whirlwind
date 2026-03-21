@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     ui = TUI()
-    ui.c_box("W:HIRLWIND")
+    ui.div("W:HIRLWIND")
     config = confio.load_(build_parser().parse_args(argv).config)
     ui.success(f"configuration loaded successfuly")
     lp = config.get("global").get("log")

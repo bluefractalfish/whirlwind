@@ -17,6 +17,9 @@ from osgeo import osr  # SpatialReference + CoordinateTransformation
 from dataclasses import dataclass, field
 from . import pathfinder as pf
 from . import geo
+from ..ui.tui import TUI 
+
+ui = TUI()
 
 @dataclass
 class ShardWriter:
@@ -178,7 +181,6 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
             "created_at"
         ]
 
-    n_files = sum(1 for p in input_path.rglob("*") if p.is_file())
     for tif in _search_ext_(input_path):
         rows.append(geo.extract_metadata(str(tif), columns))
     with open(output_path, "w", newline="", encoding="utf-8") as f:
@@ -188,7 +190,7 @@ def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = 
             # Ensure all requested columns exist; fill missing with ""
             w.writerow({k: r.get(k, "") for k in columns})
 
-def _search_ext_(root: Path, extensions: List[str]=(".tif", ".tiff")) -> Iterable[Path]:
+def _search_ext_(root: Path, extensions=(".tif", ".tiff")) -> Iterable[Path]:
     for p in root.rglob("*"):
         if p.is_file() and p.suffix.lower() in extensions:
             yield p
@@ -204,9 +206,10 @@ def _iter_uris(source: str, extensions: tuple[str,...]=(".tif",".tiff")) -> Iter
         raise ValueError("input source is required for _iter_uris")
     s = source.strip()
     p = Path(s).expanduser()
-
+    ui.row("input",p)
     # check if csv
     if p.is_file() and p.suffix.lower() == ".csv":
+        ui.print("(input path is a file)")
         with open(source, newline="", encoding="utf-8") as f:
             r = csv.DictReader(f)
             if "uri" not in (r.fieldnames or []):
@@ -218,9 +221,14 @@ def _iter_uris(source: str, extensions: tuple[str,...]=(".tif",".tiff")) -> Iter
         return
     # check if directory
     if p.is_dir():
-        for tif in p.rglob("*"):
-            if tif.is_file() and tif.suffix.lower() in extensions:
-                yield str(tif)
+        n_files = sum(1 for f in p.rglob("*") if f.is_file())
+        ui.print("(input path is a directory)")
+        with ui.progress() as pr: 
+            task = pr.add_task(f"recursing {p}", total=n_files)
+            for tif in p.rglob("*"):
+                pr.update(task,advance=1)
+                if tif.is_file() and tif.suffix.lower() in extensions:
+                    yield str(tif)
         return
 
     # Otherwise treat as glob

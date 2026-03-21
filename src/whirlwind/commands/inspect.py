@@ -63,7 +63,11 @@ class InspectCommand(Command):
 
 
         return cfg
-
+    def help(self) -> dict[str,str]:
+        tr = { 
+            "inspect": "the inspect command is for scanning directories and generating csv manifests of the contents. it handles the generation of uris, uids, fingerprints. when referenced with the <ingest> command these csvs are used to produce tesselations of the mosaics located at the given uris"
+              }
+        return tr
 
 @dataclass
 class ScanStats:

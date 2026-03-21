@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable
+from typing import List, Dict, Iterable
 
 from ..commands.base import Command
 from ..commands.ingest import IngestCommand
@@ -15,6 +15,7 @@ class WhirlwindApp:
             command.name: command for command in commands
         }
 
+
     def run(self, tokens: list[str], config: dict) -> int:
         if not tokens:
             return 0
@@ -22,9 +23,15 @@ class WhirlwindApp:
         head = tokens[0]
         command = self._commands.get(head)
         if command is None:
-            raise ValueError(f"unknown command: {head}")
+            return 3
 
         return command.run(tokens[1:], config)
+
+    def _help(self) -> List[dict[str,str]]:
+        for command in self._commands.values():
+            print(command.help())
+
+        
 
 
 def _build(log) -> WhirlwindApp:

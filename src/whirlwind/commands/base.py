@@ -3,7 +3,6 @@
 """
 
 
-import argparse
 from abc import ABC, abstractmethod
 
 
@@ -16,6 +15,9 @@ class Command(ABC):
 
     @abstractmethod
     def run(self, tokens: list[str], config: dict[str,Any]) -> int:
+        raise NotImplementedError
+    
+    def help(self) -> dict[str,str]:
         raise NotImplementedError
 
 

@@ -10,27 +10,26 @@ import shlex
 class WShell:
 
     def __init__(self,app_instance, config, log):
-       self.running = True
+       self.running = 0
        self.app = app_instance
        self.config = config
        self.log = log 
        self.ui = TUI() 
-       self.ui.c_box("INITIALIZING WSHELL V=A.0")
+       self.ui.c_box("INITIALIZING WSHELL V=A.0",l="INFO")
 
 
     def _run(self) -> int:
-        while self.running:
+        while self.running == 0:
             try:
                 ln = input("w: ").strip()
 
                 if not ln:
                     continue 
                 if ln in {"quit","exit","q"}:
-                    self.ui.success("quitting...")
-                    self.ui.div()
-                    return 2
+                    self.running = self._handle_quit()
+                    continue
                 if ln in {"help","h"}:
-                    self.ui.print("available commands:...")
+                    self._be_helpful()
                     continue 
 
             except EOFError:
@@ -40,13 +39,28 @@ class WShell:
                 return 0 
             try:
                 tokens = shlex.split(ln) 
-                self.app.run(tokens, self.config)
+                ret = self.app.run(tokens, self.config)
+                if ret == 3:
+                    self.ui.error("unrecognized command")
             except KeyboardInterrupt:
-                self.ui.success(f"quitting with keyboard interruption")
+                self.ui.success(f"quitting with keyboard interruption",l="INFO")
+                self.running = 1
                 return 0
             except Exception as exc:
-                raise exc
                 self.ui.error(f"{exc}")
+                continue
         return 0
 
+    def _handle_quit(self):
+        confirm = input("are you sure you want to quit? (y or n) ")
+        if confirm in {"y","Y"}:
+            self.ui.success("quitting whirlwind",l="INFO")
+            return 2
+        else:
+            return 0
+
+    def _be_helpful(self):
+        title = ["commands", "spec"]
+        
+        self.app._help()
 

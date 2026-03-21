@@ -30,10 +30,10 @@ class Tiler:
     def __init__(self, i: str, c: dict[str, Any], log):
         self.log = log
         cfg = self._parse_config(i,c)
-        ui.info("attempting to open IO paths...")
+        ui.print(f"attempting to open IO path for argument: `{cfg["input"]}`")
         uris = list(rwr._iter_uris(cfg["input"]))
         out_dir = pf._get_root_(cfg["out"])
-    
+        
         self.tp = TParams(
             uris=uris,
             out_dir=out_dir,
@@ -122,14 +122,18 @@ class Tiler:
         return shards_dir, manifest_dir
 
     def run(self) -> None:
+        summary = []
         for uri in self.tp.uris:
             idx = ids.uuid_from_path(uri)
             uri = uri.strip()
             if not uri:
                 continue
+            if  self.tp.out_dir.glob(idx):
+                summary.append(["exists","exists",idx,"already tiled"])
+                continue
             shards_dir, manifest_dir = self._dirs(idx)
-
-            summary = geo.cut_mosaic(
+            
+            uri_summary = geo.cut_mosaic(
                 uri,
                 manifest_dir,
                 shards_dir,
@@ -137,11 +141,15 @@ class Tiler:
                 self.tp,
             )
 
-            mosaic_id, seen, written, errors, skipped = summary
-            ui.table("",
-                     ["manifest","shards","mosaic id", "seen","written","errors","skipped"],
-                     [[shards_dir, manifest_dir, mosaic_id, seen, written, errors, skipped]],
-                    )
+            mid, seen, written, errors, skipped = uri_summary
+            
+            summary.append([manifest_dir,shards_dir,mid, seen, written, errors, skipped])
+
+        ui.table("",
+                 ["manifest","shards","mosaic id", "seen","written","errors","skipped"],
+                 summary
+                 
+                )
 
 @dataclass(frozen=True)
 class TParams:

@@ -24,6 +24,7 @@ from . import readwrite as rwr
 from ..ui.tui import TUI 
 
 ui = TUI()
+
 def _init() -> None:
     ui.info("initializing gdal: UseExceptions = True")
     gdal.UseExceptions()
@@ -300,7 +301,8 @@ def sample_band(
         ds: rasterio.DatasetReader,
         tile_size: int,
         stride: int,
-        qp: QParams,) -> Dict[int, Tuple[float,float]]:
+        qp: QParams,
+        p: Progress()) -> Dict[int, Tuple[float,float]]:
     """
     approx per band bounds for scaling. avoid full read.
     runs whenever qp.scale != none
@@ -327,43 +329,42 @@ def sample_band(
     sparse = math.ceil(tiles_y/step)*math.ceil(tiles_x/step)
     sampled = 0
     
-    with ui.progress() as p:
-        t = p.add_task(description="sampling bands", total=need)
-        for ty in range(0, tiles_y, step):
-            y = ty * stride
-            for tx in range(0, tiles_x, step):
-                p.update(t, advance=1)
-                x = tx * stride
-                win = Window(x, y, tile_size, tile_size)
+    t2 = p.add_task(description="sampling bands", total=min(need,sparse))
+    for ty in range(0, tiles_y, step):
+        y = ty * stride
+        for tx in range(0, tiles_x, step):
+            p.update(t2, advance=1)
+            x = tx * stride
+            win = Window(x, y, tile_size, tile_size)
 
-                # masked read avoids nodata bias
-                data = ds.read(window=win, out_dtype=np.float32, masked=True)  # (bands, H, W)
+            # masked read avoids nodata bias
+            data = ds.read(window=win, out_dtype=np.float32, masked=True)  # (bands, H, W)
 
-                for bi in range(nb):
-                    band = data[bi]
-                    if getattr(band, "mask", None) is not None and band.mask.all():
-                        continue
-                    vals = band.compressed() if hasattr(band, "compressed") else band.ravel()
-                    if vals.size == 0:
-                        continue
+            for bi in range(nb):
+                band = data[bi]
+                if getattr(band, "mask", None) is not None and band.mask.all():
+                    continue
+                vals = band.compressed() if hasattr(band, "compressed") else band.ravel()
+                if vals.size == 0:
+                    continue
 
-                    if qp.scale == "minmax":
-                        lo_hi[bi + 1].append(float(np.min(vals)))
-                        lo_hi[bi + 1].append(float(np.max(vals)))
-                    elif qp.scale == "percentile":
-                        lo = float(np.percentile(vals, qp.p_low))
-                        hi = float(np.percentile(vals, qp.p_high))
-                        lo_hi[bi + 1].append(lo)
-                        lo_hi[bi + 1].append(hi)
-                    else:
-                        # unknown -> no bounds
-                        pass
+                if qp.scale == "minmax":
+                    lo_hi[bi + 1].append(float(np.min(vals)))
+                    lo_hi[bi + 1].append(float(np.max(vals)))
+                elif qp.scale == "percentile":
+                    lo = float(np.percentile(vals, qp.p_low))
+                    hi = float(np.percentile(vals, qp.p_high))
+                    lo_hi[bi + 1].append(lo)
+                    lo_hi[bi + 1].append(hi)
+                else:
+                    # unknown -> no bounds
+                    pass
 
-                sampled += 1
-                if sampled >= need:
-                    break
+            sampled += 1
             if sampled >= need:
                 break
+        if sampled >= need:
+            break
 
     out: Dict[int, Tuple[float, float]] = {}
     for b in range(1, nb + 1):
@@ -521,9 +522,9 @@ def cut_mosaic(uri: str,
             stride = tp.stride
             total_tiles = num_tiles(ds, tile_size, stride) 
             band_bounds = {}
-            if qp.scale != "none":
-                band_bounds = sample_band(ds, tile_size, stride, qp) 
             with ui.progress() as p:
+                if qp.scale != "none":
+                    band_bounds = sample_band(ds, tile_size, stride, qp, p) 
                 t = p.add_task(description="tiling",total=total_tiles)
                 for r_i, c_i, win in iter_windows(ds,tp):
                     p.update(t, advance=1)
