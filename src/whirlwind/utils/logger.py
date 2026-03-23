@@ -42,7 +42,7 @@ class Logger:
         ui.row(f"    for humans",f"{self.hr}")
         self.level = level.upper()
         self.component = component or "app"
-        self.run_id = run_id or "ww"+str(uuid.uuid4())[:6]
+        self.run_id = run_id or "ww"+str(uuid.uuid4())[:5]
         ui.success(f"opening log for iteration {self.run_id} at {self._utc_now()}")
 
 

@@ -1,6 +1,7 @@
 global:
+  version: v01.3
   in: ../_W/_S/
-  out: ../_W/artifacts
+  out: ../_W/artifactos
   manifest: csv
   log: ../_W/log/
 
@@ -13,15 +14,15 @@ ingest:
     shard_prefix: prefix
 
   tiles:
-    tile_size: 512
-    stride: 512
+    tile_size: 264
+    stride: 264
     drop_partial: true
 
     dtype: uint8
     scale: percentile
-    p_low: 2
-    p_high: 98
-    per_band: true
+    p_low: 10
+    p_high: 90
+    per_band: false
 
     stats: sample
     num_samples: 2048

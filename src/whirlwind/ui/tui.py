@@ -29,7 +29,8 @@ class TUI:
             "INFO": 0,
             "DEBUG": 10,
             "PROGRESS": 20,
-            "ERROR": 30
+            "ERROR": 30,
+            "TOP": 100
             }
 
     def __init__(self, lvl="PROGRESS"):
@@ -73,7 +74,7 @@ class TUI:
         self._console.print(f"[yellow]{msg}[/]")
 
     def error(self, msg: str,) -> None:
-        self._console.print(f"[bold red]{msg}[/]")
+        self._console.print(Align.center(f"[bold red]{msg}[/]"))
 
     def div(self, title: str | None=None, style: str="white", l="PROGRESS"):
         l=l.upper()
@@ -85,7 +86,7 @@ class TUI:
         l=l.upper()
         if self.LEVELS[l] < self.level: return
 
-        table = Table(title=title,box=None,show_lines=False)
+        table = Table(title=title,box=None)
 
         for col in columns:
             table.add_column(col)

@@ -28,3 +28,6 @@ def load_(path_str: str | None) -> dict[str, Any]:
     ui.row(f"loading configuration from", f"{path_str}")
     return normalize_(data) 
 
+def get_version(config: dict[str,Any]) -> str: 
+    print(config)
+    return ""

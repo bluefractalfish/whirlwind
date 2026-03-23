@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-
+from rich.traceback import install
 from .core.app import _build
 from .utils import configure as confio
 from .utils.logger import Logger
@@ -10,6 +10,8 @@ from .utils.pathfinder import _find_home_
 from .ui.tui import TUI
 from .core.shell import WShell
 
+# for traceback
+install(show_locals=True)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="whirlwind")
@@ -19,7 +21,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     ui = TUI()
-    ui.div("W:HIRLWIND")
     config = confio.load_(build_parser().parse_args(argv).config)
     ui.success(f"configuration loaded successfuly")
     lp = config.get("global").get("log")

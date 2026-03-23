@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Dict, Iterable
-
+import uuid
 from ..commands.base import Command
 from ..commands.ingest import IngestCommand
 from ..commands.inspect import InspectCommand
@@ -10,15 +10,18 @@ from ..utils.logger import Logger
 
 
 class WhirlwindApp:
+
     def __init__(self, commands: Iterable[Command]) -> None:
         self._commands: Dict[str, Command] = {
             command.name: command for command in commands
         }
 
+        self.run_id="ww"+str(uuid.uuid4())[:5]
+
 
     def run(self, tokens: list[str], config: dict) -> int:
         if not tokens:
-            return 0
+            return 3
 
         head = tokens[0]
         command = self._commands.get(head)
@@ -28,8 +31,7 @@ class WhirlwindApp:
         return command.run(tokens[1:], config)
 
     def _help(self) -> List[dict[str,str]]:
-        for command in self._commands.values():
-            print(command.help())
+        return [command.help() for command in self._commands.values()]
 
         
 

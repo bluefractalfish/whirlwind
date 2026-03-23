@@ -20,8 +20,6 @@ def _tesselate_(tokens: list[str], config: dict[str, Any], log) -> int:
     t.run()
     return 0
 
-
-
 @dataclass
 class Tiler:
     tp: TParams
@@ -128,9 +126,12 @@ class Tiler:
             uri = uri.strip()
             if not uri:
                 continue
-            if  self.tp.out_dir.glob(idx):
-                summary.append(["exists","exists",idx,"already tiled"])
-                continue
+            #
+            #if  self.tp.out_dir.glob(idx):
+            #    print(self.tp.out_dir)
+            #    print(self.tp.out_dir.glob(idx))
+            #    summary.append(["exists","exists",idx,"already tiled"])
+            #    continue
             shards_dir, manifest_dir = self._dirs(idx)
             
             uri_summary = geo.cut_mosaic(

@@ -507,7 +507,7 @@ def cut_mosaic(uri: str,
     n_errors = 0 
     n_written = 0 
     mosaic_id = ids.uuid_from_path(uri)
-    ui.div(f"cutting: {mosaic_id}")
+    ui.div(f"TESSELATING: {mosaic_id}",l="PROGRESS")
     writer = rwr.ShardWriter(
             out_dir=shard_dir,prefix=mosaic_id,shard_size=tp.shard_size)
     ui.info(f"shardwriter opened for {shard_dir}")

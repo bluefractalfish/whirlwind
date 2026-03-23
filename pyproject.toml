@@ -9,7 +9,7 @@ requires-python = ">=3.10"
 dependencies = ["rich>=13"]
 
 [project.scripts]
-whirlwind = "whirlwind.cli:main"
+W = "whirlwind.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
