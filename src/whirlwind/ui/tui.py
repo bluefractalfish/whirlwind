@@ -1,11 +1,4 @@
-from rich.console import Console
-from rich.text import Text
-from rich.table import Table
-from rich.rule import Rule
-from rich.progress import Progress, ProgressColumn, SpinnerColumn, BarColumn, TimeElapsedColumn, TextColumn, Task
-from rich.panel import Panel
-from rich.align import Align
-
+from whirlwind.imps import *
 
 class TUI:
     """

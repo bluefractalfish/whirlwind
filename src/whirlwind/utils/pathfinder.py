@@ -3,8 +3,7 @@ utilites to help with finding, creating, measuring directories
 
 """
 
-from pathlib import Path
-
+from whirlwind.imps import *
 def _get_root_(out_dir: str | Path) -> Path:
     root = Path(out_dir).expanduser().resolve()
     _mkdir_(root)

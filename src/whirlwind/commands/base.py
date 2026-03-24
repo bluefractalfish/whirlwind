@@ -2,11 +2,9 @@
     Command(ABC) class forms base interface for all w: commands.
 """
 
-
+from whirlwind.imps import *
 from abc import ABC, abstractmethod
 
-
-# command class
 
 
 class Command(ABC):
@@ -21,3 +19,12 @@ class Command(ABC):
         raise NotImplementedError
 
 
+class ShellCommand(ABC):
+    """ base interface for all shell commands """
+    names: List[str] 
+
+    @abstractmethod 
+    def run(self, tokens: list[str]) -> int:
+        raise NotImplementedError 
+    def help(self) -> dict[str,str]:
+        raise NotImplementedError

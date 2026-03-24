@@ -3,10 +3,9 @@
 # handle config loading 
 # handle key normalization 
 # hold ShellState 
+from whirlwind.imps import *
 from ..ui.tui import TUI 
-from ..utils.configure import get_version
-import shlex 
-import os
+from ..utils.configurator import get_version
 
 
 

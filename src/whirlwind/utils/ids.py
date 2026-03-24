@@ -1,10 +1,4 @@
-
-from __future__ import annotations
-
-import uuid
-import hashlib
-from pathlib import Path
-
+from whirlwind.imps import *
 def uuid_from_path(uri:str, length: int=8)->str:
     u = uuid.uuid5(uuid.NAMESPACE_URL,uri)
     return hashlib.blake2b(u.bytes, digest_size=length//2).hexdigest()
