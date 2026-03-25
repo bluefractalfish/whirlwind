@@ -1,8 +1,7 @@
 from whirlwind.imps import *
-from ..ui.tui import TUI 
+from ..ui.tui import PANT
 
-ui = TUI()
-
+ui = PANT
 class Logger:
     LEVELS = {
             "DEBUG": 10,

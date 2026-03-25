@@ -1,39 +1,46 @@
 from whirlwind.imps import *
 from .base import Command
-from .tessera.tile import _tesselate_
-from ..ui.tui import TUI
+from .tessera.tile import tesselate
+from ..ui.tui import PANT
+from ..experiments.config_grid import INGEST_GRID 
+from ..experiments.ingest_experiment import IngestTilesExperiment 
 
 
 class IngestCommand(Command):
     name = "ingest"
-    scmds = {"tiles", "shards"}
+    scmds = {"tiles", "shards","experiment"}
 
     def __init__(self, logger):
         self.log = logger.child(self.name)
-        self.ui = TUI()
 
     def run(self, tokens: list[str], config: dict[str, Any]) -> int:
 
         if not tokens:
-            self.ui.print(tokens)
-            self.ui.error("insufficient tokens for ingestion")
+            PANT.error("insufficient tokens for ingestion")
             return 2
 
         subcommand = tokens[0]
         
         if subcommand not in self.scmds:
-            self.ui.error(f"command not found for ingest: {subcommand}")
+            PANT.error(f"command not found for ingest: {subcommand}")
             return 2
         
         if subcommand == "shards":
-            self.ui.error("utility not yet built")
+            PANT.error("utility not yet built")
             return 2
 
         if subcommand == "tiles":
-            return _tesselate_(tokens[1:],config,self.log)
+            return tesselate(tokens[1:],config,self.log)
+        
+        if subcommand == "experiment":
+            in_ = tokens[1]
+            exp_dir = f"../artifacts/experiments/ingest-1"
+            exp = IngestTilesExperiment( files_in=in_,log=self.log,grid=INGEST_GRID,out_root=Path(exp_dir))
+            exp.run()
+            return 1
+        
 
-
-        self.ui.error(f"unknown ingest subcommand: {subcommand}")
+        PANT.error(f"unknown ingest subcommand: {subcommand}")
         return 2
 
     def help(self) -> dict[str,str]:

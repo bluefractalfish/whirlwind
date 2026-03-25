@@ -3,14 +3,16 @@ from whirlwind.imps import *
 from . import ids
 from . import datamonkey as dm
 from . import readwrite as rwr
-from ..ui.tui import TUI 
+from ..ui.tui import PANT
+from .timer import timed, StopWatch
 
-ui = TUI()
+ui = PANT
 
 def _init() -> None:
     ui.info("initializing gdal: UseExceptions = True")
     gdal.UseExceptions()
 
+@timed("extract_metadata")
 def extract_metadata(uri: str, columns: List[str]) -> Dict[str, Any]:
 
     """
@@ -249,6 +251,7 @@ def get_footprint(ds: gdal.Dataset, target_epsg: int = 4326) -> str:
     coords = ",".join(f"{lon:.8f} {lat:.8f}" for lon, lat in corners_out)
     return f"SRID={target_epsg};POLYGON(({coords}))"
 
+
 def window_bounds(ds: rasterio.DatasetReader, win: Window) -> tuple[float, float, float, float]:
     """Bounds in dataset CRS."""
     return rasterio.windows.bounds(win, ds.transform)
@@ -279,6 +282,7 @@ def iter_windows(ds: rasterio.DatasetReader,
                 continue
             yield ry, cx, Window(x, y, w, h)
 
+@timed("sample_band")
 def sample_band(
         ds: rasterio.DatasetReader,
         tile_size: int,
@@ -479,24 +483,30 @@ def cut_tile(
     return npy, js, meta
 
 
+@timed("cut_mosaic")
 def cut_mosaic(uri: str,
                man_dir: Path,
                shard_dir: Path, 
                qp: QParams, 
-               tp: TParams) -> tuple[str,int,int,int,int]:
+               tp: TParams) -> tuple[str,int,int,int,int,float]:
     n_seen = 0 
     n_skipped = 0 
     n_errors = 0 
     n_written = 0 
     mosaic_id = ids.uuid_from_path(uri)
-    ui.div(f"TESSELATING: {mosaic_id}",l="PROGRESS")
+    ui.div(f"TESSELATING: {mosaic_id}")
     writer = rwr.ShardWriter(
             out_dir=shard_dir,prefix=mosaic_id,shard_size=tp.shard_size)
     ui.info(f"shardwriter opened for {shard_dir}")
     k = tp.manifest_kind.lower()
     mosaic_man_path = man_dir/(f"{mosaic_id}.parquet" if k == "parquet" else f"{mosaic_id}.csv")
     ui.print(f"tring to write {k} manifest to {mosaic_man_path}...")
-    sink = rwr.make_sink(k,mosaic_man_path)
+
+    fieldnames =[ "tile_id", "shard", "key", "source_uri", "x_off", "y_off", "w", "h", "crs",
+                "minx", "miny", "maxx", "maxy", "bands", "dtype",]
+
+    sink = rwr.make_sink(k,mosaic_man_path,fieldnames)
+    time_per_tile = []
     try:
         ui.print(f"trying to open mosaic at {uri}...")
         with rasterio.open(uri) as ds:
@@ -513,40 +523,42 @@ def cut_mosaic(uri: str,
                     # one tile per iteration
                     n_seen += 1
                     try:
-                        tid = ids.gen_tile_id(mosaic_id, r_i, c_i)
-                        #cut_tile returns Tile object
-                        tile = Tile(
-                                tid = tid,
-                                mid = mosaic_id,
-                                source_uri = uri,
-                                row_id = r_i,
-                                col_id = c_i,
-                                window = win,
-                                transform = ds.transform,
-                                crs=ds.crs.to_string() if ds.crs else None,
+                        with StopWatch() as sw: 
+                            tid = ids.gen_tile_id(mosaic_id, r_i, c_i)
+                            #cut_tile returns Tile object
+                            tile = Tile(
+                                    tid = tid,
+                                    mid = mosaic_id,
+                                    source_uri = uri,
+                                    row_id = r_i,
+                                    col_id = c_i,
+                                    window = win,
+                                    transform = ds.transform,
+                                    crs=ds.crs.to_string() if ds.crs else None,
+                                    )
+                            npy, js, meta = cut_tile( tile, ds, qp, tp, band_bounds, writer)
+                            writer._write_sample(tid,npy,js)
+                            bounds = meta["bounds_wgs84"]
+                            manifest_row = rwr.ManifestRow(
+                                tile_id=tid,
+                                shard=writer.tar_path,
+                                key=tid,
+                                source_uri=uri,
+                                x_off=int(win.col_off),
+                                y_off=int(win.row_off),
+                                w=int(win.width),
+                                h=int(win.height),
+                                crs=tile.crs,
+                                minx=bounds["minx"],
+                                miny=bounds["miny"],
+                                maxx=bounds["maxx"],
+                                maxy=bounds["maxy"],
+                                bands=int(ds.count),
+                                dtype=meta["dtype"],
                                 )
-                        npy, js, meta = cut_tile( tile, ds, qp, tp, band_bounds, writer)
-                        writer._write_sample(tid,npy,js)
-                        bounds = meta["bounds_wgs84"]
-                        manifest_row = rwr.ManifestRow(
-                            tile_id=tid,
-                            shard=writer.tar_path,
-                            key=tid,
-                            source_uri=uri,
-                            x_off=int(win.col_off),
-                            y_off=int(win.row_off),
-                            w=int(win.width),
-                            h=int(win.height),
-                            crs=tile.crs,
-                            minx=bounds["minx"],
-                            miny=bounds["miny"],
-                            maxx=bounds["maxx"],
-                            maxy=bounds["maxy"],
-                            bands=int(ds.count),
-                            dtype=meta["dtype"],
-                            )
-                        sink._write(manifest_row)
-                        n_written += 1 
+                            sink._write(manifest_row)
+                            n_written += 1 
+                        time_per_tile.append(sw.elapsed)
                     except KeyboardInterrupt:
                         ui.warn("closing shard writer")
                         writer._close()
@@ -570,7 +582,9 @@ def cut_mosaic(uri: str,
         ui.print("closing shard and manifest writers")
         writer._close()
         sink._close()
-    return mosaic_id, n_seen, n_written, n_errors, n_skipped
+    average_time_per_tile = float(np.mean(time_per_tile)) if time_per_tile else 0.0
+    ui.print(f"average time per tile: {average_time_per_tile:.6f}","PROGRESS")
+    return mosaic_id, n_seen, n_written, n_errors, n_skipped, average_time_per_tile
 
 
 @dataclass

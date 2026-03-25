@@ -18,6 +18,7 @@ import tarfile
 import time
 import uuid
 
+from functools import wraps 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, is_dataclass
@@ -84,6 +85,7 @@ __all__ = [
     "uuid",
 
     # stdlib objects
+    "wraps",
     "ABC",
     "abstractmethod",
     "contextmanager",

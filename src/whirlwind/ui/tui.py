@@ -1,6 +1,8 @@
 from whirlwind.imps import *
+from ..core.state import STATE 
 
-class TUI:
+
+class Pantalla:
     """
     Terminal User Interface handles all printing to the users console. Using the rich API 
     this class initiates a Console object then prints to the terminal using console.print() 
@@ -19,18 +21,25 @@ class TUI:
     """
 
     LEVELS = { 
-            "INFO": 0,
+            "VERBOSE": 0,
             "DEBUG": 10,
             "PROGRESS": 20,
             "ERROR": 30,
-            "TOP": 100
+            "QUIET": 100
             }
 
     def __init__(self, lvl="PROGRESS"):
-        level = lvl.upper()
-        self.level = self.LEVELS[level]
+        lvl = "VERBOSE" if STATE.VERBOSE else lvl.upper()
+        lvl = "QUIET" if STATE.QUIET else lvl.upper() 
+        lvl = "DEBUG" if STATE.DEBUG else lvl.upper()
+        self.level = self.LEVELS[lvl]
         self._console = Console()
-    
+
+    def change_volume(self):
+        self.level = self.LEVELS["QUIET"] if STATE.QUIET else 20
+        self.level = self.LEVELS["VERBOSE"] if STATE.VERBOSE else 20 
+        self.level = self.LEVELS["DEBUG"] if STATE.DEBUG else 20 
+
     def c_box(self, msg:str, title: str | None=None, align: str = "c", l = "DEBUG" ) -> None:
         l=l.upper()
         if self.LEVELS[l] < self.level: return
@@ -92,7 +101,7 @@ class TUI:
     # progress bar
     def progress(self, l="PROGRESS"):
         l=l.upper()
-        if self.LEVELS[l] < self.level: return
+        enabled = not ( self.LEVELS[l] < self.level ) 
 
         return Progress(
             TextColumn("[progress.description]{task.description}"),
@@ -103,7 +112,9 @@ class TUI:
             TextColumn("{task.completed}/{task.total}"),
             TimeElapsedColumn(),
             transient=False,
-            console=self._console,)
+            console=self._console,
+            disable = not enabled, 
+            )
 
 class AsciiBar(ProgressColumn):
 
@@ -123,3 +134,6 @@ class AsciiBar(ProgressColumn):
 
             bar =  "#" * filled + "-" * empty 
             return Text(bar)
+
+
+PANT = Pantalla()

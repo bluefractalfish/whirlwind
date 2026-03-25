@@ -4,28 +4,30 @@ Tiler class handler
 from whirlwind.imps import *
 from ...utils import ids
 from ...utils import readwrite as rwr
+from ...utils import datamonkey as dm
 from ...utils import pathfinder as pf
 from ...utils import geographer as geo
-from ...ui.tui import TUI 
+from ...utils.logger import Logger
+from ...ui.tui import PANT
 
-ui = TUI()
-def _tesselate_(tokens: list[str], config: dict[str, Any], log) -> int:
+def tesselate(tokens: list[str], config: dict[str, Any], log) -> int:
     if len(tokens) !=  1:
-        ui.error("tiling expects one input field")
-    input = tokens[0]
-    t = Tiler(input, config,log)
+        PANT.error("tiling expects one input field")
+    inputs_ = tokens[0]
+    t = Tiler(inputs_, config, log)
     t.run()
     return 0
+
 
 @dataclass
 class Tiler:
     tp: TParams
     qp: QParams
 
-    def __init__(self, i: str, c: dict[str, Any], log):
+    def __init__(self, in_: str, config: dict[str, Any], log):
         self.log = log
-        cfg = self._parse_config(i,c)
-        ui.print(f"attempting to open IO path for argument: `{cfg["input"]}`")
+        cfg = self._parse_config(in_,config)
+        PANT.print(f"attempting to open IO path for argument: `{cfg["input"]}`")
         uris = list(rwr._iter_uris(cfg["input"]))
         out_dir = pf._get_root_(cfg["out"])
         
@@ -109,13 +111,13 @@ class Tiler:
         return cfg
 
 
-    def _dirs(self, idx) -> tuple[Path, Path]:
-        shards_dir = self.tp.out_dir / str(idx) / "shards"
-        manifest_dir = self.tp.out_dir / str(idx) / "manifest"
+    def _dirs(self, idx, tp: TParams) -> tuple[Path, Path]:
+        shards_dir = tp.out_dir / str(idx) / "shards"
+        manifest_dir = tp.out_dir / str(idx) / "manifest"
         shards_dir.mkdir(parents=True, exist_ok=True)
         manifest_dir.mkdir(parents=True, exist_ok=True)
         return shards_dir, manifest_dir
-
+    
     def run(self) -> None:
         summary = []
         for uri in self.tp.uris:
@@ -129,7 +131,8 @@ class Tiler:
             #    print(self.tp.out_dir.glob(idx))
             #    summary.append(["exists","exists",idx,"already tiled"])
             #    continue
-            shards_dir, manifest_dir = self._dirs(idx)
+
+            shards_dir, manifest_dir = self._dirs(idx, self.tp)
             
             uri_summary = geo.cut_mosaic(
                 uri,
@@ -139,15 +142,94 @@ class Tiler:
                 self.tp,
             )
 
-            mid, seen, written, errors, skipped = uri_summary
+            mid, seen, written, errors, skipped,avg_tile_time = uri_summary
             
+
             summary.append([manifest_dir,shards_dir,mid, seen, written, errors, skipped])
 
-        ui.table("",
-                 ["manifest","shards","mosaic id", "seen","written","errors","skipped"],
-                 summary
-                 
-                )
+        PANT.table("", ["manifest","shards","mosaic id", "seen","written","errors","skipped"],summary )
+    
+    def run_experiment(self, out_dir: Path | None = None) -> dict[str, Any]:
+
+        tp = self.tp
+        if out_dir is not None:
+            tp = TParams(
+                uris=tp.uris,
+                out_dir=out_dir,
+                tile_size=tp.tile_size,
+                stride=tp.stride,
+                drop_partial=tp.drop_partial,
+                shard_size=tp.shard_size,
+                shard_prefix=tp.shard_prefix,
+                manifest_kind=tp.manifest_kind,
+            )
+
+
+        started = time.perf_counter()
+        ids_seen: list[str] = []
+        total_seen = 0
+        total_written = 0
+        total_errors = 0
+        total_skipped = 0
+        tile_times: list[float] = []
+
+        for uri in tp.uris:
+            idx = ids.uuid_from_path(uri)
+            shards_dir, manifest_dir = self._dirs(idx, tp)
+
+            mid, seen, written, errors, skipped, avg_tile_seconds = geo.cut_mosaic(
+                uri,
+                manifest_dir,
+                shards_dir,
+                self.qp,
+                tp,
+            )
+
+            total_seen += seen
+            total_written += written
+            total_errors += errors
+            total_skipped += skipped
+            if avg_tile_seconds > 0:
+                tile_times.append(avg_tile_seconds)
+            ids_seen.append(idx)
+
+        total_seconds = time.perf_counter() - started
+
+        shard_count, shard_bytes = dm.count_bytes(tp.out_dir, ".tar")
+        manifest_count_csv, manifest_bytes_csv = dm.count_bytes(tp.out_dir, ".csv")
+        manifest_count_parquet, manifest_bytes_parquet = dm.count_bytes(tp.out_dir, ".parquet")
+
+        manifest_count = manifest_count_csv + manifest_count_parquet
+        manifest_bytes = manifest_bytes_csv + manifest_bytes_parquet
+        out_bytes = dm.dir_bytes(tp.out_dir)
+
+        return {
+            "uids": ids_seen,
+            "input_uri_count": len(tp.uris),
+            "tile_size": tp.tile_size,
+            "stride": tp.stride,
+            "drop_partial": tp.drop_partial,
+            "shard_size": tp.shard_size,
+            "manifest": tp.manifest_kind,
+            "dtype": self.qp.dtype,
+            "scale": self.qp.scale,
+            "p_low": self.qp.p_low,
+            "p_high": self.qp.p_high,
+            "per_band": self.qp.per_band,
+            "stats": self.qp.stats,
+            "num_samples": self.qp.num_samples,
+            "total_seen": total_seen,
+            "total_written": total_written,
+            "total_errors": total_errors,
+            "total_skipped": total_skipped,
+            "shard_count": shard_count,
+            "shard_bytes": shard_bytes,
+            "manifest_count": manifest_count,
+            "manifest_bytes": manifest_bytes,
+            "out_bytes": out_bytes,
+            "avg_tile_seconds": float(np.mean(tile_times)) if tile_times else 0.0,
+            "total_seconds": total_seconds,
+        }
 
 @dataclass(frozen=True)
 class TParams:
@@ -171,7 +253,7 @@ class TParams:
                 ["drop_partial", self.drop_partial],
                 ["shard_size",self.shard_size]
             ]
-        ui.table(title,c,r)
+        PANT.table(title,c,r)
 
 
 @dataclass(frozen=True)
@@ -196,4 +278,4 @@ class QParams:
                 ["stats", self.stats],
                 ["num_sampels", self.num_samples]
             ]
-        ui.table(title,c,r)
+        PANT.table(title,c,r)

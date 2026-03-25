@@ -1,9 +1,9 @@
 from whirlwind.imps import *
 from . import pathfinder as pf
 from . import geographer as geo
-from ..ui.tui import TUI 
-
-ui = TUI()
+from ..ui.tui import PANT
+from .timer import timed 
+ui = PANT
 
 @dataclass
 class ShardWriter:
@@ -26,6 +26,7 @@ class ShardWriter:
         self.tar = tarfile.open(self.tar_path, "w")
         self.samples_in_shard = 0
         self.shard_index += 1
+
     def _write_sample(self, key: str, npy: bytes, meta_json: bytes):
         """
         write <key>.npy and <key>.json into current tar
@@ -80,16 +81,13 @@ class ManifestSink:
         raise NotImplementedError
 
 class CSVSink(ManifestSink):
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, fieldnames: List[str]):
         self.path = path
         pf._mkdir_(path.parent)
         self.f = open(path, "w", newline="",encoding="utf-8")
         self.w = csv.DictWriter(
             self.f,
-            fieldnames=[
-                "tile_id", "shard", "key", "source_uri", "x_off", "y_off", "w", "h", "crs",
-                "minx", "miny", "maxx", "maxy", "bands", "dtype",
-            ],
+            fieldnames=fieldnames
         )
         self.w.writeheader()
     def _write(self, row: ManifestRow) -> None:
@@ -123,10 +121,27 @@ class Parquet(ManifestSink):
     def _close(self) -> None:
         table = self.pa.Table.from_pylist(self.rows)
         self.pq.write_table(table, str(self.path))
-def make_sink(kind: str, path: Path) -> ManifestSink:
+
+class ResultsCSVSink:
+    def __init__(self, path: Path, fieldnames: List[str]):
+        self.path = path
+        pf._mkdir_(path.parent)
+        self.f = open(path, "w", newline="", encoding="utf-8")
+        self.w = csv.DictWriter(self.f, fieldnames=fieldnames)
+        self.w.writeheader()
+        self.f.flush()
+
+    def _write(self, row: Dict[str, Any]) -> None:
+        self.w.writerow(row)
+        self.f.flush()
+
+    def _close(self) -> None:
+        self.f.close()
+
+def make_sink(kind: str, path: Path, fieldnames: List[str]) -> ManifestSink:
     k = kind.lower()
     if k == "csv":
-        return CSVSink(path)
+        return CSVSink(path, fieldnames)
     if k == "parquet":
         return Parquet(path)
     if k == "none":
@@ -137,6 +152,8 @@ def make_sink(kind: str, path: Path) -> ManifestSink:
                 return 
         return _Null()
     raise ValueError(f"unknown manifest kind: {kind}")
+
+@timed("write_metadata ")
 def write_metadata(input_dir: str, out_csv: str, columns: Optional[List[str]] = None) -> None:
     """
     Walk `input_dir` consisting of mosaics, extract metadata for each tif/tiff, write CSV to `out_csv`.
@@ -225,4 +242,12 @@ def _iter_uris(source: str, extensions: tuple[str,...]=(".tif",".tiff")) -> Iter
         return
     raise ValueError(f"could not resolve input as csv, directory, or glob: {source}")
 
+def write_results_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        for row in rows:
+            w.writerow(row)
 

@@ -5,7 +5,7 @@ from ..commands.base import Command
 from ..commands.ingest import IngestCommand
 from ..commands.inspect import InspectCommand
 from ..utils.logger import Logger
-
+from ..utils.timer import timed 
 
 
 class WhirlwindApp:
@@ -17,7 +17,7 @@ class WhirlwindApp:
 
         self.run_id="ww"+str(uuid.uuid4())[:5]
 
-
+    @timed("running app")
     def run(self, tokens: list[str], config: dict) -> int:
         if not tokens:
             return 3
@@ -34,7 +34,7 @@ class WhirlwindApp:
 
         
 
-
+@timed("building app")
 def _build(log) -> WhirlwindApp:
     return WhirlwindApp(
         commands=[

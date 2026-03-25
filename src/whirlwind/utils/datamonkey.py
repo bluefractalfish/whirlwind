@@ -37,3 +37,19 @@ def created_at() -> str:
     now = datetime.now()
     return now.isoformat()
 
+def dir_bytes(root: Path) -> int:
+    total = 0
+    for p in root.rglob("*"):
+        if p.is_file():
+            total += p.stat().st_size
+    return total
+
+def count_bytes(root: Path, suffix: str) -> tuple[int, int]:
+    count = 0
+    total = 0
+    for p in root.rglob(f"*{suffix}"):
+        if p.is_file():
+            count += 1
+            total += p.stat().st_size
+    return count, total
+
