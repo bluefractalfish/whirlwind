@@ -52,7 +52,7 @@ def ensure_sections(cfg: Dict[str, Any]) -> Dict[str, Any]:
         cfg["ingest"] = {} 
         ingest = cfg["ingest"] 
 
-    ingest.setdefault("blobal", {})
+    ingest.setdefault("global", {})
     ingest.setdefault("tiles", {})
 
     return cfg

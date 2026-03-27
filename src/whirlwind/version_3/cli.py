@@ -53,19 +53,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     raw = load_yaml(build_parser().parse_args(argv).config)
     config = build_config(raw)
 
-    #STATE.config = config 
-
-    def _report(label: str, seconds: float) -> None: 
-        print(f"{label} took {seconds:.4f}s")
-
-    #STATE.timer_reporter = _report 
-
     lp = config.get("global",{}).get("log")
-    #log = Logger(lp) 
+    log = Logger(lp) 
 
     app = build_app(log) 
     shell = WShell(app, config) 
-    return shell._run() 
+    return shell.run() 
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))

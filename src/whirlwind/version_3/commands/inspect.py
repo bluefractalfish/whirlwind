@@ -11,3 +11,111 @@
     PUBLIC: 
         - InspectCommand 
 """
+
+import csv 
+import heapq 
+from dataclasses import dataclass, field 
+from pathlib import Path 
+from typing import Any, Dict, Set, Tuple 
+
+from whirlwind.commands.base import Command 
+from whirwind.io.metadata import write_mosaic_metadata 
+from whirlwind.tools import ids 
+from whirlwind.tools import pathfinder as pf 
+from whirlwind.core.interfaces import LoggerProtocol, NullLogger
+
+class InspectCommand(Command):
+    name = "inspect"
+
+    def __init__(self, log: LoggerProtocol | None = None) -> None:
+        self.log = log
+
+    def run(self, tokens: list[str], config: Dict[str, Any]) -> int:
+        cfg = self.configure(config)
+        if not tokens:
+            print("inspect: more tokens rqu")
+            return 2 
+
+        cfg["root"] = tokens[0]
+        root = Path(str(cfg["root"])).expanduser().resolve()
+
+        print(f"running inspect on {root}")
+        if not root.exists() or not root.is_dir():
+            print(f"not valid path {root}")
+            return 2 
+
+        csv_out_name = f"{ids.gen_fingerprint(root)}.csv"
+        metadata_dir = pf.find_home()/"metadata"
+        metadata_dir.mkdir(parents=True,exist_ok=True)
+        csv_path = metadata_dir/csv_out_name
+
+        if not csv_path.exists():
+            print("writing metadata csv")
+            write_mosaic_metadata(str(root), csv_out_name)
+
+        stats = inspect_metadata(csv_path)
+        print(stats)
+        #stat_report
+        return 0
+
+    def configure(self, config: dict[str, Any]) -> dict[str, Any]:
+        inspect_cfg = config.get("inspect", {})
+
+        if not isinstance(inspect_cfg, dict):
+            inspect_cfg = {}
+
+        cfg = {"root": None,}
+        cfg.update(inspect_cfg)
+
+        return cfg
+
+    def help(self) -> dict[str,str]:
+        return { 
+                    "inspect": 
+                                
+                                "the inspect command is for scanning directories and generating csv manifests of the contents. it handles the generation of uris, uids, fingerprints. when referenced with the <ingest> command these csvs are used to produce tesselations of the mosaics located at the given uris"
+                                 
+              }
+
+
+@dataclass
+class ScanStats:
+    num_dirs: int = 0
+    num_files: int = 0
+    total_bytes: int = 0
+    largest: list[tuple[int, str, str, str]] = field(default_factory=list)
+
+
+def inspect_metadata(csv_path: Path) -> ScanStats:
+    stats = ScanStats()
+    parent_dirs: Set[str] = set()
+
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            uri = (row.get("uri") or "").strip()
+            if not uri:
+                continue
+
+            size_text = (row.get("byte_size") or "").strip()
+            try:
+                size = int(size_text) if size_text else 0
+            except ValueError:
+                size = 0
+
+            dtype = (row.get("dtype") or "").strip()
+            band_count = (row.get("band_count") or "").strip()
+
+            stats.num_files += 1
+            stats.total_bytes += size
+            parent_dirs.add(str(Path(uri).parent))
+
+            item = (size, uri, dtype, band_count)
+            # store 500 largest files 
+            if len(stats.largest) < 500:
+                heapq.heappush(stats.largest, item)
+            elif size > stats.largest[0][0]:
+                heapq.heapreplace(stats.largest, item)
+
+    stats.num_dirs = len(parent_dirs)
+    return stats

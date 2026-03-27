@@ -23,8 +23,8 @@ from .schema import ensure_sections, normalize, validate
 __all__ = ["DEFAULT_CONFIG", "build_config"] 
 
 
-def build_config(path: str) -> Dict[str,Any]:
-    raw = load_yaml(path) 
+def build_config(raw: Optional[Dict[str,Any]]) -> Dict[str,Any]:
+    ray = raw or {}
     if not isinstance(raw, dict): 
         raise ValueError("IN BUILD_CONFIG: raw config must be dictionary ")
     normalized = normalize(raw) 
