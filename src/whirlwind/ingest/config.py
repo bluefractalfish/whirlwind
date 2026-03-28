@@ -69,7 +69,7 @@ def parse_tiles_cfg(input_source: str, config: Dict[str, Any]) -> Dict[str,Any]:
 def build_params(input_source: str, config: Dict[str, Any]) -> Tuple[TParams, QParams]:
     cfg = parse_tiles_cfg(input_source, config)
     uris = list(iter_uris(str(cfg["input"])))
-    out_dir = pf.get_root(cfg["out"])
+    out_dir = pf.get_root_(cfg["out"])
     tp = TParams(
         uris=uris,
         out_dir=out_dir,

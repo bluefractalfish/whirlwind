@@ -46,7 +46,7 @@ def write_mosaic_metadata(input_dir_name: str,
                          columns: Optional[List[str]] = None
                          ) -> None: 
     input_path = Path(input_dir_name).expanduser().resolve()
-    output_path = pf.find_home() / "metadata"/ out_csv_name 
+    output_path = pf.find_home_() / "metadata"/ out_csv_name 
     output_path.parent.mkdir(parents=True,exist_ok=True) 
 
     if columns is None: 

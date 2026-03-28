@@ -1,24 +1,41 @@
-from __future__ import annotations
 
-from whirlwind.imps import *
-from ..commands.base import Command
-from ..commands.ingest import IngestCommand
-from ..commands.inspect import InspectCommand
-from ..utils.logger import Logger
-from ..utils.timer import timed 
+""" whirlwind.core.app
+
+    PURPOSE: 
+        - application command registry and dispatcher 
+    BEHAVIOR: 
+        - register commands and dispatch parsed tokens to correct command 
+    PUBLIC:
+        - WhirlwindApp 
+        - build_app(log)
+            - add commands here 
+
+"""
+
+from __future__ import annotations 
+
+import uuid 
+from typing import Any, Dict, Iterable, List, Optional 
+
+from whirlwind.commands.base import Command 
+from whirlwind.core.interfaces import LoggerProtocol, NullLogger 
+from whirlwind.tools.timer import timed 
+from whirlwind.tools.ids import gen_run_id 
 
 
 class WhirlwindApp:
 
-    def __init__(self, commands: Iterable[Command]) -> None:
-        self._commands: Dict[str, Command] = {
-            command.name: command for command in commands
-        }
-
-        self.run_id="ww"+str(uuid.uuid4())[:5]
+    def __init__(self,log, cmds: Iterable[Command]) -> None:
+        self._commands: Dict[str, Command] = {c.name: c for c in cmds}
+        self.log = log.child("app")
+        self.run_id = gen_run_id() 
 
     @timed("running app")
     def run(self, tokens: list[str], config: dict) -> int:
+        """
+        takes in a list of tokens and config 
+        if tokens exist check first word for commands
+        """
         if not tokens:
             return 3
 
@@ -35,10 +52,14 @@ class WhirlwindApp:
         
 
 @timed("building app")
-def _build(log) -> WhirlwindApp:
+def build_app(log) -> WhirlwindApp:
+
+    from whirlwind.commands.ingest import IngestCommand
+    from whirlwind.commands.inspect import InspectCommand
     return WhirlwindApp(
-        commands=[
-            InspectCommand(),
-            IngestCommand(log),
+        log=log,
+        cmds=[
+            InspectCommand(log.child("inspect")),
+            IngestCommand(log.child("ingest")),
         ]
     )

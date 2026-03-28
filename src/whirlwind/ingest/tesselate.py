@@ -26,10 +26,14 @@ from rasterio.windows import Window
 from rasterio.warp import transform_bounds
 
 from whirlwind.geo.windows import window_bounds
-from whirlwind.ingest.params import QParams, TParams as QParams, TParams
+from whirlwind.ingest.params import QParams, TParams
 from whirlwind.ingest.quantize import quantize_tile
-from whirlwind.utils import datamonkey as dm
+from whirlwind.tools import datamonkeys as dm
 
+from rich.traceback import install
+
+
+install(show_locals=True)
 
 @dataclass(frozen=True)
 class Tile:
@@ -38,6 +42,7 @@ class Tile:
     source_uri: str
     row_id: int
     col_id: int
+    transform: Affine
     window: Window
     crs: str | None
 
@@ -50,7 +55,7 @@ class Tile:
         return int(self.window.height)
 
 
-def tesselate(
+def tesselater(
     tile: Tile,
     ds: rasterio.DatasetReader,
     qp: QParams,

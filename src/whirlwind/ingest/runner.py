@@ -21,7 +21,7 @@
 from __future__ import annotations 
 
 import time 
-from datetimectl import dataclass 
+from dataclasses import dataclass 
 from pathlib import Path 
 from typing import Any, Dict, List, Tuple 
 
@@ -30,23 +30,30 @@ import rasterio
 from rasterio.windows import Window 
 
 from whirlwind.core.interfaces import LoggerProtocol, NullLogger
-from whirlwind.ui.pantalla import Pantalla 
+from whirlwind.ui.pantalla import PANT
 from whirlwind.geo.windows import iter_windows, num_tiles
+
 from whirlwind.ingest.config import build_params
-from whirlwind.ingest.tesselate import Tile, cut_tile
+from whirlwind.ingest.tesselate import Tile, tesselater
 from whirlwind.ingest.params import QParams, TParams
 from whirlwind.ingest.planner import mosaic_dirs
 from whirlwind.ingest.quantize import sample_band
+
 from whirlwind.io.manifests import ManifestRow, make_sink
 from whirlwind.io.shards import ShardWriter
-from whirlwind.tools import datamonkey as dm
+
+from whirlwind.tools import datamonkeys as dm
 from whirlwind.tools import ids
 from whirlwind.tools.timer import StopWatch
 
+from rich.traceback import install 
 
+install(show_locals=True)
+
+@dataclass
 class IngestMosaicsRunner: 
     tp: TParams 
-    qp: Qparams 
+    qp: QParams 
     log: LoggerProtocol 
 
     @classmethod 
@@ -79,8 +86,8 @@ class IngestMosaicsRunner:
             if not u:
                 continue 
 
-            mosaic_id = ids.uuid_from_str(u) 
-            shards_dir, manifest_dir = mosaic_dirs(self.tp.out_dur, mosaic_id)
+            mosaic_id = ids.gen_uuid_from_str(u) 
+            shards_dir, manifest_dir = mosaic_dirs(self.tp.out_dir, mosaic_id)
 
             mid, seen, written, errors, skipped, avg_tile_time = cut_mosaic(
                     u, manifest_dir, shards_dir, self.qp, self.tp, log=self.log)
@@ -100,7 +107,7 @@ class IngestMosaicsRunner:
                         "shards": str(shards_dir), 
                         "mosaic_id": mid, 
                         "seen": seen, 
-                        "written": errors
+                        "errors": errors
                      }
                     )
         total_seconds = time.perf_counter() - started 
@@ -154,7 +161,7 @@ def cut_mosaic(uri: str,
     n_skipped = 0 
     n_errors = 0 
     n_written = 0 
-    mosaic_id = ids.uuid_from_path(uri)
+    mosaic_id = ids.gen_uuid_from_str(uri)
     writer = ShardWriter(
             out_dir=shard_dir,prefix=mosaic_id,shard_size=tp.shard_size)
     k = tp.manifest_kind.lower()
@@ -171,9 +178,9 @@ def cut_mosaic(uri: str,
             stride = tp.stride
             total_tiles = num_tiles(ds, tile_size, stride) 
             band_bounds: Dict[int, Tuple[float, float]] = {}
-            with ui.progress() as p:
+            with PANT.progress() as p:
                 if qp.scale != "none":
-                    band_bounds = sample_band(ds, tile_size, stride, qp, p) 
+                    band_bounds = sample_band(ds, tile_size, stride, qp) 
 
                 t = p.add_task(description="tiling",total=total_tiles)
                 for r_i, c_i, win in iter_windows(ds,tp):
@@ -185,8 +192,8 @@ def cut_mosaic(uri: str,
                             tid = ids.gen_tile_id(mosaic_id, r_i, c_i)
                             #cut_tile returns Tile object
                             tile = Tile(
-                                    tid = tid,
-                                    mid = mosaic_id,
+                                    tile_id = tid,
+                                    mosaic_id = mosaic_id,
                                     source_uri = uri,
                                     row_id = r_i,
                                     col_id = c_i,
@@ -194,8 +201,8 @@ def cut_mosaic(uri: str,
                                     transform = ds.transform,
                                     crs=ds.crs.to_string() if ds.crs else None,
                                     )
-                            npy, js, meta = cut_tile( tile, ds, qp, tp, band_bounds, writer)
-                            writer._write_sample(tid,npy,js)
+                            npy, js, meta = tesselater( tile, ds, qp, tp, band_bounds)
+                            writer.write_sample(tid,npy,js)
                             bounds = meta.get("bounds_wgs84") or {"minx": 0.0, "miny": 0.0, 
                                                                   "maxx": 0.0, "maxy": 0.0 }
 
@@ -234,11 +241,12 @@ def cut_mosaic(uri: str,
         sink.close()
         raise
     except Exception as e:
-        print(e)
         n_errors += 1
+        raise e
+
     finally:
         writer.close()
         sink.close()
     average_time_per_tile = float(np.mean(time_per_tile)) if time_per_tile else 0.0
-    print(f"average time per tile: {average_time_per_tile:.6f}","PROGRESS")
+    print(f"average time per tile: {average_time_per_tile:.6f}")
     return mosaic_id, n_seen, n_written, n_errors, n_skipped, average_time_per_tile

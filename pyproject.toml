@@ -6,7 +6,12 @@ build-backend = "setuptools.build_meta"
 name = "whirlwind"
 version = "0.0.1"
 requires-python = ">=3.10"
-dependencies = ["rich>=13"]
+dependencies = [
+  "rich>=13",
+  "numpy",
+  "rasterio",
+  "pyyaml",
+]
 
 [project.scripts]
 W = "whirlwind.cli:main"

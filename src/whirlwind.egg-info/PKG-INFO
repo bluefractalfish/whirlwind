@@ -3,3 +3,6 @@ Name: whirlwind
 Version: 0.0.1
 Requires-Python: >=3.10
 Requires-Dist: rich>=13
+Requires-Dist: numpy
+Requires-Dist: rasterio
+Requires-Dist: pyyaml

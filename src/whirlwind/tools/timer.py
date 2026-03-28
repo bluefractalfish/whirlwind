@@ -44,13 +44,13 @@ def timed(label: str = "") -> Callable[[F], F]:
     def decorator(fn: F) -> F:
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            if not STATE.timing_enabled:
+            if not STATE.TIME:
                 return fn(*args, **kwargs)
             start = time.perf_counter()
             result = fn(*args, **kwargs)
             seconds = time.perf_counter() - start
-            if STATE.timer_reporter is not None:
-                STATE.timer_reporter(label or fn.__name__, seconds)
+            if STATE.time_reporter is not None:
+                STATE.time_reporter(label or fn.__name__, seconds)
             return result
         return wrapper  # type: ignore[return-value]
     return decorator

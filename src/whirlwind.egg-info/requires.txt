@@ -1,1 +1,4 @@
 rich>=13
+numpy
+rasterio
+pyyaml

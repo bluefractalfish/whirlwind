@@ -1,16 +1,8 @@
-"""whirlwind.commands.base 
-    
-    PURPOSE: 
-        - command interface for interactive shell dispatcher 
-
-    BEHAVIOR: 
-        - define consistent run/help protocols for Commands 
-
-    PUBLIC:
-        - Command(ABC)
-
 """
-from typing import Any, List 
+    Command(ABC) class forms base interface for all w: commands.
+"""
+
+from whirlwind.imps import *
 from abc import ABC, abstractmethod
 
 

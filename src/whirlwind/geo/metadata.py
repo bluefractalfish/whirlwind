@@ -50,7 +50,7 @@ def extract(uri: str, columns: List[str]) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     
     if "mosaic_id" in columns:
-        out["mosaic_id"]=ids.uuid_from_str(uri)
+        out["mosaic_id"]=ids.gen_uuid_from_str(uri)
     # always allow uri
     if "uri" in columns:
         out["uri"] = uri

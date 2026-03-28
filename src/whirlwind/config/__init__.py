@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional 
 import yaml 
-from .default import DEFAULT_CONFIG 
+from .defaults import DEFAULT_CONFIG 
 from .merge import deep_merge 
 from .schema import ensure_sections, normalize, validate
 

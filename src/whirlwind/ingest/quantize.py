@@ -22,7 +22,6 @@ from rasterio.windows import Window
 
 from whirlwind.ingest.params import QParams as QuantizationParams 
 
-ProgressFn = Callable[[int, int], None]
 
 
 def _quant_dtype(dtype: str) -> np.dtype:
@@ -52,7 +51,6 @@ def sample_band(
     tile_size: int,
     stride: int,
     qp: QuantizationParams,
-    progress: ProgressFn | None = None,
 ) -> Dict[int, Tuple[float, float]]:
     if qp.scale == "none":
         return {}
@@ -95,8 +93,6 @@ def sample_band(
                     lo_hi[bi + 1].append(hi)
 
             sampled += 1
-            if progress is not None:
-                progress(min(sampled, total), total)
             if sampled >= need:
                 break
         if sampled >= need:

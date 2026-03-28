@@ -16,7 +16,7 @@ from rich.traceback import install
 
 from whirlwind.core.state import STATE 
 
-
+install(show_locals=True)
 
 class Pantalla:
     """

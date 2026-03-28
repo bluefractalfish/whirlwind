@@ -1,33 +1,67 @@
+""" whirlwind.cli 
 
-from whirlwind.imps import *
-from .core.app import _build
-from .utils import configurator as confio
-from .utils.logger import Logger
-from .ui.tui import PANT
-from .core.shell import WShell
-from .utils.timer import *
-from .core.state import STATE 
 
-# for traceback
+    PURPOSE: 
+        - entrypoint for whirlwind cli 
+
+    BEHAVIOR:
+        - parse cli arguments 
+        - load yaml config from disk 
+        - bootstrap app + shell 
+
+    PUBLIC:
+        - main(argv=None) -> int 
+"""
+
+from __future__ import annotations
+
+import argparse 
+import sys 
+from pathlib import Path 
+from typing import Any, Dict, Optional
+
+import yaml 
+from rich.traceback import install 
+
+from whirlwind.config import build_config 
+from whirlwind.core.app import build_app 
+from whirlwind.core.shell import WShell 
+from whirlwind.core.state import STATE 
+from whirlwind.tools.logger import Logger 
+
 install(show_locals=True)
+
+def load_yaml(path_str: str) -> Dict[str,Any]: 
+    path = Path(path_str).expanduser().resolve()
+    with path.open("r",encoding="utf-8") as f: 
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise ValueError("config file must contain top level mapping")
+    return data 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="whirlwind")
-    parser.add_argument( "--config", type=str, default="config.yaml",
-        help="path to yaml config, default config.yaml",)
-    return parser
+    parser.add_argument( 
+                        "--config",
+                        type=str,
+                        default="config.yaml",
+                        help="path to yaml config. defaults to config.yaml"
+                    )
+    return parser 
 
-def main(argv: list[str] | None = None) -> int:
-    config = confio.load_(build_parser().parse_args(argv).config)
-    STATE.config = config
-    PANT.success(f"configuration loaded successfuly")
-    lp = config.get("global").get("log")
-    log = Logger(lp)
-    app = _build(log)  
-    shell = WShell(app,config,log) 
 
-    return shell._run()
+def main(argv: Optional[list[str]] = None) -> int:
+    raw = load_yaml(build_parser().parse_args(argv).config)
+    config = build_config(raw)
 
+    lp = config.get("global",{}).get("log")
+    log = Logger(lp) 
+
+    app = build_app(log) 
+    shell = WShell(app, config) 
+    return shell.run() 
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
+
+
