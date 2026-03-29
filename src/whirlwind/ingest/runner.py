@@ -14,7 +14,9 @@
             - write manifest rows 
         - provide experiment/performance metrics if requested 
     PUBLIC:
-        - IngestMosaicsRunner(run, run_experiment) 
+        - IngestMosaicsRunner
+            - from_config(config)
+            - experimental()
         - tesselate(tokwns, config, log) -> int 
 """
 
@@ -34,7 +36,7 @@ from whirlwind.ui.pantalla import PANT
 from whirlwind.geo.windows import iter_windows, num_tiles
 
 from whirlwind.ingest.config import build_params
-from whirlwind.ingest.tesselate import Tile, tesselater
+from whirlwind.ingest.tesselater import Tile, tesselate
 from whirlwind.ingest.params import QParams, TParams
 from whirlwind.ingest.planner import mosaic_dirs
 from whirlwind.ingest.quantize import sample_band
@@ -59,11 +61,11 @@ class IngestMosaicsRunner:
     @classmethod 
     def from_config(  
                     cls, 
-                    input_souce: str, 
+                    input_source: str, 
                     config: Dict[str, Any],
                     log: LoggerProtocol | None=None, ) -> "IngestMosaicsRunner":
         base = log or NullLogger()
-        tp, qp = build_params(input_souce, config)
+        tp, qp = build_params(input_source, config)
         return cls(tp=tp,qp=qp,log=base.child("mosaics"))
 
     def run(self) -> Tuple[Any, Any]:
@@ -201,7 +203,7 @@ def cut_mosaic(uri: str,
                                     transform = ds.transform,
                                     crs=ds.crs.to_string() if ds.crs else None,
                                     )
-                            npy, js, meta = tesselater( tile, ds, qp, tp, band_bounds)
+                            npy, js, meta = tesselate( tile, ds, qp, tp, band_bounds)
                             writer.write_sample(tid,npy,js)
                             bounds = meta.get("bounds_wgs84") or {"minx": 0.0, "miny": 0.0, 
                                                                   "maxx": 0.0, "maxy": 0.0 }

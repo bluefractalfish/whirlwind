@@ -11,6 +11,9 @@
 
 """
 
+from whirlwind.commands.cshell import RestartShell 
+from whirlwind.commands.cshell import QuitShell 
+from whirlwind.commands.cshell import List
 from whirlwind.commands.base import Command
 from rich.traceback import install 
 import shlex 
@@ -21,37 +24,48 @@ class WShell:
     def __init__(self, app, config): 
         self.app = app 
         self.config = config 
+        self.running = 0
         self.log = app.log.child("shell")
-        self.cshells = {"quit"} 
+        self.cshells = {
+                "ls": List(),
+                "list": List(),
+                "restart": RestartShell(),
+                "r": RestartShell(),
+                "quit": QuitShell(),
+                "q" : QuitShell()}
 
     def run(self) -> int:
-        while True:
+        while self.running == 0:
             line = input("W: ").strip()
             try:
                 if not line:
                     continue 
-                if line in self.cshells: 
-                    # handle shell commands 
-                    print(line)
-                    continue 
             except EOFError:
                 print("ERROR")
-                return_code = 11
             except KeyboardInterrupt:
-                return 13 
+                self.running = 13 
             try:
                 tokens = shlex.split(line)
                 # HANDLE UNRECOGNIZED COMMAND 
                 # RUN COMMAND
                 # 0 -> success 
                 # 1 -> unnamed error 
-
-                ret = self.app.run(tokens, self.config)
+                head = tokens[0]
+                if head in self.cshells:
+                    self.running = self.cshells[head].run(tokens[1:])
+                    continue
+                ret_code = self.app.run(tokens, self.config)
+                match ret_code:
+                    case 11:
+                        print("unrecognized command")
+                    case 13:
+                        self.running = ret_code
                 continue
             except KeyboardInterrupt:
-                return 0 
+                self.running = 13 
             except Exception as exc:
                 raise exc 
-                continue 
-        return 0 
+
+        return_code = self.running
+        return return_code 
             

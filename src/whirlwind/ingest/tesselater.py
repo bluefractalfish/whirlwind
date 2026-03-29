@@ -55,7 +55,7 @@ class Tile:
         return int(self.window.height)
 
 
-def tesselater(
+def tesselate(
     tile: Tile,
     ds: rasterio.DatasetReader,
     qp: QParams,

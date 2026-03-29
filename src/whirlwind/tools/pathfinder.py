@@ -42,3 +42,8 @@ def search_for_extension(input_path: Path,
     for p in input_path.rglob("*"):
         if p.is_file() and p.suffix.lower() in extensions: 
             yield p
+
+
+def dir_walker_(input_dir: Path, limit: int = 20) -> Iterable[Path]:
+    return sorted((p for p in input_dir.iterdir()), key=lambda p: p.stat().st_size, reverse=True)[:limit]
+

@@ -41,6 +41,7 @@ def parse_tiles_cfg(input_source: str, config: Dict[str, Any]) -> Dict[str,Any]:
     ingest_cfg = config.get("ingest", {})
     ingest_global = ingest_cfg.get("global", {}) if isinstance(ingest_cfg,dict) else {}
     tiles_cfg = ingest_cfg.get("tiles", {}) if isinstance(ingest_cfg, dict) else {}
+
     if not isinstance(root_global, dict):
         root_global = {}
     if not isinstance(ingest_global, dict):
@@ -59,12 +60,24 @@ def parse_tiles_cfg(input_source: str, config: Dict[str, Any]) -> Dict[str,Any]:
         cfg["stride"] = cfg["tile_size"]
     if int(cfg["tile_size"]) <= 0:
         raise ValueError("tile_size must be > 0")
-    if int(cfg["stride"]) <= 0:
+    if int(cfg["stride"]) > int(cfg["tile_size"]):
         raise ValueError("stride must be > 0")
     if str(cfg.get("scale")) == "percentile":
         if not (0 <= float(cfg["p_low"]) < float(cfg["p_high"]) <= 100):
              raise ValueError("percentile scaling requires 0 <= p_low < p_high <= 100")
     return cfg
+
+def experiment_overrides(perm: dict[str, Any]) -> dict[str, Any]:
+    cfg = {
+        "global": dict(DEFAULTS.get("global", {})),
+        "ingest": {
+            "global": dict(DEFAULTS.get("ingest", {}).get("global", {})),
+            "tiles": dict(DEFAULTS.get("ingest", {}).get("tiles", {})),
+        },
+    }
+    cfg["ingest"]["tiles"].update(perm)
+    return cfg
+
 
 def build_params(input_source: str, config: Dict[str, Any]) -> Tuple[TParams, QParams]:
     cfg = parse_tiles_cfg(input_source, config)

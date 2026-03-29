@@ -1,12 +1,10 @@
 global:
   version: v01.3
   in: ../_W/_S/
-  out: ../_W/artifactos
+  out: experimental_artifacts
   manifest: csv
   log: ../_W/log/
 
-inspect:
-  top_n: 100
 
 ingest:
   global:

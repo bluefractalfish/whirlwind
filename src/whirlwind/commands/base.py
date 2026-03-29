@@ -28,11 +28,11 @@ class Command(ABC):
 
 
 class ShellCommand(ABC):
-    """ base interface for all shell commands """
+    """ base interface for all shell commands. includes multiple names"""
     names: List[str] 
 
     @abstractmethod 
-    def run(self, tokens: list[str]) -> int:
+    def run(self, tokens: list[str], _config: dict[str,Any] | None=None) -> int:
         raise NotImplementedError 
     def help(self) -> dict[str,str]:
         raise NotImplementedError

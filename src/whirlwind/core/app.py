@@ -36,13 +36,14 @@ class WhirlwindApp:
         takes in a list of tokens and config 
         if tokens exist check first word for commands
         """
+        print("run: ",self.run_id)
         if not tokens:
             return 3
 
         head = tokens[0]
         command = self._commands.get(head)
         if command is None:
-            return 3
+            return 11
 
         return command.run(tokens[1:], config)
 
