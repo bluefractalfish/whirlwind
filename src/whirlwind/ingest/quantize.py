@@ -21,6 +21,7 @@ import rasterio
 from rasterio.windows import Window
 
 from whirlwind.ingest.params import QParams as QuantizationParams 
+from whirlwind.ui.pantalla import PANT
 
 
 
@@ -51,6 +52,7 @@ def sample_band(
     tile_size: int,
     stride: int,
     qp: QuantizationParams,
+    p: Progress()
 ) -> Dict[int, Tuple[float, float]]:
     if qp.scale == "none":
         return {}
@@ -68,9 +70,11 @@ def sample_band(
     total = min(need, sparse_total)
 
     sampled = 0
+    sample_task = p.add_task(description="sampling bands", total=min(need,sparse_total))
     for ty in range(0, tiles_y, step):
         y = ty * stride
         for tx in range(0, tiles_x, step):
+            p.update(sample_task, advance=1)
             x = tx * stride
             win = Window(x, y, tile_size, tile_size)
             data = ds.read(window=win, out_dtype=np.float32, masked=True)

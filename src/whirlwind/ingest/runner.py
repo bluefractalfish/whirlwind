@@ -182,9 +182,9 @@ def cut_mosaic(uri: str,
             band_bounds: Dict[int, Tuple[float, float]] = {}
             with PANT.progress() as p:
                 if qp.scale != "none":
-                    band_bounds = sample_band(ds, tile_size, stride, qp) 
+                    band_bounds = sample_band(ds, tile_size, stride, qp, p) 
 
-                t = p.add_task(description="tiling",total=total_tiles)
+                t = p.add_task(description=f"tiling {mosaic_id}",total=total_tiles)
                 for r_i, c_i, win in iter_windows(ds,tp):
                     p.update(t, advance=1)
                     # one tile per iteration
@@ -235,7 +235,6 @@ def cut_mosaic(uri: str,
                         sink.close()
                         raise
                     except Exception as e:
-                        print(e)
                         n_errors += 1
                         continue
     except KeyboardInterrupt:
@@ -250,5 +249,4 @@ def cut_mosaic(uri: str,
         writer.close()
         sink.close()
     average_time_per_tile = float(np.mean(time_per_tile)) if time_per_tile else 0.0
-    print(f"average time per tile: {average_time_per_tile:.6f}")
     return mosaic_id, n_seen, n_written, n_errors, n_skipped, average_time_per_tile
