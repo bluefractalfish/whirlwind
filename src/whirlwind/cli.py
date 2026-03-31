@@ -28,6 +28,12 @@ from whirlwind.core.app import build_app
 from whirlwind.core.shell import WShell 
 from whirlwind.core.state import STATE 
 from whirlwind.tools.logger import Logger 
+from whirlwind.tools.pathfinder import find_home_
+
+
+class WrangleMosaics(Command):
+    name = "wrangle"
+
 
 install(show_locals=True)
 
@@ -51,7 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    raw = load_yaml(build_parser().parse_args(argv).config)
+    config_path = find_home_()/build_parser().parse_args(argv).config
+    raw = load_yaml(config_path)
     config = build_config(raw)
 
     lp = config.get("global",{}).get("log")

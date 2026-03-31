@@ -1,7 +1,7 @@
 
 from .base import Command
 from typing import Dict, Any, Optional 
-from whirlwind.wranglers.runner import WrangleMosaicsRunner 
+from whirlwind.wrangler.runner import WrangleMosaicsRunner 
 from whirlwind.core.interfaces import LoggerProtocol, NullLogger 
 
 
