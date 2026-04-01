@@ -28,12 +28,8 @@ from whirlwind.core.app import build_app
 from whirlwind.core.shell import WShell 
 from whirlwind.core.state import STATE 
 from whirlwind.tools.logger import Logger 
-from whirlwind.tools.pathfinder import find_home_
-
-
-class WrangleMosaics(Command):
-    name = "wrangle"
-
+from whirlwind.tools.pathfinder import find_home_ 
+from whirlwind.ui import face 
 
 install(show_locals=True)
 

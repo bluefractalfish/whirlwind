@@ -12,6 +12,35 @@
 
 """
 
+from __future__ import annotations 
 
+from dataclasses import dataclass 
+from pathlib import Path 
+from typing import Any, Dict, List, Tuple 
+
+import numpy as np 
+import rasterio 
+import subprocess 
+from osgeo import gdal 
+from whirlwind.core.interfaces import LoggerProtocol, NullLogger 
+from whirlwind.wrangler.config import build_params 
+from whirlwind.wrangler.params import DSParams 
+from whirlwind.wrangler.downsample import downsample_mosaic
+
+
+@dataclass 
 class WrangleMosaicsRunner: 
-    DSParams: 
+    params: DSParams 
+    log: LoggerProtocol
+    
+    @classmethod
+    def from_config( 
+                    cls,
+                    input_source: str,
+                    config: Dict[str,Any],
+                    log: LoggerProtocol | None=None) -> "WrangleMosaicsRunner":
+        base = log or NullLogger()
+        dsp = build_params(input_source, config)
+        return cls(params=dsp,log=base.child("wrangle mosaics"))
+
+

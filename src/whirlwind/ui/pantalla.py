@@ -1,4 +1,8 @@
 # rich (UI / logging)
+from __future__ import annotations 
+from dataclasses import dataclass, field 
+from typing import Any, Iterable
+
 from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
@@ -18,91 +22,74 @@ from whirlwind.core.state import STATE
 
 install(show_locals=True)
 
+@dataclass 
+class Theme: 
+    text: str = "white"
+    info: str = "bold white"
+    debug: str = "dim cyan"
+    warn: str = "yellow"
+    error: str = "bold red"
+    success: str = "bold green"
+    muted: str = "grey62"
+    rule: str = "white"
+    panel_border: str = "white"
+    width: int = 60
+
+@dataclass
 class Pantalla:
     """
     Terminal User Interface handles all printing to the users console. Using the rich API 
     this class initiates a Console object then prints to the terminal using console.print() 
-    
-    if initatied without "DEBUG" only tables and progress bars are printed
 
-    the available printing modes are: 
-        c_box( message, optional title, alignment) -> prints a panel containing message,
-            optional title, and optional alignment. defaults to centered (c) and takes r, l
-        print(message) -> prints standard white message
-        info(message) -> prints bold white message
-        row(c1, c2) -> prints bold c1: regular c2
-        success(message) -> prints green success signal
-        error(msg) -> prints error in bold red
-        div(title) -> prints page divider
     """
+    _console: Console = field(default_factory=Console) 
+    theme: Theme = field(default_factory=Theme)
 
-    LEVELS = { 
-            "VERBOSE": 0,
-            "DEBUG": 10,
-            "PROGRESS": 20,
-            "ERROR": 30,
-            "QUIET": 100
-            }
+    def print(self, message: Any ) -> None:
+        self._console.print(f"[{self.theme.text}]{message}[/]")
+    
+    def info(self, message: Any ) -> None:
+        self._console.print(f"[{self.theme.info}]{message}[/]")
+    def debug(self, message: Any ) -> None:
+        self._console.print(f"[{self.theme.debug}]{message}[/]")
+    def warning(self, message: Any ) -> None:
+        self._console.print(f"[{self.theme.warn}]{message}[/]")
+    def error(self, message: Any ) -> None:
+        self._console.print(f"[{self.theme.error}]{message}[/]")
 
-    def __init__(self, lvl="PROGRESS"):
-        lvl = "VERBOSE" if STATE.VERBOSE else lvl.upper()
-        lvl = "QUIET" if STATE.QUIET else lvl.upper() 
-        lvl = "DEBUG" if STATE.DEBUG else lvl.upper()
-        self.level = self.LEVELS[lvl]
-        self._console = Console()
+    def success(self, message: Any ) -> None:
+        self._console.print(f"[{self.theme.text}]{message}[/]")
 
-    def change_volume(self):
-        self.level = self.LEVELS["QUIET"] if STATE.QUIET else 20
-        self.level = self.LEVELS["VERBOSE"] if STATE.VERBOSE else 20 
-        self.level = self.LEVELS["DEBUG"] if STATE.DEBUG else 20 
+    def row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
+        value_style = value_style or self.theme.text
+        self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
 
-    def c_box(self, msg:str, title: str | None=None, align: str = "c", l = "DEBUG" ) -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        if align == "c": 
-            self._console.print(Panel(Align.center(msg),title=title))
-        if align == "r":
-            self._console.print(Panel(Align.right(msg), title=title))
-        if align == "l":
-            self._console.print(Panel(Align.left(msg), title=title))
-    # generic printing
-    def print(self, msg: str, l = "DEBUG") -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        self._console.print(f"[white]{msg}[/]")
+    def rule(self, title: str | None = None, *, style: str | None = None) -> None:
+        self._console.print(Rule(title=title, style=style or self.theme.rule))
+    def div(self) -> None:
+        div = "-" * self.theme.width 
+        self._console.print(div)
+    def panel(self, msg: Any, *, title: str | None = None, align: str = "center", border_style: str | None = None) -> None:
+        if align == "left":
+            body = Align.left(str(msg))
+        elif align == "right":
+            body = Align.right(str(msg))
+        else:
+            body = Align.center(str(msg))
 
-    def info(self, msg: str, l = "DEBUG") -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        self._console.print(f"[bold white]{msg}[/]")
+        self._console.print(
+            Panel(
+                body,
+                title=title,
+                border_style=border_style or self.theme.panel_border,
+            )
+        )
 
-    def row(self, c1: str, c2, l="DEBUG") -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        self._console.print(f"[bold white]{c1}[/]: [white]{c2}[/]")
+    def exception(self, msg: str = "error") -> None:
+        self._console.print(f"[{self.theme.error}]{msg}[/]")
+        self._console.print_exception(show_locals=True)
 
-    def success(self, msg: str = "+", l="DEBUG") -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        self.div(f"[green]{msg}[/]", style="bold green")
-
-    def warn(self, msg: str, l="DEBUG") -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        self._console.print(f"[yellow]{msg}[/]")
-
-    def error(self, msg: str,) -> None:
-        self._console.print(Align.center(f"[bold red]{msg}[/]"))
-
-    def div(self, title: str | None=None, style: str="white", l="PROGRESS"):
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
-        self._console.print(Rule(title, style=style))
-
-    # table display
-    def table(self, title: str, columns: list[str], rows: list[list], l="PROGRESS") -> None:
-        l=l.upper()
-        if self.LEVELS[l] < self.level: return
+    def table(self, title: str, columns: list[str], rows: list[list], ) -> None:
 
         table = Table(title=title,box=None)
 
@@ -115,9 +102,7 @@ class Pantalla:
         self._console.print(table)
 
     # progress bar
-    def progress(self, l="PROGRESS"):
-        l=l.upper()
-        enabled = not ( self.LEVELS[l] < self.level ) 
+    def progress(self):
 
         return Progress(
             TextColumn("[progress.description]{task.description}"),
@@ -129,7 +114,6 @@ class Pantalla:
             TimeElapsedColumn(),
             transient=False,
             console=self._console,
-            disable = not enabled, 
             )
 
 class AsciiBar(ProgressColumn):
@@ -152,4 +136,3 @@ class AsciiBar(ProgressColumn):
             return Text(bar)
 
 
-PANT = Pantalla()

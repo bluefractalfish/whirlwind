@@ -24,3 +24,11 @@ ingest:
 
     stats: sample
     num_samples: 2048
+
+wrangle:
+  global:
+  mosaics.downsample:
+    target_resolution: (1.0,1.0)
+    resampling: bilinear
+    dtype: Byte
+    compression: LZW 

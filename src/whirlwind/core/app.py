@@ -21,7 +21,7 @@ from whirlwind.commands.base import Command
 from whirlwind.core.interfaces import LoggerProtocol, NullLogger 
 from whirlwind.tools.timer import timed 
 from whirlwind.tools.ids import gen_run_id 
-
+from whirlwind.ui import face 
 
 class WhirlwindApp:
 
@@ -29,6 +29,9 @@ class WhirlwindApp:
         self._commands: Dict[str, Command] = {c.name: c for c in cmds}
         self.log = log.child("app")
         self.run_id = gen_run_id() 
+        face.div() 
+        face.row(f" STARTING W:HIRLWIND V03 ", f"run {self.run_id}") 
+        face.div()
 
     @timed("running app")
     def run(self, tokens: list[str], config: dict) -> int:
@@ -36,7 +39,6 @@ class WhirlwindApp:
         takes in a list of tokens and config 
         if tokens exist check first word for commands
         """
-        print("run: ",self.run_id)
         if not tokens:
             return 3
 

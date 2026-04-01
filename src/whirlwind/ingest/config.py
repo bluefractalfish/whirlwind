@@ -8,7 +8,7 @@
         - Resolve input URIs from csv/dir/glob.
         - Resolve output root directory.
     PUBLIC: 
-        - parse_tiles_cfg(input_source, config) -> dict
+        - parse_cfg(input_source, config) -> dict
         - build_params(input_source, config) -> (TParams, QParams)
 
 """
@@ -36,7 +36,7 @@ DEFAULTS: Dict[str, Any] = {
     "num_samples": 2048,
 }
 
-def parse_tiles_cfg(input_source: str, config: Dict[str, Any]) -> Dict[str,Any]:
+def parse_cfg(input_source: str, config: Dict[str, Any]) -> Dict[str,Any]:
     root_global = config.get("global", {})
     ingest_cfg = config.get("ingest", {})
     ingest_global = ingest_cfg.get("global", {}) if isinstance(ingest_cfg,dict) else {}
@@ -80,7 +80,7 @@ def experiment_overrides(perm: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_params(input_source: str, config: Dict[str, Any]) -> Tuple[TParams, QParams]:
-    cfg = parse_tiles_cfg(input_source, config)
+    cfg = parse_cfg(input_source, config)
     uris = list(iter_uris(str(cfg["input"])))
     out_dir = pf.get_root_(cfg["out"])
     tp = TParams(

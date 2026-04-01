@@ -21,7 +21,7 @@ import rasterio
 from rasterio.windows import Window
 
 from whirlwind.ingest.params import QParams as QuantizationParams 
-from whirlwind.ui.pantalla import PANT
+from whirlwind.ui import face
 
 
 

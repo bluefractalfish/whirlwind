@@ -21,7 +21,7 @@
 """
 
 from __future__ import annotations 
-
+ 
 import time 
 from dataclasses import dataclass 
 from pathlib import Path 
@@ -32,7 +32,6 @@ import rasterio
 from rasterio.windows import Window 
 
 from whirlwind.core.interfaces import LoggerProtocol, NullLogger
-from whirlwind.ui.pantalla import PANT
 from whirlwind.geo.windows import iter_windows, num_tiles
 
 from whirlwind.ingest.config import build_params
@@ -48,6 +47,7 @@ from whirlwind.tools import datamonkeys as dm
 from whirlwind.tools import ids
 from whirlwind.tools.timer import StopWatch
 
+from whirlwind.ui import face
 from rich.traceback import install 
 
 install(show_locals=True)
@@ -180,7 +180,7 @@ def cut_mosaic(uri: str,
             stride = tp.stride
             total_tiles = num_tiles(ds, tile_size, stride) 
             band_bounds: Dict[int, Tuple[float, float]] = {}
-            with PANT.progress() as p:
+            with face.progress() as p:
                 if qp.scale != "none":
                     band_bounds = sample_band(ds, tile_size, stride, qp, p) 
 
