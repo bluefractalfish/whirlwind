@@ -1,10 +1,13 @@
 shards/
 metadata/
 mnt/
-artifacts/
+*artifacts/
 assets/
 logs/
 440c7/
+*.csv 
+*.tiff 
+*.tif
 __pycache__/ 
 *.pyc 
 *.pyo
