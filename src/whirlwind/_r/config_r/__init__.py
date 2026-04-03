@@ -17,7 +17,7 @@ import yaml
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from whirlwind.ui import face 
 from .defaults import DEF_CON 
 from .merge import deep_merge 
@@ -57,13 +57,12 @@ class Config:
             return {}
         return subcommand_cfg
          
-
-    def table(self) -> None:
-        face.div()
-        face.info("configuration setting")
-        face.div()
-        face.print_dictionary(self.merged)
     
+    def table(self, cmd: str | None=None, scmd: str | None=None) -> None:
+        if cmd != None and scmd != None:
+            face.print_dictionary(self.parse(cmd,scmd))
+        else:
+            face.print_dictionary(self.merged)
 
 def load_yaml(path_str: str) -> Dict[str,Any]: 
     path = Path(path_str).expanduser().resolve()

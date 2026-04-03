@@ -21,7 +21,8 @@ mosaic:
   footprint: 
   validate: 
   downsample:
-    out: ./artifacts/browse/
+    in_dir: ./mnt/
+    dest_dir: ./artifacts/browse/
     target_resolution: null
     target_width: null
     target_height: null

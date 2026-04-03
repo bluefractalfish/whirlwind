@@ -4,17 +4,11 @@
 PURPOSE: 
     - entrypoint for catalog command 
 BEHAVIOR:
-    - catalog build: creates a catalog of mosaics with uri uuid table and basic size/dim data 
-    - catalog build ... -> creates run_id/metadata/catalog.csv from mnt/ if args = ... 
-    - catalog build path/to/mosaics -> creates /metadata/catalog.csv defaults to dest_dir
-    - catalog build path/to path/out -> creates both in and out dir
-
     - catalog stats: creates metadata csv of mosaics (legacy `inspect`)
     - catalog stats ... -> creates run_id/metadata/metadata.csv from mnt/
     - catalog stats path/to/mosaics -> creates from path/to/mosaics 
     - catalog stats path/to path/out -> creates both in and out dir
 
-    - catalog validate: for validating after projection, sampling, downsampling 
 """
 
 import csv 
@@ -39,28 +33,38 @@ class StatsCommand(Command):
     def run(self, tokens, config) -> int: 
         this_global = config.parse("catalog","global")
         this_config = config.parse("catalog","stats") 
-        face.info("discovering stats")
+        face.info("LOGGING STATS")
+        face.prog_row("1/4","discovering stats")
         match len(tokens):
             case 0:
                 default_in = Path(this_global["in_dir"])
                 _, self.in_path = build_path(default_in)
+                _,self.dest_path = build_path(this_config["dest_dir"]) 
             case 1:
                 _,self.in_path = build_path(tokens[0])
+                _,self.dest_path = build_path(this_config["dest_dir"]) 
                 
             case 2:
+                _,self.in_path = build_path(tokens[0])
                 _,self.dest_path = build_path(tokens[1])
                 
             case _: 
                 face.error("catalog stats usage: catalog stats expects 0,1,2 arguments")
-        _,self.dest_path = build_path(this_config["dest_dir"]) 
+                return 3
+
+        face.prog_row("2/4", "checking io")
         
+        face.prog_row("3/4","building path metadata.csv")
         metadata_name = f"stats-{gen_fingerprint(str(self.in_path))}.csv"
         metadata_path = self.dest_path / metadata_name
+
         if not metadata_path.exists():
+            face.prog_row("4/4","building path, writing metadata")
             write_mosaic_metadata(str(self.in_path), metadata_path)
-            face.info(f"writing stats for {self.in_path.name}/")
+            face.process("/"+str(self.in_path.name),"stats", str(self.dest_path.name)+"/"+metadata_name)
+
+        face.info(f"catalog exists for {str(self.dest_path)}")
         stats = inspect_metadata(metadata_path)
-        face.process("/"+str(self.in_path.name),"stats", str(self.dest_path.name)+"/"+metadata_name)
         return 0
 
 @dataclass

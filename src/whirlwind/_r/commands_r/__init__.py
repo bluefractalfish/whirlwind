@@ -20,8 +20,7 @@ from whirlwind._r.commands_r.base import Command
 from whirlwind._r.config_r import Config
 
 from whirlwind._r.commands_r.catalog import BuildCommand, StatsCommand
-#from whirlwind._r.commands_r.mosaic import DownsampleCommand
-
+from whirlwind._r.commands_r.mosaic import DownsampleCommand
 @dataclass
 class Catalog(Command):
     name = "catalog"
@@ -65,6 +64,9 @@ class Tile(Command):
     name = "tile"
 
     def run(self, tokens: list[str], config: Config) -> int:
+        if len(tokens) == 0:
+            face.error("tile usage: expects at least one subcommand")
+
         return 0
 
 class Label(Command): 

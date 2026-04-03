@@ -28,34 +28,36 @@ class BuildCommand(Command):
 
     def run(self, tokens: list[str], config: Config) -> int:
         this_config = config.parse("catalog","build")
-        face.print("building catalog")
+        face.info("BUILDING CATALOG")
+        face.prog_row("1/4","building catalog")
         match len(tokens):
             case 0:
                 # if no input directory default to mnt/
                 default_in = Path(this_config["in_dir"])
-                in_code, self.in_path = build_path(default_in)
+                _, self.in_path = build_path(default_in)
+                _,self.dest_path = build_path(this_config["dest_dir"]) 
 
             case 1:
-                in_code,self.in_path = build_path(tokens[0])
-
+                _,self.in_path = build_path(tokens[0])
+                _,self.dest_path = build_path(this_config["dest_dir"]) 
             case 2:
-                in_code, self.in_path = build_path(tokens[0])
-                dest_code,self.dest_path = build_path(tokens[1])
+                _, self.in_path = build_path(tokens[0])
+                _,self.dest_path = build_path(tokens[1])
             case _: 
                 face.error("catalog build usage: catalog build expects 0,1,2 arguments")
                 return 3
 
-        dest_code,self.dest_path = build_path(this_config["dest_dir"]) 
+        face.prog_row("2/4","checking io")
+
+        face.prog_row("3/4","constructing catalog path")
         catalog_name = f"{this_config["file_name"]}"
         catalog_path = self.dest_path / catalog_name 
-        face.process("/"+str(self.in_path.name),"catalogging", str(self.dest_path.name)+"/"+catalog_name)
+
 
         if not catalog_path.exists():
-            face.print(f"writing catalog for {self.in_path.name}/")
+            face.prog_row("4/4",f"writing catalog for {self.dest_path.name}/")
+            face.process("/"+str(self.in_path.name),"building catalog",str(self.dest_path.name)+"/"+catalog_name)
             return write_catalog(self.in_path, catalog_path)
-        elif catalog_path.exists():
-            face.info(f"catalog exists for {str(self.in_path)}")
-            return 0
-        else:
-            face.error(f"error encountered")
-            return 3
+
+        face.info(f"catalog exists for {str(self.in_path)}")
+        return 0

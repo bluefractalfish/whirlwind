@@ -18,10 +18,10 @@ from whirlwind.tools.ids import gen_uuid_from_str
 from whirlwind.tools.timer import timed 
 
 @timed("downsampling")
-def downsample_mosaic(source_path: str,  params: DSParams, subproc: bool=True) -> Path:
+def downsample_mosaic(source_path: Path,  params: DSParams, subproc: bool=True) -> Path:
     return build_gdal_subprocess(source_path, params) 
 
-def build_gdal_subprocess(source_path: str,  params: DSParams) -> Path:
+def build_gdal_subprocess(source_path: Path,  params: DSParams) -> Path:
 
     cmd = ["gdal_translate","-q","-of", "GTiff"]
     if params.dtype:
@@ -52,13 +52,13 @@ def build_gdal_subprocess(source_path: str,  params: DSParams) -> Path:
     for co in co_opts:
         cmd += ["-co",co]
     cmd += ["--config","GDAL_TRANSLATE_COPY_SRC_MDD", "YES"]
-    out_path = downsample_dir(source_path, params.out_dir)
+    out_path = downsample_dir(str(source_path), params.out_dir)
     cmd += [source_path, out_path]
-    face.process(source_path,"gdal_translate",f"{out_path}")
+    face.process(str(source_path),"gdal_translate",f"{out_path.name}")
     subprocess.run(cmd, check=True)
 
     ## change names of PATHSS
-    return Path(params.out_dir) / f"{gen_uuid_from_str(source_path)}"
+    return Path(params.out_dir) / f"{gen_uuid_from_str(str(source_path))}"
 
 
 

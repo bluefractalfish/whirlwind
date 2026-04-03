@@ -25,7 +25,7 @@ from rich.traceback import install
 from whirlwind._r.config_r import Config
 from whirlwind._r.core_r import bootstrapp  
 
-install(show_locals=True)
+#install(show_locals=True)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="whirlwind")
