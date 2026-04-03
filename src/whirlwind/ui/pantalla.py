@@ -56,20 +56,25 @@ class Pantalla:
         self._console.print(f"[{self.theme.warn}]{message}[/]")
     def error(self, message: Any ) -> None:
         self._console.print(f"[{self.theme.error}]{message}[/]")
-
     def success(self, message: Any ) -> None:
         self._console.print(f"[{self.theme.text}]{message}[/]")
-
+    
+    
     def row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
         value_style = value_style or self.theme.text
         self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
+    def info_row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
+        value_style = value_style or self.theme.text
+        self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
+
+    def prog_row(self, key: str, value: Any) -> None:
+        self._console.print(f"    [dim][{key}][/]: [bold white]{value}[/]")
 
     def rule(self, title: str | None = None, *, style: str | None = None) -> None:
         self._console.print(Rule(title=title, style=style or self.theme.rule))
     def div(self) -> None:
         div = "-" * self.theme.width 
         self._console.print(div)
-
     def process(self, in_name: str, process_name: str, out_name: str) -> None:
         self._console.print(f"[{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
     
