@@ -21,6 +21,28 @@ def get_root_(out_dir: str | Path) -> Path:
     root.mkdir(parents=True,exist_ok=True)
     return root
 
+def build_path(*parts: str | Path, make_dirs: bool = True) -> tuple[int, Path | None]:
+    """
+    Returns:
+        (1, path) -> successful and path exists
+        (0, path) -> successful but path does not exist
+        (3, None) -> failure
+    """
+    try:
+        path = Path(parts[0])
+        for part in parts[1:]:
+            path = path / part
+
+        path = path.expanduser().resolve(strict=False)
+
+        if make_dirs:
+            path.mkdir(parents=True, exist_ok=True)
+
+        return (1, path) if path.exists() else (0, path)
+
+    except Exception:
+        return (3, None)
+
 def find_home_(start: Path | None = None, markers: Iterable[str] = (".git", "pyproject.toml")) -> Path:
     """
     Walk upward from `start` (default: this file's directory) until a marker is found.

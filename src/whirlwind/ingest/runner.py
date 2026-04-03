@@ -70,6 +70,12 @@ class IngestMosaicsRunner:
 
     def run(self) -> Tuple[Any, Any]:
         """ run ingest for all uris, returns per mosaic summary """
+        
+        if not self.tp or not self.qp:
+            return ("error",3) 
+        self.tp.print_table()
+        face.div()
+        self.qp.print_table()
 
         # per mosaic summary 
         summary: List[Dict[str, Any]] = []
@@ -112,6 +118,9 @@ class IngestMosaicsRunner:
                         "errors": errors
                      }
                     )
+
+            face.process(str(u), "ingested", str(self.tp.out_dir/mosaic_id) )
+
         total_seconds = time.perf_counter() - started 
         shard_count, shard_bytes = dm.count_bytes(self.tp.out_dir, ".tar")
         manifest_count_csv, manifest_bytes_csv = dm.count_bytes(self.tp.out_dir, "csv")
@@ -147,7 +156,6 @@ class IngestMosaicsRunner:
                 "avg_tile_seconds": float(np.mean(tile_times)) if tile_times else 0.0,
                 "total_seconds": total_seconds,
                 }
-
         return summary, overview  
 
 
@@ -163,6 +171,10 @@ def cut_mosaic(uri: str,
     n_skipped = 0 
     n_errors = 0 
     n_written = 0 
+    
+    if not Path(uri).exists:
+        face.error(f"path error: {uri} not a valid source path for ingest")
+
     mosaic_id = ids.gen_uuid_from_str(uri)
     writer = ShardWriter(
             out_dir=shard_dir,prefix=mosaic_id,shard_size=tp.shard_size)

@@ -35,7 +35,8 @@ def validate(cfg: Dict[str, Any]) -> None:
         raise ValueError("config must be a dict at top level ")
     g = cfg.get("global")
     if g is None or not isinstance(g,dict):
-        raise ValueError("config.global must be a mapping")
+        raise ValueError("config global must be a mapping")
+
     ingest = cfg.get("ingest")
     if ingest is None or not isinstance(ingest, dict):
         raise ValueError("config.ingest must be a mapping")

@@ -25,13 +25,17 @@ from whirlwind.tools import pathfinder as pf
 DEFAULTS: Dict[str, Any] = {
         "input": None,
         "out": "./artifacts",
-        "target_resolution":  (1.0, 1.0 ),
+        "target_resolution":  None,
+        "target_width": None,
+        "target_height": None,
+        "overview_levels": None,
         "scale_factor": 1,
         "resampling": "bilinear",
         "dtype": "Byte", 
         "compression": "LZW",
         "tiled": True, 
         "nodata": 0, 
+        "preserve_bounds": False
 }
 
 
@@ -39,8 +43,8 @@ def parse_config(input_source: str, config: Dict[str, Any]) -> Dict[str, Any]:
     root_global = config.get("global", {})
     wrangle_cfg = config.get("wrangle", {})
     wrangle_global = wrangle_cfg.get("global", {}) if isinstance(wrangle_cfg,dict) else {}
-    mosaics_downsample_cfg = wrangle_cfg.get("mosaic.downsample",{}) if isinstance(wrangle_cfg, dict) else {}
-
+    mosaics_downsample_cfg = wrangle_cfg.get("mosaics",{}) if isinstance(wrangle_cfg, dict) else {}
+    
     if not isinstance(root_global, dict): 
         root_global = {}
     if not isinstance(wrangle_global, dict):
@@ -71,8 +75,7 @@ def build_params(input_source: str, config: Dict[str, Any]) -> DSParams:
         target_resolution = cfg["target_resolution"], 
         scale_factor = cfg["scale_factor"], 
         target_width = cfg["target_width"], 
-        target_height = cfg["target_height"], 
-        resampling =  cfg["resampling"], 
+        target_height = cfg["target_height"], resampling =  cfg["resampling"], 
         dtype = cfg["dtype"], 
         compression = cfg["compression"],
         tiled = cfg["tiled"],

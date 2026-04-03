@@ -17,12 +17,14 @@
                 - overview_levels 
                 - nodata 
                 - preserve_bounds 
+    PUBLIC:
+        - DSParams
 """
 
 from dataclasses import dataclass 
 from typing import Optional, Tuple, Union, List, Any, Dict
 from pathlib import Path 
-
+from whirlwind.ui import face 
 @dataclass 
 class DSParams:
     """downsample params for gdal_translate """
@@ -52,6 +54,25 @@ class DSParams:
                      "tiled": "create tiled geotiff",    
                 }
         return help_dict 
+    def print_table(self) -> None:
+        cols = ["downsampling param","value"]
+        rows = [ 
+                ["uris",len(self.uris)],
+                ["destination",str(self.out_dir)],
+                ["target res", str(self.target_resolution if self.target_resolution else "")],
+                ["scale factor",str(self.scale_factor if self.scale_factor else "")],
+                ["target w", str(self.target_width if self.target_width else "")],
+                ["target h", str(self.target_height if self.target_height else "")],
+                ["resampling method", self.resampling],
+                ["dtype", self.dtype if self.dtype else ""],
+                ["compression", self.compression],
+                ["tiled", self.tiled],
+                ["overview levels", str(self.overview_levels)],
+                ["nodata", str(self.nodata if self.nodata else "")],
+                ["preserve bounds", self.preserve_bounds]
+                ]
+        face.table(cols, rows)
+
         
 
 

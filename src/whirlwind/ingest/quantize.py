@@ -70,7 +70,7 @@ def sample_band(
     total = min(need, sparse_total)
 
     sampled = 0
-    sample_task = p.add_task(description="sampling bands", total=min(need,sparse_total))
+    sample_task = p.add_task(description=f"sampling {nb} bands", total=min(need,sparse_total))
     for ty in range(0, tiles_y, step):
         y = ty * stride
         for tx in range(0, tiles_x, step):

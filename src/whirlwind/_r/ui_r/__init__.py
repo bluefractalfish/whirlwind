@@ -6,3 +6,7 @@
 """
 
 from __future__ import annotations 
+from .pantalla import Pantalla  
+
+face = Pantalla()
+

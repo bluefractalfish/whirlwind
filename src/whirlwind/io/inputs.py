@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 from typing import Iterator, Tuple
+from whirlwind.ui import face
 
 def iter_uris(source: str, extensions: Tuple[str, ...] = (".tif", ".tiff")) -> Iterator[str]:
     s = (source or "").strip()
@@ -45,4 +46,5 @@ def iter_uris(source: str, extensions: Tuple[str, ...] = (".tif", ".tiff")) -> I
             yield str(tif)
         if matches:
             return
-    raise ValueError(f"could not resolve input as csv, directory, or glob:{source}")
+    face.error(f"could not resolve input as csv, directory, or glob: {source}")
+    return 

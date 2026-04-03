@@ -18,6 +18,7 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional 
 
 from whirlwind.commands.base import Command 
+from whirlwind.commands.wrangle import WrangleCommand
 from whirlwind.core.interfaces import LoggerProtocol, NullLogger 
 from whirlwind.tools.timer import timed 
 from whirlwind.tools.ids import gen_run_id 
@@ -41,7 +42,6 @@ class WhirlwindApp:
         """
         if not tokens:
             return 3
-
         head = tokens[0]
         command = self._commands.get(head)
         if command is None:
@@ -64,5 +64,6 @@ def build_app(log) -> WhirlwindApp:
         cmds=[
             InspectCommand(log.child("inspect")),
             IngestCommand(log.child("ingest")),
+            WrangleCommand(log.child("wrangle"))
         ]
     )

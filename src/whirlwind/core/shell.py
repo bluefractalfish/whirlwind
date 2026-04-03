@@ -34,6 +34,9 @@ class WShell:
                 "quit": QuitShell(),
                 "q" : QuitShell()}
 
+        # set out directory for this instance 
+        my_out_dir = self.config.get("global").get("out") +"/run-"+ self.app.run_id
+        self.config.get("global")["out"] = my_out_dir
     def run(self) -> int:
         while self.running == 0:
             line = input("W: ").strip()

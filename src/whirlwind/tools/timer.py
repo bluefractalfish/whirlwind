@@ -49,8 +49,8 @@ def timed(label: str = "") -> Callable[[F], F]:
             start = time.perf_counter()
             result = fn(*args, **kwargs)
             seconds = time.perf_counter() - start
-            if STATE.time_reporter is not None:
-                STATE.time_reporter(label or fn.__name__, seconds)
+            #if STATE.time_reporter is not None:
+            #    STATE.time_reporter(label or fn.__name__, seconds)
             return result
         return wrapper  # type: ignore[return-value]
     return decorator

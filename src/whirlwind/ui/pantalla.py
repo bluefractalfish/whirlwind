@@ -69,6 +69,13 @@ class Pantalla:
     def div(self) -> None:
         div = "-" * self.theme.width 
         self._console.print(div)
+
+    def process(self, in_name: str, process_name: str, out_name: str) -> None:
+        self._console.print(f"[{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
+    
+    def header(self, msg: str) -> None:
+        self._console.print(Align.center(f"[{self.theme.info}]_{msg}_[/]"))
+
     def panel(self, msg: Any, *, title: str | None = None, align: str = "center", border_style: str | None = None) -> None:
         if align == "left":
             body = Align.left(str(msg))
@@ -89,8 +96,8 @@ class Pantalla:
         self._console.print(f"[{self.theme.error}]{msg}[/]")
         self._console.print_exception(show_locals=True)
 
-    def table(self, title: str, columns: list[str], rows: list[list], ) -> None:
-
+    def table(self,columns: list[str], rows: list[list],title: str = "" ) -> None:
+        """ generic print table for rich """
         table = Table(title=title,box=None)
 
         for col in columns:
@@ -100,6 +107,79 @@ class Pantalla:
             table.add_row(*[str(v) for v in r])
 
         self._console.print(table)
+
+    def print_dictionary(
+        self,
+        data: dict[str, Any],
+        *,
+        title: str = "",
+        key_header: str = "KEY",
+        value_header: str = "VAL",
+        separator: str = ".",
+        show_lines: bool = False,
+        expand: bool = False,
+            ) -> None:
+        """
+        nested dictionary as a Rich table.
+
+        - nested dicts are flattened into dotted paths
+        - lists/tuples/sets are rendered as compact strings
+        - scalar values are converted to strings
+        """
+
+        table = Table(
+            title=title,
+            show_lines=show_lines,
+            expand=expand,
+        )
+        table.add_column(key_header, no_wrap=True)
+        table.add_column(value_header)
+
+        for key_path, value in self._flatten_mapping(data, separator=separator):
+            table.add_row(key_path, self._format_value(value))
+
+        self._console.print(table)
+
+    def _flatten_mapping(
+        self,
+        data: dict[str, Any],
+        *,
+        parent: str = "",
+        separator: str = ".",
+    ) -> Iterable[tuple[str, Any]]:
+        """
+        Yield flattened (path, value) pairs from nested dictionaries.
+        """
+        for key, value in data.items():
+            key_str = str(key)
+            path = f"{parent}{separator}{key_str}" if parent else key_str
+
+            if isinstance(value, dict):
+                if value:
+                    yield from self._flatten_mapping(
+                        value,
+                        parent=path,
+                        separator=separator,
+                    )
+                else:
+                    yield path, None
+            else:
+                yield path, value
+
+    def _format_value(self, value: Any) -> str:
+        """
+        Convert values to readable strings for table display.
+        """
+        if value is None:
+            return "None"
+
+        if isinstance(value, bool):
+            return "True" if value else "False"
+
+        if isinstance(value, (list, tuple, set)):
+            return ", ".join(str(v) for v in value) if value else "[]"
+
+        return str(value)
 
     # progress bar
     def progress(self):

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional 
 import yaml 
-from .defaults import DEFAULT_CONFIG 
+from .defaults import DEFAULT_CONFIG, DEF_CON 
 from .merge import deep_merge 
 from .schema import ensure_sections, normalize, validate
 
@@ -24,7 +24,7 @@ __all__ = ["DEFAULT_CONFIG", "build_config"]
 
 
 def build_config(raw: Optional[Dict[str,Any]]) -> Dict[str,Any]:
-    ray = raw or {}
+    raw = raw or {}
     if not isinstance(raw, dict): 
         raise ValueError("IN BUILD_CONFIG: raw config must be dictionary ")
     normalized = normalize(raw) 

@@ -51,6 +51,7 @@ def extract(uri: str, columns: List[str]) -> Dict[str, Any]:
     
     if "mosaic_id" in columns:
         out["mosaic_id"]=ids.gen_uuid_from_str(uri)
+
     # always allow uri
     if "uri" in columns:
         out["uri"] = uri
@@ -233,4 +234,7 @@ def get_footprint(ds: Any, target_epsg: int = 4326) -> str:
 
     coords = ",".join(f"{lon:.8f} {lat:.8f}" for lon, lat in corners_out)
     return f"SRID={target_epsg};POLYGON(({coords}))"
+
+
+#def gdalinfo(input_file: str) -> Dict[str,Any]:
 
