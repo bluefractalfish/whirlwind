@@ -6,7 +6,7 @@
 
     BEHAVIOR:
         - parse cli arguments 
-        - load yaml config from disk 
+        - call build_config 
         - bootstrap app + shell 
 
     PUBLIC:
@@ -20,26 +20,12 @@ import sys
 from pathlib import Path 
 from typing import Any, Dict, Optional
 
-import yaml 
 from rich.traceback import install 
 
-from whirlwind.config import build_config 
-from whirlwind.core.app import build_app 
-from whirlwind.core.shell import WShell 
-from whirlwind.core.state import STATE 
-from whirlwind.tools.logger import Logger 
-from whirlwind.tools.pathfinder import find_home_ 
-from whirlwind.ui import face 
+from whirlwind.config import Config
+from whirlwind.core import bootstrapp  
 
-install(show_locals=True)
-
-def load_yaml(path_str: str) -> Dict[str,Any]: 
-    path = Path(path_str).expanduser().resolve()
-    with path.open("r",encoding="utf-8") as f: 
-        data = yaml.safe_load(f) or {}
-    if not isinstance(data, dict):
-        raise ValueError("config file must contain top level mapping")
-    return data 
+#install(show_locals=True)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="whirlwind")
@@ -53,16 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    config_path = find_home_()/build_parser().parse_args(argv).config
-    raw = load_yaml(config_path)
-    config = build_config(raw)
-
-    lp = config.get("global",{}).get("log")
-    log = Logger(lp) 
-
-    app = build_app(log) 
-    shell = WShell(app, config) 
-    return shell.run() 
+    config_doc = build_parser().parse_args(argv).config
+    
+    config = Config(config_doc)
+    
+    return bootstrapp(config) 
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))

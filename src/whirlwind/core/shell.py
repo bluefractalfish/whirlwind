@@ -14,18 +14,16 @@
 from whirlwind.commands.cshell import RestartShell 
 from whirlwind.commands.cshell import QuitShell 
 from whirlwind.commands.cshell import List
-from whirlwind.commands.base import Command
+from whirlwind._r.commands_r.base import Command
 from rich.traceback import install 
 import shlex 
 
 install(show_locals=True)
 
 class WShell:
-    def __init__(self, app, config): 
+    def __init__(self, app): 
         self.app = app 
-        self.config = config 
         self.running = 0
-        self.log = app.log.child("shell")
         self.cshells = {
                 "ls": List(),
                 "list": List(),
@@ -35,8 +33,7 @@ class WShell:
                 "q" : QuitShell()}
 
         # set out directory for this instance 
-        my_out_dir = self.config.get("global").get("out") +"/run-"+ self.app.run_id
-        self.config.get("global")["out"] = my_out_dir
+        #my_out_dir = self.config.parse("global","out") + "/run-"+ self.app.run_id
     def run(self) -> int:
         while self.running == 0:
             line = input("W: ").strip()
@@ -47,6 +44,7 @@ class WShell:
                 print("ERROR")
             except KeyboardInterrupt:
                 self.running = 13 
+                pass
             try:
                 tokens = shlex.split(line)
                 # HANDLE UNRECOGNIZED COMMAND 
@@ -57,7 +55,7 @@ class WShell:
                 if head in self.cshells:
                     self.running = self.cshells[head].run(tokens[1:])
                     continue
-                ret_code = self.app.run(tokens, self.config)
+                ret_code = self.app.run(tokens)
                 match ret_code:
                     case 11:
                         print("unrecognized command")
@@ -66,6 +64,7 @@ class WShell:
                 continue
             except KeyboardInterrupt:
                 self.running = 13 
+                pass
             except Exception as exc:
                 raise exc 
 

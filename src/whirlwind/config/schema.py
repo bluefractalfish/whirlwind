@@ -29,34 +29,6 @@ def normalize(obj: Any) -> Any:
         return [normalize(item) for item in obj] 
     return obj 
 
-
-def validate(cfg: Dict[str, Any]) -> None:
-    if not isinstance(cfg, dict): 
-        raise ValueError("config must be a dict at top level ")
-    g = cfg.get("global")
-    if g is None or not isinstance(g,dict):
-        raise ValueError("config global must be a mapping")
-
-    ingest = cfg.get("ingest")
-    if ingest is None or not isinstance(ingest, dict):
-        raise ValueError("config.ingest must be a mapping")
-
-def ensure_sections(cfg: Dict[str, Any]) -> Dict[str, Any]: 
-    cfg.setdefault("global", {})
-    cfg.setdefault("ingest",{})
-    cfg.setdefault("inspect", {}) 
-    cfg.setdefault("experiments", {}) 
-
-    ingest = cfg.get("ingest")
-
-    if not isinstance(ingest, dict):
-        cfg["ingest"] = {} 
-        ingest = cfg["ingest"] 
-
-    ingest.setdefault("global", {})
-    ingest.setdefault("tiles", {})
-
-    return cfg
     
 
 
