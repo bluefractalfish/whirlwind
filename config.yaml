@@ -1,34 +1,59 @@
 global:
-  version: v01.3
-  in: ../_W/_S/
-  out: experimental_artifacts
-  manifest: csv
-  log: ../_W/log/
+  version: "testing"
+  io:
+    in_dir: ./mnt
+    dest_dir: /home/rhea/dev/artifacts
+  log_dir: ./artifacts/log/
 
-
-ingest:
+catalog:
   global:
-    shard_size: 2096
-    shard_prefix: prefix
+    in_dir: ./mnt
+  build:
+    file_name: catalog.csv
+  stats:
+    file_name: metadata.csv
+  validate:
 
-  tiles:
-    tile_size: 264
-    stride: 264
-    drop_partial: true
-
-    dtype: uint8
-    scale: percentile
-    p_low: 10
-    p_high: 90
-    per_band: false
-
-    stats: sample
-    num_samples: 2048
-
-wrangle:
-  global:
-  mosaics.downsample:
-    target_resolution: (1.0,1.0)
+mosaic:
+  info: 
+  footprint: 
+  validate: 
+  downsample:
+    target_resolution: null
+    target_width: null
+    target_height: null
+    overview_levels: null
+    scale_factor: 0.278
     resampling: bilinear
     dtype: Byte
-    compression: LZW 
+    compression: LZW
+    tiled: true
+    nodata: 0
+    preserve_bounds: false
+
+tile:
+  cut:
+    tile_size: 512
+    stride: null
+    drop_partial: true
+    shard_size: 2048
+    shard_prefix: tiles
+    manifest: csv
+    dtype: float32
+    scale: none
+    p_low: 5.0
+    p_high: 95.0
+    per_band: true
+    stats: sample
+    num_samples: 1048
+  label: 
+  stats:
+  verify: 
+
+label:
+  init: 
+  validate:
+
+pipeline:
+  init: 
+  build: 

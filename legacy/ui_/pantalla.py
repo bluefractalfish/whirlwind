@@ -20,7 +20,7 @@ from rich.traceback import install
 
 from whirlwind.core.state import STATE 
 
-#install(show_locals=True)
+install(show_locals=True)
 
 @dataclass 
 class Theme: 
@@ -70,7 +70,7 @@ class Pantalla:
     def prog_row(self, key: str, value: Any) -> None:
         self._console.print(f"    [dim][{key}][/]: [bold white]{value}[/]")
 
-    def rule(self, title: str = "", *, style: str | None = None) -> None:
+    def rule(self, title: str | None = None, *, style: str | None = None) -> None:
         self._console.print(Rule(title=title, style=style or self.theme.rule))
     def div(self) -> None:
         div = "-" * self.theme.width 

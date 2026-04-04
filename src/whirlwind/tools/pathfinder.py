@@ -41,7 +41,7 @@ def build_path(*parts: str | Path, make_dirs: bool = True) -> tuple[int, Path | 
         return (1, path) if path.exists() else (0, path)
 
     except Exception:
-        return (3, None)
+        raise
 
 def find_home_(start: Path | None = None, markers: Iterable[str] = (".git", "pyproject.toml")) -> Path:
     """

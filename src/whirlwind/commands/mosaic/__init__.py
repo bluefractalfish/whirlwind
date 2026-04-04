@@ -1,2 +1,2 @@
 
-from whirlwind._r.commands_r.mosaic.downsample import DownsampleCommand
+from whirlwind.commands.mosaic.downsample import DownsampleCommand

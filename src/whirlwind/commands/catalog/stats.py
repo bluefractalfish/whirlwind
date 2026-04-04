@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Set
 
 from whirlwind.ui import face 
-from whirlwind._r.commands_r.base import Command
+from whirlwind.commands.base import Command
 from whirlwind.tools.ids import gen_fingerprint
 from whirlwind.tools.pathfinder import build_path 
 from whirlwind.io.metadata import write_mosaic_metadata
@@ -31,18 +31,18 @@ class StatsCommand(Command):
     dest_path: Path 
 
     def run(self, tokens, config) -> int: 
-        this_global = config.parse("catalog","global")
+        global_config = config.parse("global","io")
         this_config = config.parse("catalog","stats") 
         face.info("LOGGING STATS")
         face.prog_row("1/4","discovering stats")
         match len(tokens):
             case 0:
-                default_in = Path(this_global["in_dir"])
+                default_in = Path(global_config["in_dir"])
                 _, self.in_path = build_path(default_in)
-                _,self.dest_path = build_path(this_config["dest_dir"]) 
+                _,self.dest_path = build_path(global_config["dest_dir"]) 
             case 1:
                 _,self.in_path = build_path(tokens[0])
-                _,self.dest_path = build_path(this_config["dest_dir"]) 
+                _,self.dest_path = build_path(global_config["dest_dir"]) 
                 
             case 2:
                 _,self.in_path = build_path(tokens[0])
@@ -52,18 +52,18 @@ class StatsCommand(Command):
                 face.error("catalog stats usage: catalog stats expects 0,1,2 arguments")
                 return 3
 
-        face.prog_row("2/4", "checking io")
+        face.prog_row("2/4", "checking if file exists")
         
-        face.prog_row("3/4","building path metadata.csv")
+        face.prog_row("3/4","building path for metadata")
         metadata_name = f"stats-{gen_fingerprint(str(self.in_path))}.csv"
         metadata_path = self.dest_path / metadata_name
 
         if not metadata_path.exists():
-            face.prog_row("4/4","building path, writing metadata")
+            face.prog_row("4/4","metadata doesnt exist, writing metadata")
             write_mosaic_metadata(str(self.in_path), metadata_path)
             face.process("/"+str(self.in_path.name),"stats", str(self.dest_path.name)+"/"+metadata_name)
 
-        face.info(f"catalog exists for {str(self.dest_path)}")
+        face.info(f"catalog exists for {str(self.in_path)} in {str(self.dest_path)}")
         stats = inspect_metadata(metadata_path)
         return 0
 

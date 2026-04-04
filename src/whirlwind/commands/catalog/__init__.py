@@ -5,5 +5,5 @@ PURPOSE:
 
 """
 
-from whirlwind._r.commands_r.catalog.build import BuildCommand 
-from whirlwind._r.commands_r.catalog.stats import StatsCommand
+from whirlwind.commands.catalog.build import BuildCommand 
+from whirlwind.commands.catalog.stats import StatsCommand

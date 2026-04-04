@@ -14,8 +14,8 @@ BEHAVIOR:
 from pathlib import Path 
 
 from whirlwind.ui import face 
-from whirlwind._r.commands_r.base import Command
-from whirlwind._r.config_r import Config 
+from whirlwind.commands.base import Command
+from whirlwind.config import Config 
 from whirlwind.tools.ids import gen_uuid_from_path, gen_fingerprint
 from whirlwind.tools.pathfinder import build_path 
 from whirlwind.io.metadata import write_catalog
@@ -27,19 +27,20 @@ class BuildCommand(Command):
     dest_path: Path 
 
     def run(self, tokens: list[str], config: Config) -> int:
+        global_config = config.parse("global","io")
         this_config = config.parse("catalog","build")
         face.info("BUILDING CATALOG")
         face.prog_row("1/4","building catalog")
         match len(tokens):
             case 0:
                 # if no input directory default to mnt/
-                default_in = Path(this_config["in_dir"])
+                default_in = Path(global_config["in_dir"])
                 _, self.in_path = build_path(default_in)
-                _,self.dest_path = build_path(this_config["dest_dir"]) 
+                _,self.dest_path = build_path(global_config["dest_dir"]) 
 
             case 1:
                 _,self.in_path = build_path(tokens[0])
-                _,self.dest_path = build_path(this_config["dest_dir"]) 
+                _,self.dest_path = build_path(global_config["dest_dir"]) 
             case 2:
                 _, self.in_path = build_path(tokens[0])
                 _,self.dest_path = build_path(tokens[1])

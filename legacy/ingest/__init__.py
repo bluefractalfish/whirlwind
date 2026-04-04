@@ -6,7 +6,3 @@
 """
 
 from __future__ import annotations 
-from whirlwind.ui.pantalla import Pantalla  
-
-face = Pantalla()
-

@@ -12,7 +12,7 @@
 """
 from typing import Any, List 
 from abc import ABC, abstractmethod
-from whirlwind.config import Config
+
 
 
 class Command(ABC):
@@ -20,11 +20,12 @@ class Command(ABC):
     name: str
 
     @abstractmethod
-    def run(self, tokens: list[str], config: Config) -> int:
+    def run(self, tokens: list[str], config: dict[str,Any]) -> int:
         raise NotImplementedError
     
     def help(self) -> dict[str,str]:
-        ...
+        raise NotImplementedError
+
 
 class ShellCommand(ABC):
     """ base interface for all shell commands. includes multiple names"""
