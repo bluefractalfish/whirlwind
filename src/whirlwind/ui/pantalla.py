@@ -46,26 +46,26 @@ class Pantalla:
     theme: Theme = field(default_factory=Theme)
 
     def print(self, message: Any ) -> None:
-        self._console.print(f"[{self.theme.text}]{message}[/]")
+        self._console.print(f"  [{self.theme.text}]{message}[/]")
     
     def info(self, message: Any ) -> None:
-        self._console.print(f"[{self.theme.info}]{message}[/]")
+        self._console.print(f"  [{self.theme.info}]{message}[/]")
     def debug(self, message: Any ) -> None:
-        self._console.print(f"[{self.theme.debug}]{message}[/]")
+        self._console.print(f"  [{self.theme.debug}]{message}[/]")
     def warning(self, message: Any ) -> None:
-        self._console.print(f"[{self.theme.warn}]{message}[/]")
+        self._console.print(f"  [{self.theme.warn}]{message}[/]")
     def error(self, message: Any ) -> None:
-        self._console.print(f"[{self.theme.error}]{message}[/]")
+        self._console.print(f"  [{self.theme.error}]{message}[/]")
     def success(self, message: Any ) -> None:
-        self._console.print(f"[{self.theme.text}]{message}[/]")
+        self._console.print(f"  [{self.theme.text}]{message}[/]")
     
     
     def row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
         value_style = value_style or self.theme.text
-        self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
+        self._console.print(f"  [{key_style}]{key}[/]: [{value_style}]{value}[/]")
     def info_row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
         value_style = value_style or self.theme.text
-        self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
+        self._console.print(f"  [{key_style}]{key}[/]: [{value_style}]{value}[/]")
 
     def prog_row(self, key: str, value: Any) -> None:
         self._console.print(f"    [dim][{key}][/]: [bold white]{value}[/]")
@@ -76,7 +76,7 @@ class Pantalla:
         div = "-" * self.theme.width 
         self._console.print(div)
     def process(self, in_name: str, process_name: str, out_name: str) -> None:
-        self._console.print(f"[{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
+        self._console.print(f"  [{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
     
     def header(self, msg: str) -> None:
         self._console.print(Align.center(f"[{self.theme.info}]_{msg}_[/]"))

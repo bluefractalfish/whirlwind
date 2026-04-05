@@ -13,17 +13,40 @@ import subprocess
 from osgeo import gdal 
 from pathlib import Path 
 from whirlwind.ui import face
-from whirlwind.tools.ids import gen_uuid_from_str
+from whirlwind.tools.ids import gen_uuid_from_str, gen_uuid_from_path
 from whirlwind.tools.timer import timed 
+from whirlwind.tools.pathfinder import build_path
 
 from dataclasses import dataclass 
 from typing import Optional, Tuple, Union, List, Any, Dict
 
 @timed("downsampling")
-def downsample_mosaic(source_path: Path,  params: DSParams, subproc: bool=True) -> Path:
-    return build_gdal_subprocess(source_path, params) 
+def downsample_mosaic(source_path: Path,  params: DSParams, subproc: bool=True) -> Path | None:
+    
+    exists, dest_dir = downsample_dir(str(source_path), params.out_dir)
+    if dest_dir is None:
+        face.error("an error was encountered constructing path")
+        return
+    out_path = dest_dir / f"browse-{gen_uuid_from_path(source_path)}"
+    if exists == 1:
+        face.print(f"browser ready mosaic already exists at {out_path}")
+        do = input("    downsample anyway? (y/n)")
+        if do == "y":
+            face.print(f"overwritting {out_path}...")
+            cmd =  build_gdal_subprocess(source_path, out_path, params) 
+        else:
+            return
 
-def build_gdal_subprocess(source_path: Path,  params: DSParams) -> Path:
+    cmd =  build_gdal_subprocess(source_path, out_path, params) 
+
+    face.print("downsampling...")
+    subprocess.run(cmd, check=True)
+    face.process(str(source_path),"gdal_translate",f"{out_path.name}\n")
+
+    ## change names of PATHSS
+    return Path(params.out_dir) / f"{gen_uuid_from_str(str(source_path))}"
+
+def build_gdal_subprocess(source_path: Path, out_path: Path, params: DSParams) -> List[Path | str]:
 
     cmd = ["gdal_translate","-q","-of", "GTiff"]
     if params.dtype:
@@ -54,14 +77,12 @@ def build_gdal_subprocess(source_path: Path,  params: DSParams) -> Path:
     for co in co_opts:
         cmd += ["-co",co]
     cmd += ["--config","GDAL_TRANSLATE_COPY_SRC_MDD", "YES"]
-    out_path = downsample_dir(str(source_path), params.out_dir)
+
+
+
     cmd += [source_path, out_path]
-    face.process(str(source_path),"gdal_translate",f"{out_path.name}")
-    subprocess.run(cmd, check=True)
-
-    ## change names of PATHSS
-    return Path(params.out_dir) / f"{gen_uuid_from_str(str(source_path))}"
-
+    
+    return cmd
 
 
 @dataclass 
@@ -116,44 +137,13 @@ class DSParams:
 
 
 
-def downsample_dir(source: str, out_path: Path) -> Path: 
-    dest = Path(out_path) / f"{gen_uuid_from_str(source)}"  
-    dest.mkdir(parents=True, exist_ok=True)
-    out_path = dest / f"browse-{gen_uuid_from_str(source)}"
-    return out_path
+def downsample_dir(source: str, out_path: Path) -> tuple[int,Path|None]: 
+
+    dest = out_path / f"{gen_uuid_from_str(source)}" 
+    exists, final_destination = build_path(dest)
+    return exists, final_destination
 
 
-def _add_text_field(layer, name: str, width: int = 128) -> None:
-    fd = ogr.FieldDefn(name, ogr.OFTString)
-    fd.SetWidth(width)
-    layer.CreateField(fd)
-
-def _add_real_field(layer, name: str) -> None:
-    fd = ogr.FieldDefn(name, ogr.OFTReal)
-    layer.CreateField(fd)
-
-def stage_label_gpkg(gpkg_path: Path, epsg: int | None = None) -> None:
-    gpkg_dest = gpkg_path/"path_vectors.gpkg"
-    drv = ogr.GetDriverByName("GPKG")
-    ds = drv.CreateDataSource(gpkg_dest)
-    if ds is None:
-        raise RuntimeError(f"Could not create GeoPackage: {gpkg_path}")
-
-    srs = None
-    if epsg is not None:
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(epsg)
-
-    path_layer = ds.CreateLayer("damage_path", srs=srs, geom_type=ogr.wkbLineString)
-    area_layer = ds.CreateLayer("damage_area", srs=srs, geom_type=ogr.wkbPolygon)
-
-    for lyr in (path_layer, area_layer):
-        _add_text_field(lyr, "event_id", 64)
-        _add_text_field(lyr, "label", 64)
-        _add_real_field(lyr, "confidence")
-        _add_text_field(lyr, "notes", 255)
-
-    ds = None
 
 """
 def run_with_gdal_api(source_path: str, params: DSParams) -> None:

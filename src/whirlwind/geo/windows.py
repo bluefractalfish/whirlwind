@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Iterator, Tuple
 import rasterio
 from rasterio.windows import Window
-from whirlwind.ingest.params import TParams
+#from whirlwind.commands.mosaic.cut_tiles import TParams
 
 def num_tiles(ds: rasterio.DatasetReader, tile_size: int, stride: int) -> int:
     tiles_x = max(1, (ds.width - tile_size) // stride + 1)

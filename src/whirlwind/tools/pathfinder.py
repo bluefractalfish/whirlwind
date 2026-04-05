@@ -35,10 +35,13 @@ def build_path(*parts: str | Path, make_dirs: bool = True) -> tuple[int, Path | 
 
         path = path.expanduser().resolve(strict=False)
 
-        if make_dirs:
-            path.mkdir(parents=True, exist_ok=True)
 
-        return (1, path) if path.exists() else (0, path)
+        if path.exists():
+            return (1,path)
+        else:
+            if make_dirs:
+                path.mkdir(parents=True, exist_ok=True)
+            return (0,path)
 
     except Exception:
         raise
