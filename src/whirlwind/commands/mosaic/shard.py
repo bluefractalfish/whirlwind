@@ -1,8 +1,8 @@
 
-""" whirlwind.commands.mosaic.cut_tiles  
+""" whirlwind.commands.mosaic.shard  
     
     PURPOSE:
-        - ` command logic for cutting tiles from mosaic
+        - ` command logic for cutting tiles from mosaic and emitting as shards
         - can accept a quantization plan if requested with `-q` 
         
     BEHAVIOR:
@@ -11,7 +11,7 @@
         - optionally uses existing label scheme metadata to label
         - optionally quantizes 
     PUBLIC:
-        - TesselateMosaicCommand
+        - ShardMosaicCommand
 
 
 
@@ -45,7 +45,7 @@ import rasterio
 from rasterio.windows import Window
 from rasterio.warp import transform_bounds
 
-from whirlwind.geo.windows import window_bounds
+from whirlwind.tools.geo.windows import window_bounds
 from whirlwind.tools import datamonkeys as dm
 
 

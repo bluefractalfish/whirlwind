@@ -22,7 +22,7 @@ from whirlwind.config import Config
 
 from whirlwind.commands.catalog import BuildCommand, StatsCommand
 from whirlwind.commands.mosaic import DownsampleCommand
-from whirlwind.commands.mosaic import TesselateMosaicCommand 
+from whirlwind.commands.mosaic import ShardMosaicCommand 
 @dataclass
 class Catalog(Command):
     name = "catalog"
@@ -55,8 +55,8 @@ class Mosaic(Command):
         """ 
             valid commands for mosaic:
             mosaic downsample | ds 
-            mosaic tesselate | t --> cuts mosaic and emits webdataset. 
-                                         for each tile, 
+            mosaic shard | t --> cuts mosaic and emits webdataset. 
+                                         for each tile, access same logic as, KEEP DATASET OPEN: 
                                             tile read --> window read 
                                             tile label --> labels against label build output 
                                             tile quantize --> runs quantization if needed 
@@ -72,8 +72,8 @@ class Mosaic(Command):
         match tokens[0]:
             case "downsample" | "ds":
                 return DownsampleCommand().run(tokens[1:],config)
-            case "tesselate" | "t":
-                return TesselateMosaicCommand().run(tokens[1:],config)
+            case "shard" | "s":
+                return ShardMosaicCommand().run(tokens[1:],config)
             case "info":
                 face.error("command not yet built")
                 return 4
@@ -112,12 +112,12 @@ class Label(Command):
         if len(tokens) == 0:
             face.error("label usage: expects at least one subcommand")
         match tokens[0]:
-            case "init":
+            case "stage":
                 ... 
-                #return InitLabelCommand().run(tokens[1:],config)
-            case "build":
+                #return StageLabelCommand().run(tokens[1:],config)
+            case "intersect":
                 ... 
-                #return BuildLabelCommand().run(tokens[1:].config)
+                #return IntersectCommand().run(tokens[1:].config)
 
         return 0
 
@@ -128,10 +128,10 @@ class Label(Command):
 
                     builds catalog,
                     reads catalog to generate browse mosaics 
-                     label init 
+                     label stage 
                             -> user annotates with path data 
-                    label build --> uses tiling scheme to check intersection 
+                    label intersect --> uses tiling scheme to check intersection 
                                     with label metadata builds metadata for each mosaic and each tile 
-                    mosaic tesselate
+                    mosaic shard  
 
 """ 

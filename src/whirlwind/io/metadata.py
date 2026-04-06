@@ -19,7 +19,7 @@ import csv
 from pathlib import Path 
 from typing import Dict, Iterable, List, Optional 
 
-from whirlwind.geo.metadata import extract 
+from whirlwind.interfaces.geo.metadata import extract 
 from whirlwind.tools import pathfinder as pf 
 from whirlwind.tools.timer import timed 
 from whirlwind.io.out import write_csv 

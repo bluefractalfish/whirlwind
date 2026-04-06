@@ -20,7 +20,11 @@ from whirlwind.tools.pathfinder import build_path
 from dataclasses import dataclass 
 from typing import Optional, Tuple, Union, List, Any, Dict
 
-@timed("downsampling")
+        
+################
+## CORE LOGIC ##
+################
+
 def downsample_mosaic(source_path: Path,  params: DSParams, subproc: bool=True) -> Path | None:
     
     exists, dest_dir = downsample_dir(str(source_path), params.out_dir)
@@ -85,57 +89,9 @@ def build_gdal_subprocess(source_path: Path, out_path: Path, params: DSParams) -
     return cmd
 
 
-@dataclass 
-class DSParams:
-    """downsample params for gdal_translate """
-    uris: list[str]
-    out_dir: Path 
-    target_resolution: Optional[Tuple[float, float]] = None 
-    scale_factor: Optional[float] = None 
-    target_width: Optional[int] = None 
-    target_height: Optional[int] = None 
-    resampling: str = 'nearest' # nearest, bilinear, cubic, average
-    dtype: Optional[str] = None # byte, float32 
-    compression: str = 'DEFLATE'# DEFLATE, LZW 
-    tiled: bool = True          # create tiled geotiff, faster reads 
-    overview_levels: Union[List[int], str] = 'AUTO' 
-    nodata: Optional[float] = None 
-    preserve_bounds: bool = False # if true preserve original bounds exactly 
-
-
-    def help(self) -> Dict[str,Any]: 
-        help_dict = { 
-                
-                     "target resolution" : "desired resolution of output",
-                     "scale factor" : "scale factor ",
-                     "resampling": "choose from nearest, bilinear. cubic, average",
-                     "dtype": "byte, float32",
-                     "compression": "DEFLATE, LZW",
-                     "tiled": "create tiled geotiff",    
-                }
-        return help_dict 
-    def print_table(self) -> None:
-        cols = ["downsampling param","value"]
-        rows = [ 
-                ["uris",len(self.uris)],
-                ["destination",str(self.out_dir)],
-                ["target res", str(self.target_resolution if self.target_resolution else "")],
-                ["scale factor",str(self.scale_factor if self.scale_factor else "")],
-                ["target w", str(self.target_width if self.target_width else "")],
-                ["target h", str(self.target_height if self.target_height else "")],
-                ["resampling method", self.resampling],
-                ["dtype", self.dtype if self.dtype else ""],
-                ["compression", self.compression],
-                ["tiled", self.tiled],
-                ["overview levels", str(self.overview_levels)],
-                ["nodata", str(self.nodata if self.nodata else "")],
-                ["preserve bounds", self.preserve_bounds]
-                ]
-        face.table(cols, rows)
-
-        
-
-
+######################
+## SPECIALIZED HELP ##
+######################
 
 def downsample_dir(source: str, out_path: Path) -> tuple[int,Path|None]: 
 
@@ -143,20 +99,3 @@ def downsample_dir(source: str, out_path: Path) -> tuple[int,Path|None]:
     exists, final_destination = build_path(dest)
     return exists, final_destination
 
-
-
-"""
-def run_with_gdal_api(source_path: str, params: DSParams) -> None:
-    src_ds = gdal.Open(source_path)
-    translate_opts = gdal.TranslateOptions(
-            outputSRS=None,
-            xRes=params.target_resolution[0] if params.target_resolution else 0.0, 
-            yRes=params.target_resolution[1] if params.target_resolution else 0.0, 
-            width=params.target_width if params.target_width else 0, 
-            height=params.target_height if params.target_height else 0, 
-            resampleAlg=params.resampling,
-            outputType=params.dtype, 
-            creationOptions=co_opts, 
-            noData=params.nodata 
-        )
-"""

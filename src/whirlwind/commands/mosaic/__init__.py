@@ -1,3 +1,3 @@
 
 from whirlwind.commands.mosaic.downsample import DownsampleCommand
-from whirlwind.commands.mosaic.tesselate import TesselateMosaicCommand
+from whirlwind.commands.mosaic.tesselate import ShardMosaicCommand
