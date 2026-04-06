@@ -20,9 +20,11 @@ import yaml
 
 from dataclasses import dataclass
 from pathlib import Path
+from whirlwind.tools.pathfinder import find_home_
 from typing import Any, Dict, Tuple
 from .defaults import DEF_CON 
 from .merge import deep_merge 
+
 
 __all__ = ["DEF_CON", "build_config"] 
 
@@ -33,7 +35,8 @@ class Config:
     merged : Dict[str,Any]
 
     def __init__(self, config_doc):
-        self.raw = load_yaml(config_doc)
+        config_path = str(find_home_() / config_doc)
+        self.raw = load_yaml(config_path)
         self.default = DEF_CON
         self.merged = self.build()
     

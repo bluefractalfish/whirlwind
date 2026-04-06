@@ -22,7 +22,7 @@ from whirlwind.config import Config
 
 from whirlwind.commands.catalog import BuildCommand, StatsCommand
 from whirlwind.commands.mosaic import DownsampleCommand
-from whirlwind.commands.mosaic import ShardMosaicCommand 
+#from whirlwind.commands.mosaic import ShardMosaicCommand 
 @dataclass
 class Catalog(Command):
     name = "catalog"
@@ -56,7 +56,7 @@ class Mosaic(Command):
             valid commands for mosaic:
             mosaic downsample | ds 
             mosaic shard | t --> cuts mosaic and emits webdataset. 
-                                         for each tile, access same logic as, KEEP DATASET OPEN: 
+                                         for each tile, access same logic as: 
                                             tile read --> window read 
                                             tile label --> labels against label build output 
                                             tile quantize --> runs quantization if needed 
@@ -73,7 +73,8 @@ class Mosaic(Command):
             case "downsample" | "ds":
                 return DownsampleCommand().run(tokens[1:],config)
             case "shard" | "s":
-                return ShardMosaicCommand().run(tokens[1:],config)
+                ...
+                #return ShardMosaicCommand().run(tokens[1:],config)
             case "info":
                 face.error("command not yet built")
                 return 4
