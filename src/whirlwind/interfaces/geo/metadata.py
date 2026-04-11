@@ -6,17 +6,84 @@
         - open raster via gdal and return selected metadata fields 
         - compute lightweight geospatial descriptors 
     PUBLIC:
+        - Extracter(uri, mode = "code" | "extended" | "full")
         - extract(uri, columns) -> dict[str, Any]
 
 """
 from __future__ import annotations 
 
 import re 
+from dataclasses import dataclass 
 from pathlib import Path 
 from typing import Any, Dict, List, Tuple 
+from osgeo import gdal, osr 
 
 from whirlwind.tools import datamonkeys as dm 
 from whirlwind.tools import ids 
+
+@dataclass 
+class Extracter: 
+    uri: str
+    ds: gdal.Dataset | None
+
+    def __init__(self, uri: str, mode: str = "core") -> dict[str, Any]:
+        self.ds = gdal.Open(uri, gdal.GA_ReadOnly)
+        self.uri = uri 
+        if self.ds is None:
+            raise RuntimeError(f"GDAL failed to open: {self.uri}")
+        
+        try:
+            match mode:
+                case "core":
+                    return self._extract_core() 
+                case "extended" | "ext": 
+                    return self._extract_extended()
+                case "full":
+                    return self._extract_full()
+                case _:
+                    raise ValueError(f"unsupported mode: {mode}")
+        finally:
+            self.ds = None 
+
+
+    def _extract_core(self) -> dict[str, Any]:
+        """ extracts and populates dictionary:
+                mosaic_id, 
+                uri, 
+                driver, 
+                driver_long_name, 
+                width, 
+                height, 
+                count, 
+                crs_wkt, 
+                srid, 
+                transform, 
+                dtype, 
+                dtypes, 
+                nodata,
+                block_shapes, 
+                overview_counts, 
+                dataset_tags, 
+                image_structure, 
+                subdatasets 
+            """
+        ... 
+    def _extract_extended(self) -> dict[str, Any]:
+        """     CORE plus: 
+                metadata_domains, 
+                bands, 
+                gcps, 
+                rpc, 
+                geolocation,
+
+        """
+        ... 
+    def _extract_full(self) -> dict[str, Any]:
+        """
+            mimics gdal.info()
+        """
+        ...
+
 
 def _import_osgeo():
     try:
