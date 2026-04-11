@@ -22,11 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from whirlwind.tools.pathfinder import find_home_
 from typing import Any, Dict, Tuple
-from .defaults import DEF_CON 
-from .merge import deep_merge 
-
-
-__all__ = ["DEF_CON", "build_config"] 
+from .loader import normalize, load_yaml, DEF_CON, deep_merge
 
 @dataclass 
 class Config:
@@ -59,34 +55,6 @@ class Config:
             raise ValueError(f"config error: configuration for {command} not found")
             return {}
         return subcommand_cfg
-         
-def load_yaml(path_str: str) -> Dict[str,Any]: 
-    path = Path(path_str).expanduser().resolve()
-    with path.open("r",encoding="utf-8") as f: 
-        data = yaml.safe_load(f) or {}
-    if not isinstance(data, dict):
-        raise ValueError("config file must contain top level mapping")
-    return data 
-
-def build_config(config_doc: str) -> Dict[str,Any]:
-    raw = load_yaml(config_doc)
-    if not isinstance(raw, dict): 
-        raise ValueError("IN BUILD_CONFIG: raw config must be dictionary ")
-    normalized = normalize(raw) 
-    merged = deep_merge(DEF_CON, normalized)
-    #merged = ensure_sections(merged)
-    #validate(merged) 
-    return merged 
-def normalize(obj: Any) -> Any: 
-    if isinstance(obj, dict):
-        return {
-                str(key).replace("-","_"): normalize(value) 
-                for key, value in obj.items()
-            }
-    if isinstance(obj, list):
-        return [normalize(item) for item in obj] 
-    return obj 
-
     
 
 

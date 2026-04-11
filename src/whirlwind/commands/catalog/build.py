@@ -16,14 +16,14 @@ from pathlib import Path
 from whirlwind.ui import face 
 from whirlwind.commands.base import Command
 from whirlwind.config import Config 
-from whirlwind.tools.ids import gen_uuid_from_path, gen_fingerprint
 from whirlwind.tools.pathfinder import build_path 
-from whirlwind.io.metadata import write_catalog
-
+from whirlwind.contracts.walkable import MosaicCatalog
+from whirlwind.trees import RunTree, MosaicTree
+# BuildCatalog
 class BuildCommand(Command):
     """ build catalog of mosaic uris and uuid """
     name = "build"
-    in_path: Path 
+    in_path: Path
     dest_path: Path 
 
     def run(self, tokens: list[str], config: Config) -> int:
@@ -31,19 +31,14 @@ class BuildCommand(Command):
         this_config = config.parse("catalog","build")
         face.info("BUILDING CATALOG")
         face.prog_row("1/4","building catalog")
+        flags = [t for t in tokens if t.startswith("-")]
+        tokens = [t for t in tokens if t not in flags]
         match len(tokens):
             case 0:
                 # if no input directory default to mnt/
-                default_in = Path(global_config["in_dir"])
-                _, self.in_path = build_path(default_in)
-                _,self.dest_path = build_path(global_config["dest_dir"]) 
-
+                self.in_path = Path(global_config["in_dir"])
             case 1:
-                _,self.in_path = build_path(tokens[0])
-                _,self.dest_path = build_path(global_config["dest_dir"]) 
-            case 2:
-                _, self.in_path = build_path(tokens[0])
-                _,self.dest_path = build_path(tokens[1])
+                _,self.in_path = build_path(tokens[1]) 
             case _: 
                 face.error("catalog build usage: catalog build expects 0,1,2 arguments")
                 return 3
@@ -52,13 +47,28 @@ class BuildCommand(Command):
 
         face.prog_row("3/4","constructing catalog path")
         catalog_name = f"{this_config["file_name"]}"
-        catalog_path = self.dest_path / catalog_name 
+        
+        out_root = Path(global_config["dest_dir"]) / "run_id"
+        tree = RunTree.plant(out_root).ensure() 
+        
+        catalog_path = tree.catalog_dir / catalog_name 
+        
+        cat = MosaicCatalog(catalog_path)
 
+             
+        if not catalog_path.exists() or "-f" in flags:  
+            face.prog_row("4/4",f"writing catalog for {self.in_path.name}/")
+            face.process("/"+str(self.in_path.name),"building catalog",str(tree.catalog_dir)+"/"+catalog_name)
+            
+            catalog = MosaicCatalog(catalog_path) 
+            catalog.write_from(self.in_path)
+            
+            mosaic_ids = catalog.get_mosaic_ids()
 
-        if not catalog_path.exists():
-            face.prog_row("4/4",f"writing catalog for {self.dest_path.name}/")
-            face.process("/"+str(self.in_path.name),"building catalog",str(self.dest_path.name)+"/"+catalog_name)
-            return write_catalog(self.in_path, catalog_path)
+            for mid in mosaic_ids:
+                tree.mosaic_tree(mid).ensure()
+
+            return 2
 
         face.info(f"catalog exists for {str(self.in_path)}")
         return 0

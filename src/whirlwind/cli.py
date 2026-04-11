@@ -5,8 +5,7 @@
         - entrypoint for whirlwind cli 
 
     BEHAVIOR:
-        - parse cli arguments 
-        - call build_config 
+        - constructs config from config path.name
         - bootstrap app + shell 
 
     PUBLIC:
@@ -17,12 +16,12 @@ from __future__ import annotations
 
 import argparse 
 import sys 
-from pathlib import Path 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from rich.traceback import install 
 
 from whirlwind.config import Config
+
 from whirlwind.core import bootstrapp  
 
 #install(show_locals=True)

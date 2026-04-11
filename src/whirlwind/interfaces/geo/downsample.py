@@ -14,7 +14,6 @@ from osgeo import gdal
 from pathlib import Path 
 from whirlwind.ui import face
 from whirlwind.tools.ids import gen_uuid_from_str, gen_uuid_from_path
-from whirlwind.tools.timer import timed 
 from whirlwind.tools.pathfinder import build_path
 
 from dataclasses import dataclass 

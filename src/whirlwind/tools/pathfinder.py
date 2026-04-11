@@ -21,7 +21,7 @@ def get_root_(out_dir: str | Path) -> Path:
     root.mkdir(parents=True,exist_ok=True)
     return root
 
-def build_path(*parts: str | Path, make_dirs: bool = True) -> tuple[int, Path | None]:
+def build_path(*parts: str | Path, make_dirs: bool = True) -> tuple[int, Path]:
     """
     Returns:
         (1, path) -> successful and path exists

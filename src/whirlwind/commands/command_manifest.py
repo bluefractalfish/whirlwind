@@ -73,8 +73,7 @@ class Mosaic(Command):
             case "downsample" | "ds":
                 return DownsampleCommand().run(tokens[1:],config)
             case "shard" | "s":
-                ...
-                #return ShardMosaicCommand().run(tokens[1:],config)
+                return ShardMosaicCommand().run(tokens[1:],config)
             case "info":
                 face.error("command not yet built")
                 return 4

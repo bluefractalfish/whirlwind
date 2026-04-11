@@ -7,7 +7,7 @@ from typing import List
 from whirlwind.ui import face 
 from whirlwind.tools.pathfinder import build_path
 from whirlwind.interfaces.geo.downsample import downsample_mosaic
-from whirlwind.specs.dsparams import DSParams 
+from whirlwind.ports.gdal_ports import DSParams 
 from whirlwind.io.inputs import iter_uris
 from whirlwind.commands.base import Command 
 from whirlwind.config import Config 
@@ -29,9 +29,7 @@ class DownsampleCommand(Command):
         
 
         face.prog_row("2/4","building params...")
-
         dsp = self.build_params(tokens, config)
-
         if dsp is None:
             face.error("an error was encountered trying to downsample")
             return 3

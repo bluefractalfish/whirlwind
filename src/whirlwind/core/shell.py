@@ -18,7 +18,7 @@ from whirlwind.commands.base import Command
 from rich.traceback import install 
 import shlex 
 
-install(show_locals=True)
+#install(show_locals=True)
 
 class WShell:
     def __init__(self, app): 
