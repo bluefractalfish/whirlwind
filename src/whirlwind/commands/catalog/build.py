@@ -17,8 +17,8 @@ from whirlwind.ui import face
 from whirlwind.commands.base import Command
 from whirlwind.config import Config 
 from whirlwind.tools.pathfinder import build_path 
-from whirlwind.contracts.walkable import MosaicCatalog
-from whirlwind.trees import RunTree, MosaicTree
+from whirlwind.catalogs import IDCatalog
+from whirlwind.filesystem import RunTree, MosaicTree
 # BuildCatalog
 class BuildCommand(Command):
     """ build catalog of mosaic uris and uuid """
@@ -53,17 +53,14 @@ class BuildCommand(Command):
         
         catalog_path = tree.catalog_dir / catalog_name 
         
-        cat = MosaicCatalog(catalog_path)
-
              
         if not catalog_path.exists() or "-f" in flags:  
             face.prog_row("4/4",f"writing catalog for {self.in_path.name}/")
             face.process("/"+str(self.in_path.name),"building catalog",str(tree.catalog_dir)+"/"+catalog_name)
             
-            catalog = MosaicCatalog(catalog_path) 
-            catalog.write_from(self.in_path)
+            catalog = IDCatalog.write_now(dest=catalog_path, src=self.in_path)
             
-            mosaic_ids = catalog.get_mosaic_ids()
+            mosaic_ids = catalog.get_ids()
 
             for mid in mosaic_ids:
                 tree.mosaic_tree(mid).ensure()

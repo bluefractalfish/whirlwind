@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List
 import shutil 
 
-from whirlwind.trees import MosaicTree
+from whirlwind.filesystem import MosaicTree
 
 @dataclass(frozen=True)
 class RunTree:

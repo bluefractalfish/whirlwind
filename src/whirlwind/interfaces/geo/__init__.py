@@ -1,1 +1,1 @@
-""" geo related tools related to gdal, osgeo, rasterio, etc. """
+""" geo related tools dependent upon gdal, osgeo, rasterio, etc. """
