@@ -2,6 +2,7 @@
 """
 from dataclasses import dataclass, asdict 
 from typing import ClassVar, Any, Mapping 
+from whirlwind.filesystem.files import RasterFile
 from whirlwind.contracts import Raster 
 
 
@@ -16,6 +17,7 @@ class Mosaic:
     """
     mosaic_id: str 
     uri: str 
+    f: RasterFile 
     raster: Raster 
 
     def to_record(self) -> dict[str,object]:

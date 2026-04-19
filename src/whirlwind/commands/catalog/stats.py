@@ -1,13 +1,13 @@
 
-"""whirlwind.commands.catalog
+"""whirlwind.commands.manifest
 
 PURPOSE: 
-    - entrypoint for catalog command 
+    - entrypoint for manifest command 
 BEHAVIOR:
-    - catalog stats: creates metadata csv of mosaics (legacy `inspect`)
-    - catalog stats ... -> creates run_id/metadata/metadata.csv from mnt/
-    - catalog stats path/to/mosaics -> creates from path/to/mosaics 
-    - catalog stats path/to path/out -> creates both in and out dir
+    - manifest stats: creates metadata csv of mosaics (legacy `inspect`)
+    - manifest stats ... -> creates run_id/metadata/metadata.csv from mnt/
+    - manifest stats path/to/mosaics -> creates from path/to/mosaics 
+    - manifest stats path/to path/out -> creates both in and out dir
 
 """
 
@@ -22,49 +22,102 @@ from whirlwind.commands.base import Command
 from whirlwind.tools.ids import gen_fingerprint
 from whirlwind.tools.pathfinder import build_path 
 from whirlwind.io.metadata import write_mosaic_metadata
+from whirlwind.filesystem import RunTree, MosaicBranch
+from whirlwind.manifests import IDManifest, RasterMetadataWriter
 
-class StatsCommand(Command):
+
+CAT_EXT = { 
+
+    "-c": "core",
+    "-e": "extended",
+    "-a": "full",
+    "-t": "total"
+    }
+
+
+class BuildMetadataManifests(Command):
 
     " get stats of mosaic uris "
     name = "stats"
     in_path: Path 
-    dest_path: Path 
+    out_root: Path 
+    tokens: list[str]
+    flags: list[str]
 
-    def run(self, tokens, config) -> int: 
+    def toke(self, tokens, config) -> None: 
         global_config = config.parse("global","io")
-        this_config = config.parse("catalog","stats") 
         face.info("LOGGING STATS")
-        face.prog_row("1/4","discovering stats")
+        face.prog_row("1/5","discovering stats")
+        
+        self.flags = [t for t in tokens if t.startswith("-")] 
+        self.tokens = [t for t in tokens if t not in self.flags ]
+        
         match len(tokens):
             case 0:
-                default_in = Path(global_config["in_dir"])
-                _, self.in_path = build_path(default_in)
-                _,self.dest_path = build_path(global_config["dest_dir"]) 
+                # if no input directory, default to mnt/
+                self.in_path = Path(global_config["in_dir"])
             case 1:
+                # if one token, assume it is input dir 
                 _,self.in_path = build_path(tokens[0])
-                _,self.dest_path = build_path(global_config["dest_dir"]) 
-                
-            case 2:
-                _,self.in_path = build_path(tokens[0])
-                _,self.dest_path = build_path(tokens[1])
-                
             case _: 
-                face.error("catalog stats usage: catalog stats expects 0,1,2 arguments")
-                return 3
+                face.error("manifest stats usage: manifest stats expects 0,1,2 arguments")
+                pass 
 
-        face.prog_row("2/4", "checking if file exists")
+        self.out_root = config.out_path() / config.run_id() 
+
+    def run(self, tokens, config) -> int: 
+
+        self.toke(tokens, config)
+
+        face.prog_row("2/5", "checking if file(s) exists") 
+        face.prog_row("3/5","building path for metadata")
+
+       
+        #####################################
+        ## build run tree if doesnt exists ##
+        #####################################
+        tree = RunTree.plant(self.out_root)
+        ####################################
+
+        metadata_path = tree.get_metadata_csv()
+        manifest_path = tree.get_manifest_csv()
+
+        manifest = IDManifest(manifest_path)
         
-        face.prog_row("3/4","building path for metadata")
-        metadata_name = f"stats-{gen_fingerprint(str(self.in_path))}.csv"
-        metadata_path = self.dest_path / metadata_name
 
-        if not metadata_path.exists():
-            face.prog_row("4/4","metadata doesnt exist, writing metadata")
-            write_mosaic_metadata(str(self.in_path), metadata_path)
-            face.process("/"+str(self.in_path.name),"stats", str(self.dest_path.name)+"/"+metadata_name)
+        if manifest.exists():
+            face.print("manifest exists for input directory")
 
-        face.info(f"catalog exists for {str(self.in_path)} in {str(self.dest_path)}")
-        stats = inspect_metadata(metadata_path)
+        if not manifest.exists():
+            ud = input(f"manifest does not exist, create for {self.in_path} now? (y/n) ")
+            if ud == "y":
+                face.print("creating manifest")
+                manifest.write_now(dest=manifest_path, src=self.in_path)
+                face.print(f"manifest created for {self.in_path}")
+            else:
+                face.prog_row("[0/0]", "exiting manifestger")
+
+        if not metadata_path.exists() or "-f" in self.flags:
+            face.prog_row("4/5","building metadata file")
+            for scope in ["core","extended","full"]:
+                
+                ###############################################
+                ## initilize MosaicMetadatamanifest from tree ##
+                ## choose format, and mode                   ##
+                ###############################################
+                meta_cat = RasterMetadataWriter.init_from_tree(manifest, tree, fmt="csv", mode=scope)
+                ###############################################
+
+                face.prog_row("5/5", f"writing metadata manifest for rasters...")
+                ###############################################
+                ## Write metadata from MosaicMetadatamanifest ##
+                ###############################################
+                meta_cat.write()
+                ########################## 
+
+            face.process("/"+str(self.in_path.name),"stats", str(tree.get_manifest_csv()))
+
+        face.info(f"metadata manifest exists for {str(self.in_path)} at {metadata_path}")
         return 0
 
 @dataclass

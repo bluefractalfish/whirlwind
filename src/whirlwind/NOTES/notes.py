@@ -54,6 +54,8 @@ class MosaicMetadata:
 
     def extract(self, uri: str) -> dict[str, Any]:
         ds = gdal.Open(uri, gdal.GA_ReadOnly)
+        gdal.UseExceptions()
+
         if ds is None:
             raise RuntimeError(f"GDAL failed to open: {uri}")
 
@@ -159,7 +161,7 @@ class MosaicMetadata:
         return out
 
     def _extract_band(self, band: gdal.Band, band_index: int) -> dict[str, Any]:
-        color_name = gdal.GetColorInterpretationName(band.GetColorInterpretation())
+        color_name = gdal.GetColorInterpretationName(int(band.GetColorInterpretation()))
         unit = band.GetUnitType() or ""
         desc = band.GetDescription() or ""
         scale = band.GetScale()

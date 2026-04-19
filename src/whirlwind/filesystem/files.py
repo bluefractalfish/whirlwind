@@ -26,8 +26,39 @@ EXT2ID: Dict[str, Any] = {
         "d" : (".gpkg")
     }
 
+@dataclass 
+class RasterFile:
+    """ of procotol File, created with extensions .tif/tiff"""
+    path: Path 
+    uri: str 
+    ext: str 
+    fid: FileID 
+
+    def __init__(self, path: str | Path):
+        self.path = Path(path).expanduser().resolve()
+        self.ext = self.path.suffix.lower() 
+        self.uri = self.path.as_uri() 
+        self.fid = FileID(self.uri, self.ext)
+    @property 
+    def record(self) -> Dict[str, Any]:
+        return { 
+                "id": self.fid.get_uid(), 
+                "uri": self.uri, 
+                "path": self.path
+                }
+    @property 
+    def get_path(self) -> Path: 
+        return self.path 
+ 
+
 @dataclass  
 class File: 
+    """ creates a file reference File(path: str | Path) 
+        with properties: 
+        path: Path, uri: str, extention=ext: str, fid: FileID 
+        and medthod property self.record -> {"id":fid.uid, "uri": uri}
+        and get_path -> Path
+    """
     path: Path 
     uri: str 
     ext: str 
@@ -44,6 +75,37 @@ class File:
         return {
                 "id": self.fid.get_uid(),
                 "uri": self.uri, 
+                "path": self.path
+                }
+    @property  
+    def get_path(self) -> Path:
+        return self.path
+
+@dataclass  
+class FileRef(Protocol): 
+    """ creates a file reference File(path: str | Path) 
+        with properties: 
+        path: Path, uri: str, extention=ext: str, fid: FileID 
+        and medthod property self.record -> {"id":fid.uid, "uri": uri}
+        and get_path -> Path
+    """
+    path: Path 
+    uri: str 
+    ext: str 
+    fid: FileID 
+
+    def __init__(self, path: str | Path):
+        self.path = Path(path).expanduser().resolve()
+        self.ext = self.path.suffix.lower()
+        self.uri = self.path.as_uri()
+        self.fid = FileID(self.uri, self.ext)
+
+    @property  
+    def record(self) -> dict[str,Any]:
+        return {
+                "id": self.fid.get_uid(),
+                "uri": self.uri, 
+                "path": self.path
                 }
     @property  
     def get_path(self) -> Path:

@@ -43,7 +43,7 @@ class Config:
         merged = deep_merge(self.default, normalized)
         self.merged = merged
         return merged
-
+    
     def parse(self, command:str, subcommand: str) -> Dict[str,Any]:
         try:
             command_cfg = self.merged.get(command) or {}
@@ -56,5 +56,16 @@ class Config:
             return {}
         return subcommand_cfg
     
+    def out_path(self) -> Path:
+        try: 
+            out_path = self.parse("global", "io")["dest_dir"]
+            return Path(out_path)
+        except Exception:
+            raise ValueError(f"config: there doesnt seem to be a configured destination")
 
-
+    def run_id(self) -> str: 
+        try: 
+            run_id = self.parse("global","run_id")
+            return str(run_id)
+        except Exception:
+            return ""

@@ -11,9 +11,7 @@
 
 """
 
-from whirlwind.commands.cshell import RestartShell 
-from whirlwind.commands.cshell import QuitShell 
-from whirlwind.commands.cshell import List
+from whirlwind.commands.test import RestartShell, QuitShell
 from whirlwind.commands.base import Command
 from rich.traceback import install 
 import shlex 
@@ -25,8 +23,6 @@ class WShell:
         self.app = app 
         self.running = 0
         self.cshells = {
-                "ls": List(),
-                "list": List(),
                 "restart": RestartShell(),
                 "r": RestartShell(),
                 "quit": QuitShell(),

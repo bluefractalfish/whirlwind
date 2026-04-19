@@ -7,7 +7,7 @@ from typing import List
 import shutil 
 
 @dataclass(frozen=True)
-class MosaicTree:
+class MosaicBranch:
     root: Path 
     mosaic_dir: Path 
     browse_dir: Path
@@ -16,7 +16,7 @@ class MosaicTree:
     metadata_dir: Path 
 
     @classmethod 
-    def plant(cls, root: Path, mosaic_id: str) -> "MosaicTree":
+    def plant(cls, root: Path, mosaic_id: str) -> "MosaicBranch":
         """ constructs output tree based upon a canonical structure:
                 mosaic_id/
                     browse/
@@ -34,7 +34,7 @@ class MosaicTree:
                 manifest_dir = mosaic_dir / "manifest",
                 metadata_dir = mosaic_dir / "metadata" )   
 
-    def ensure(self) -> "MosaicTree":
+    def ensure(self) -> "MosaicBranch":
         for p in (
                 self.root, 
                 self.browse_dir, 
@@ -54,6 +54,9 @@ class MosaicTree:
         return sorted(
                 (p for p in self.mosaic_dir.iterdir() if p.is_dir()),
                 key=lambda p: p.name,)
+    
+    def get_meta_path(self) -> Path: 
+        return self.metadata_dir
 
     def exists(self) -> bool:
         return self.mosaic_dir.exists()

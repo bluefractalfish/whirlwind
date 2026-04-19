@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path 
 from typing import Iterator, Tuple 
 
-from whirlwind.filesystem.files import File
+from whirlwind.filesystem.files import File, RasterFile
 
 @dataclass 
 class Directory: 

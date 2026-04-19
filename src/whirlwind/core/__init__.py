@@ -5,11 +5,9 @@ from whirlwind.core.shell import WShell
 
 def bootstrapp(config: Config) -> int:
 
-    from whirlwind.commands import Catalog, Mosaic, Tile, Label, Test
-    app = WhirlwindApp( cmds=[ Catalog(),
-                              Mosaic(), 
-                              Tile(), 
-                              Label(),
+    from whirlwind.commands import Test
+
+    app = WhirlwindApp( cmds=[ 
                               Test()
                               ],
         config=config )
