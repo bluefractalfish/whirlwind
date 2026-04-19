@@ -1,5 +1,5 @@
 from dataclasses import dataclass 
-from whirlwind.filesystem import RunTree, MosaicBranch
+from whirlwind.filetrees import RunTree, MosaicBranch
 from whirlwind.commands.base import Command 
 from whirlwind.config import Config 
 

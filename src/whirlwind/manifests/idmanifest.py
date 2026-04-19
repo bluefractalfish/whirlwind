@@ -17,7 +17,7 @@ PUBLIC:
 
 
 import csv 
-from whirlwind.filesystem import Directory
+from whirlwind.filetrees import Directory
 from pathlib import Path 
 from dataclasses import dataclass 
 from typing import Dict, Any, List, Iterator, Tuple

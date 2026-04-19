@@ -27,10 +27,10 @@ PUBLIC:
 from __future__ import annotations
 
 from whirlwind.manifests.idmanifest import IDManifest
-from whirlwind.filesystem.runtree import RunTree, MosaicBranch
+from whirlwind.filetrees.runtree import RunTree, MosaicBranch
 from whirlwind.interfaces.geo.metadata import GeoMetadataExtractor 
 from whirlwind.tools.formatters import flatten_for_csv, fieldnames 
-from whirlwind.filesystem.files import RasterFile  
+from whirlwind.filetrees.files import RasterFile  
 from whirlwind.commands.base import Command
 from whirlwind.ui import face 
 from dataclasses import dataclass
@@ -72,7 +72,6 @@ class RasterMetadata:
         tree.ensure()
         meta_csv = tree.get_meta_path() / f"{self.mode}-metadata.csv"
         if meta_csv.is_file() and meta_csv.exists():
-            print(f"{meta_csv} exists")
             return self.read_from_mtree(tree)
         meta = self.discover()
         write_csv(meta_csv, [meta])
@@ -137,14 +136,14 @@ class RasterMetadataWriter(Command):
         rows = [] 
         # run discover() for each instance of RasterMetadata  
         with face.progress() as p:
-            t = p.add_task("discovering metadata", total=len(list(mosaic_metadata)))
+            t = p.add_task(f"discovering {self.mode} metadata", total=len(list(mosaic_metadata)))
             for mm in mosaic_metadata:
                 # for each RasterMetadata, get RasterFile uid as mosaic id 
                 # use RasterMetadata.write_to_mtree to write metadata to
                 #      run_id/mosaic_id/metadata/metadata.csv 
 
                 mosaic_id = mm.f.fid.uid
-                meta = mm.write_to_mtree(self.out_tree.mosaic_branch(mosaic_id)) 
+                meta = mm.write_to_mtree(self.out_tree.plant_mosaic_branch(mosaic_id)) 
                 rows.append(meta)
                 p.update(t, advance=1)
 

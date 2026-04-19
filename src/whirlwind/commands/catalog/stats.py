@@ -22,7 +22,7 @@ from whirlwind.commands.base import Command
 from whirlwind.tools.ids import gen_fingerprint
 from whirlwind.tools.pathfinder import build_path 
 from whirlwind.io.metadata import write_mosaic_metadata
-from whirlwind.filesystem import RunTree, MosaicBranch
+from whirlwind.filetrees import RunTree, MosaicBranch
 from whirlwind.manifests import IDManifest, RasterMetadataWriter
 
 

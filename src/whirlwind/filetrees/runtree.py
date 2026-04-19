@@ -3,17 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Optional
 from pathlib import Path
 from typing import List
 import shutil 
 
-from whirlwind.filesystem import MosaicBranch
+from whirlwind.filetrees import MosaicBranch
 
-@dataclass(frozen=True)
+@dataclass
 class RunTree:
-    """ each RunTree holds a <root> Path and a <manifest_dir> Path """
+    """ each RunTree holds a <root> Path, which references the starting point 
+        a <manifest_dir> Path that holds any manifests, including idcatalogs and metadata
+        an <id_path> that is initialized to empty but will store the full path of the idcatalog 
+        and a branches dictionary which includes pointers to all the mosaic branches created with 
+        plant_mosaic_branch()
+
+        """
+    # a reference to the starting path 
     root: Path 
+    # the path holding any manifests, 
     manifest_dir: Path 
+
+    # a dictionary of mosaic branches 
+    #branches: dict[str, Any] = {}
 
     @classmethod
     def plant(cls, root: str | Path) -> "RunTree":
@@ -23,7 +35,9 @@ class RunTree:
         ## CHECK IF ROOT EXISTS, OVERWRITE IF NOT EMPTY?  ##
         #######################################
 
-        tree = cls( root = root, manifest_dir = root /"manifest",)
+        tree = cls( root = root, 
+                   manifest_dir = root /"manifest",
+                   ) 
 
         ############################################
         ## RUN ENSURE(), mkdir for root, manifest ##
@@ -32,25 +46,32 @@ class RunTree:
 
         return tree 
 
+
     @property 
     def exists(self) -> bool:
         return self.root.exists()
+    
+    @property 
+    def id_manifest(self, name: str = "catalog.csv") -> Path: 
+        return self.manifest_dir/name
+
 
     def ensure(self) -> "RunTree":
         self.root.mkdir(parents=True, exist_ok=True)
         self.manifest_dir.mkdir(parents=True, exist_ok=True)
         return self
 
-    def mosaic_branch(self, mosaic_id: str) -> MosaicBranch:
+    def plant_mosaic_branch(self, mosaic_id: str) -> MosaicBranch:
         """ plant a MosaicBranch at RunTree root, with mosaic_id"""
-        return MosaicBranch.plant(self.root, mosaic_id)
+        mosaic = MosaicBranch.plant(self.root, mosaic_id)
+        return mosaic 
     
     def mosaic_branches_from_manifest(self, manifest) -> int: 
         """ given a manifest of mosaic ids, plant all the mosaics at current root """
         ids = manifest.get_ids()
         num_mosaics = 0 
         for mid in ids:
-            self.mosaic_branch(mid).ensure()
+            self.plant_mosaic_branch(mid).ensure()
             num_mosaics += 1
         return num_mosaics
 
