@@ -9,7 +9,7 @@ BEHAVIOR:
 
 
 
-from whirlwind.specs.dsparams import DSParams 
-from whirlwind.specs.tilingparams import TParams 
-from whirlwind.specs.quantparams import QParams 
-from whirlwind.specs.shardparams import ShardParams
+from whirlwind.specs.downsample import DSSpec, DSParams
+from whirlwind.specs.tiling import TSpec 
+from whirlwind.specs.quant import QSpec 
+from whirlwind.specs.shard import ShardSpec

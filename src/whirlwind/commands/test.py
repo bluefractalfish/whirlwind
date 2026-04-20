@@ -6,6 +6,7 @@ from whirlwind.config import Config
 
 from whirlwind.commands.catalog import BuildMetadataManifests, BuildIDManifest, BuildMosaicBranches 
 from whirlwind.commands.filesystem import BuildTree, CutTree 
+from whirlwind.commands.planners.plan_tiles import TesselationPlan
 import os 
 
 #from whirlwind.commands.mosaic import ShardMosaicCommand 
@@ -27,7 +28,8 @@ class Test(Command):
                 return BuildTree().run(tokens[1:], config)
             case "deletetree":
                 return CutTree().run(tokens[1:], config)
-
+            case "tileplan":
+                return TesselationPlan().run(tokens[1:], config)
             case _:
                 print("nope?")
                 pass

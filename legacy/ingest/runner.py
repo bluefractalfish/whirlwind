@@ -186,17 +186,26 @@ def cut_mosaic(uri: str,
 
     sink = make_sink(k,mosaic_man_path,fieldnames)
     time_per_tile = []
+
     try:
         with rasterio.open(uri) as ds:
             tile_size = tp.tile_size
             stride = tp.stride
             total_tiles = num_tiles(ds, tile_size, stride) 
             band_bounds: Dict[int, Tuple[float, float]] = {}
+
             with face.progress() as p:
                 if qp.scale != "none":
+                    
+                    ########################################################
+                    # SAMPLE BANDS ---> QUANTIZE 
                     band_bounds = sample_band(ds, tile_size, stride, qp, p) 
+                    # ######################################################
 
                 t = p.add_task(description=f"tiling {mosaic_id}",total=total_tiles)
+                #######################
+                # ITERWINDOWS 
+                #######################
                 for r_i, c_i, win in iter_windows(ds,tp):
                     p.update(t, advance=1)
                     # one tile per iteration
@@ -204,6 +213,7 @@ def cut_mosaic(uri: str,
                     try:
                         with StopWatch() as sw: 
                             tid = ids.gen_tile_id(mosaic_id, r_i, c_i)
+
                             #cut_tile returns Tile object
                             tile = Tile(
                                     tile_id = tid,
@@ -215,7 +225,12 @@ def cut_mosaic(uri: str,
                                     transform = ds.transform,
                                     crs=ds.crs.to_string() if ds.crs else None,
                                     )
+
+                            # TESSELATE###############################################
                             npy, js, meta = tesselate( tile, ds, qp, tp, band_bounds)
+                            ##########################################################
+
+
                             writer.write_sample(tid,npy,js)
                             bounds = meta.get("bounds_wgs84") or {"minx": 0.0, "miny": 0.0, 
                                                                   "maxx": 0.0, "maxy": 0.0 }

@@ -12,6 +12,7 @@ BEHAVIOR:
 """
 
 import csv 
+import json
 import heapq 
 from dataclasses import dataclass, field 
 from pathlib import Path 
@@ -19,11 +20,11 @@ from typing import Set
 
 from whirlwind.ui import face 
 from whirlwind.commands.base import Command
-from whirlwind.tools.ids import gen_fingerprint
 from whirlwind.tools.pathfinder import build_path 
-from whirlwind.io.metadata import write_mosaic_metadata
+from whirlwind.io.out import write_dict_csv
 from whirlwind.filetrees import RunTree, MosaicBranch
-from whirlwind.manifests import IDManifest, RasterMetadataWriter
+from whirlwind.manifests import IDManifest
+from whirlwind.manifests import RasterMetadata
 
 
 CAT_EXT = { 
@@ -41,7 +42,7 @@ class BuildMetadataManifests(Command):
     name = "stats"
     in_path: Path 
     out_root: Path 
-    tokens: list[str]
+    tkns: list[str]
     flags: list[str]
 
     def toke(self, tokens, config) -> None: 
@@ -50,9 +51,9 @@ class BuildMetadataManifests(Command):
         face.prog_row("1/5","discovering stats")
         
         self.flags = [t for t in tokens if t.startswith("-")] 
-        self.tokens = [t for t in tokens if t not in self.flags ]
+        self.tkns = [t for t in tokens if t not in self.flags ]
         
-        match len(tokens):
+        match len(self.tkns):
             case 0:
                 # if no input directory, default to mnt/
                 self.in_path = Path(global_config["in_dir"])
@@ -79,8 +80,8 @@ class BuildMetadataManifests(Command):
         tree = RunTree.plant(self.out_root)
         ####################################
 
-        metadata_path = tree.get_metadata_csv()
-        manifest_path = tree.get_manifest_csv()
+        metadata_path = tree.get_metadata_path_csv()
+        manifest_path = tree.get_manifest_path_csv()
 
         manifest = IDManifest(manifest_path)
         
@@ -119,6 +120,87 @@ class BuildMetadataManifests(Command):
 
         face.info(f"metadata manifest exists for {str(self.in_path)} at {metadata_path}")
         return 0
+
+
+@dataclass(frozen=True)
+class RasterMetadataWriter(Command):
+    """ 
+
+    storage and writing class for list of RasterMetadata 
+
+        an instance of this class grown from a tree takes in an existing manifest 
+        (id, uri) for uri a raster   
+     
+     RasterMetadatamanifest <  
+            | 
+      [RasterMetadata,...]
+            |   | | | ... 
+            /    
+    RasterMetadata 
+
+    """
+    name = "write raster metas"
+
+    # for pulling raster ids 
+    manifest: IDManifest
+    # for writing metadata format 
+    out_tree: RunTree
+    file_format: str # csv | json 
+    mode: str  # core | extended | full 
+    name: str 
+
+    def run(self, tokens: list[str], config: Config) -> int:
+        ...
+
+
+    @classmethod 
+    def init_from_tree(cls, manifest: IDManifest, out_tree: RunTree, name: str = "metadata", fmt: str = "csv", 
+            mode: str = "core", ) -> "RasterMetadataWriter":
+        if not manifest.exists():
+            raise ValueError("manifest does not exist")
+        # ensure out_tree exists, construct if not 
+        out_tree.ensure()
+        return cls(manifest=manifest, 
+                   out_tree = out_tree, 
+                   name=name,
+                   file_format=fmt, 
+                   mode = mode )
+
+    def write(self) -> Path:
+        
+        # get RasterFile paths from manifest 
+        paths = self.manifest.get_paths() 
+ 
+        # for each path create an instance of RasterMetadata and store them as list 
+        mosaic_metadata = [RasterMetadata(p, self.mode) for p in paths]
+        
+        rows = [] 
+        # run discover() for each instance of RasterMetadata  
+        with face.progress() as p:
+            t = p.add_task(f"discovering {self.mode} metadata", total=len(list(mosaic_metadata)))
+            for mm in mosaic_metadata:
+                # for each RasterMetadata, get RasterFile uid as mosaic id 
+                # use RasterMetadata.write_to_mtree to write metadata to
+                #      run_id/mosaic_id/metadata/metadata.csv 
+
+                mosaic_id = mm.f.fid.uid
+                meta = mm.write_to_mtree(self.out_tree.plant_mosaic_branch(mosaic_id)) 
+                rows.append(meta)
+                p.update(t, advance=1)
+
+        # use manifest_dir from out_tree run_tree, this  reason runtree is required  
+        out_path = self.out_tree.manifest_dir / f"{self.mode}-{self.name}.{self.file_format}"
+        
+        if self.file_format == "json":
+            with out_path.open("w", encoding="utf-8") as f:
+                json.dump(rows, f, ensure_ascii=False, indent=2, sort_keys=True)
+            return out_path
+
+        if self.file_format == "csv":
+            return write_dict_csv(out_path, rows)
+
+        raise ValueError(f"unsupported format: {self.file_format}")
+
 
 @dataclass
 class ScanStats:

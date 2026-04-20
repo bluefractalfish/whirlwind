@@ -12,7 +12,7 @@ BEHAVIOR:
             - else gets flat_rows, fieldnames 
             - writes flat_rows 
         - returns out_path 
-    - extract(uri) -> dict[str, Any]
+    - discover(uri) -> dict[str, Any]
         - checks agains self.mode = "core" | "extended" | "full"
         - if mode = "core" return interfaces.geo.Extracter(uri, "core") 
                   = "extended" "" metadata.Extracter(uri, "extended")
@@ -29,8 +29,8 @@ from __future__ import annotations
 from whirlwind.manifests.idmanifest import IDManifest
 from whirlwind.filetrees.runtree import RunTree, MosaicBranch
 from whirlwind.interfaces.geo.metadata import GeoMetadataExtractor 
-from whirlwind.tools.formatters import flatten_for_csv, fieldnames 
 from whirlwind.filetrees.files import RasterFile  
+from whirlwind.io.out import write_dict_csv, read_csv_one_row
 from whirlwind.commands.base import Command
 from whirlwind.ui import face 
 from dataclasses import dataclass
@@ -74,99 +74,10 @@ class RasterMetadata:
         if meta_csv.is_file() and meta_csv.exists():
             return self.read_from_mtree(tree)
         meta = self.discover()
-        write_csv(meta_csv, [meta])
+        write_dict_csv(meta_csv, [meta])
         return meta 
 
-    def read_from_mtree(self, tree: MosaicBranch) -> dict[str, Any]:
-       return {"see":"other"}
+    def read_from_mtree(self, branch: MosaicBranch) -> dict[str, str]:
+       return read_csv_one_row(branch.get_meta_file_path(f"{self.mode}-metadata.csv"))
        
 
-@dataclass(frozen=True)
-class RasterMetadataWriter(Command):
-    """ 
-
-    storage and writing class for list of RasterMetadata 
-
-        an instance of this class grown from a tree takes in an existing manifest 
-        (id, uri) for uri a raster   
-     
-     RasterMetadatamanifest <  
-            | 
-      [RasterMetadata,...]
-            |   | | | ... 
-            /    
-    RasterMetadata 
-
-    """
-    name = "write raster metas"
-
-    # for pulling raster ids 
-    manifest: IDManifest
-    # for writing metadata format 
-    out_tree: RunTree
-    file_format: str # csv | json 
-    mode: str  # core | extended | full 
-    name: str 
-
-    def run(self, tokens: list[str], config: Config) -> int:
-        ...
-
-
-    @classmethod 
-    def init_from_tree(cls, manifest: IDManifest, out_tree: RunTree, name: str = "metadata", fmt: str = "csv", 
-            mode: str = "core", ) -> "RasterMetadataWriter":
-        if not manifest.exists():
-            raise ValueError("manifest does not exist")
-        # ensure out_tree exists, construct if not 
-        out_tree.ensure()
-        return cls(manifest=manifest, 
-                   out_tree = out_tree, 
-                   name=name,
-                   file_format=fmt, 
-                   mode = mode )
-
-    def write(self) -> Path:
-        
-        # get RasterFile paths from manifest 
-        paths = self.manifest.get_paths() 
- 
-        # for each path create an instance of RasterMetadata and store them as list 
-        mosaic_metadata = [RasterMetadata(p, self.mode) for p in paths]
-        
-        rows = [] 
-        # run discover() for each instance of RasterMetadata  
-        with face.progress() as p:
-            t = p.add_task(f"discovering {self.mode} metadata", total=len(list(mosaic_metadata)))
-            for mm in mosaic_metadata:
-                # for each RasterMetadata, get RasterFile uid as mosaic id 
-                # use RasterMetadata.write_to_mtree to write metadata to
-                #      run_id/mosaic_id/metadata/metadata.csv 
-
-                mosaic_id = mm.f.fid.uid
-                meta = mm.write_to_mtree(self.out_tree.plant_mosaic_branch(mosaic_id)) 
-                rows.append(meta)
-                p.update(t, advance=1)
-
-        # use manifest_dir from out_tree run_tree, this  reason runtree is required  
-        out_path = self.out_tree.manifest_dir / f"{self.name}.{self.file_format}"
-        
-        if self.file_format == "json":
-            with out_path.open("w", encoding="utf-8") as f:
-                json.dump(rows, f, ensure_ascii=False, indent=2, sort_keys=True)
-            return out_path
-
-        if self.file_format == "csv":
-            return write_csv(out_path, rows)
-
-        raise ValueError(f"unsupported format: {self.file_format}")
-
-
-def write_csv(path: Path, data: list[dict[str, Any]]) -> Path:
-   flat_rows = [flatten_for_csv(d) for d in data]
-   columns = fieldnames(flat_rows)
-   with path.open("w", newline="", encoding="utf-8") as f:
-       w = csv.DictWriter(f, fieldnames=columns)
-       w.writeheader()
-       for row in flat_rows:
-           w.writerow({k: row.get(k, "") for k in columns})
-   return path

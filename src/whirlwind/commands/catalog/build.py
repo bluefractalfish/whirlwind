@@ -35,14 +35,14 @@ class BuildIDManifest(Command):
         face.prog_row("1/4","building manifest")
 
         flags = [t for t in tokens if t.startswith("-")]
-        tokens = [t for t in tokens if t not in flags]
+        tk = [t for t in tokens if t not in flags]
         
-        match len(tokens):
+        match len(tk):
             case 0:
                 # if no input directory default to mnt/
                 self.in_path = Path(global_config["in_dir"])
             case 1:
-                _,self.in_path = build_path(tokens[0]) 
+                _,self.in_path = build_path(tk[0]) 
             case _: 
                 face.error("usage: manifest build expects 0,1,2 arguments")
                 return 3
@@ -52,12 +52,9 @@ class BuildIDManifest(Command):
         face.prog_row("3/4","constructing manifest path")
         manifest_name = f"{this_config["file_name"]}"
         
-        out_root = Path(global_config["dest_dir"]) / str(run_id)
-
-
-        tree = RunTree.plant(out_root) 
+        tree = RunTree.from_config(config) 
         
-        manifest_path = tree.get_manifest_csv(manifest_name) 
+        manifest_path = tree.get_manifest_path_csv(manifest_name) 
         
              
         if not manifest_path.exists() or "-f" in flags:  
@@ -109,7 +106,7 @@ class BuildMosaicBranches(Command):
 
            # IF THIS FUNCTION SHOULD WRITE MANIFEST 
 
-        manifest = IDManifest.get_manifest(manifest_path)
+        manifest = IDManifest.from_path(manifest_path)
         
         if manifest.exists():
             n = tree.mosaic_branches_from_manifest(manifest)

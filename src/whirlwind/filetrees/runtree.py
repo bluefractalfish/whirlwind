@@ -9,6 +9,8 @@ from typing import List
 import shutil 
 
 from whirlwind.filetrees import MosaicBranch
+from whirlwind.config import Config 
+#from whirlwind.manifests.idmanifest import IDManifest
 
 @dataclass
 class RunTree:
@@ -23,7 +25,6 @@ class RunTree:
     root: Path 
     # the path holding any manifests, 
     manifest_dir: Path 
-
     # a dictionary of mosaic branches 
     #branches: dict[str, Any] = {}
 
@@ -45,16 +46,15 @@ class RunTree:
         ############################################
 
         return tree 
-
+    
+    @classmethod 
+    def from_config(cls, config: Config) -> "RunTree":
+       out_root = config.out_path() / config.run_id()
+       return RunTree.plant(out_root)
 
     @property 
     def exists(self) -> bool:
         return self.root.exists()
-    
-    @property 
-    def id_manifest(self, name: str = "catalog.csv") -> Path: 
-        return self.manifest_dir/name
-
 
     def ensure(self) -> "RunTree":
         self.root.mkdir(parents=True, exist_ok=True)
@@ -79,13 +79,14 @@ class RunTree:
         if self.root.exists() and self.root.is_dir():
             shutil.rmtree(self.root)
 
-    def get_manifest_csv(self, name: str = "manifest.csv") -> Path:
+    def get_manifest_path_csv(self, name: str = "manifest.csv") -> Path:
         """ return path of manifest directory / manifest.csv""" 
-        return self.manifest_dir / name  
-
-    def get_metadata_csv(self, name: str = "metadata.csv") -> Path:
-        """ return path of manifest directory / metadata.csv"""
         return self.manifest_dir / name
+    
+    def get_metadata_path_csv(self, name: str = "metadata.csv") -> Path:
+        """ return path of manifest directory / metadata.csv"""
+        return self.manifest_dir / name 
+    
 
     def get_manifest_json(self) -> Path | None: 
         ... 

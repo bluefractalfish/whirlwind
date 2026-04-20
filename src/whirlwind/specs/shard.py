@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
-class ShardParams:
+class ShardSpec:
     shard_size: int
     prefix: str = ""
     manifest_kind: str = "parquet"

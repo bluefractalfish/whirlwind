@@ -1,15 +1,16 @@
 global:
   version: "testing"
+  run_id: run_t02
   io:
-    in_dir: ./mnt
-    dest_dir: /home/rhea/dev/artifacts
+    in_dir: /home/rhea/B/
+    dest_dir: /home/rhea/W/artifacts
   log_dir: ./artifacts/log/
 
-catalog:
+manifest:
   global:
     in_dir: ./mnt
   build:
-    file_name: catalog.csv
+    file_name: manifest.csv
   stats:
     file_name: metadata.csv
   validate:
@@ -31,14 +32,17 @@ mosaic:
     nodata: 0
     preserve_bounds: false
 
-tile:
-  cut:
-    tile_size: 512
-    stride: null
+  tesselate:
+    tile_size: 1024
+    stride: 1024
     drop_partial: true
     shard_size: 2048
     shard_prefix: tiles
     manifest: csv
+
+
+tile:
+  quantize:
     dtype: float32
     scale: none
     p_low: 5.0
@@ -46,14 +50,13 @@ tile:
     per_band: true
     stats: sample
     num_samples: 1048
-  label: 
-  stats:
-  verify: 
+  read:
+  label:
+  write: 
+  stats: 
 
 label:
   init: 
+  build:
   validate:
 
-pipeline:
-  init: 
-  build: 

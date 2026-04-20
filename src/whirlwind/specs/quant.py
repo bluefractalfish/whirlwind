@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict 
 
 @dataclass(frozen=True)
-class QParams:
+class QSpec:
     dtype: str
     scale: str = "none"
     p_low: float = 2.0

@@ -17,10 +17,12 @@ PUBLIC:
 
 
 import csv 
-from whirlwind.filetrees import Directory
+from whirlwind.filetrees.directory import Directory
 from pathlib import Path 
-from dataclasses import dataclass 
+from dataclasses import dataclass
 from typing import Dict, Any, List, Iterator, Tuple
+
+from whirlwind.filetrees.runtree import RunTree 
 
 @dataclass 
 class IDManifest:
@@ -44,8 +46,12 @@ class IDManifest:
         return self.path.exists() and self.path.is_file()
 
     @classmethod
-    def get_manifest(cls, path: str | Path) -> "IDManifest":
+    def from_path(cls, path: str | Path) -> "IDManifest":
         return IDManifest(path) 
+
+    @classmethod
+    def from_tree(cls, tree: RunTree) -> "IDManifest":
+        return IDManifest(tree.get_manifest_path_csv())
 
     @classmethod 
     def write_now(cls, dest: Path, src: Path, file_types=(".tif",".tiff") ) -> "IDManifest":
@@ -81,7 +87,7 @@ class IDManifest:
                         yield uri
 
     def get_paths(self) -> Iterator[Path]: 
-        """ returns paths as Path iterator """
+        """ returns paths of csv manifest  as Path iterator """
         p = self.path 
         if p.is_file() and p.suffix.lower() == ".csv":
             with p.open("r", newline="", encoding="utf-8") as f:

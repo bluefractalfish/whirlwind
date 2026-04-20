@@ -1,47 +1,69 @@
 
 """ whirlwind.geometry.tile
+
+    PURPOSE: store all tile related functionality, including writing, reading, abstract ref
+    
+
+    PlanRow: the planned cut for a tile 
+    TileRead: the tile as pixel data that has been read from a rasterio dataset 
+    GeoData: the geo referenced spatial aspects of a tile 
+    
+
 """
 from dataclasses import dataclass, asdict 
 from typing import ClassVar, Mapping, Any 
-from whirlwind.geometry.footprint import Bounds 
 
+import numpy as np 
+import rasterio 
+from rasterio import Affine 
+from rasterio.windows import Window 
+
+from whirlwind.filetrees.files import RasterFile
+from whirlwind.io.planio import PlanRow
+
+@dataclass(frozen=True)
+class TileRead: 
+    """ stores the result of reading one PlanRow, planned tile window """
+
+    row: PlanRow 
+    array: np.ndarray # shape: (bands, h, w)
+    masked: bool 
+    band_cound: int 
+    dtype: str 
+
+    def filled(self, fill_value: float = 0.0) -> np.ndarray:
+        if np.ma.isMaskedArray(self.array):
+            return np.ma.filled(self.array, fill_value)
+        return self.array
+
+    def as_float32(self, fill_value: float = 0.0) -> np.ndarray:
+        return self.filled(fill_value=fill_value).astype(np.float32, copy=False)
+
+
+@dataclass(frozen=True)
+class GeoData: 
+    transform: Affine 
+    bounds: tuple[float, float, float, float]
+    crs: str 
 
 @dataclass(frozen=True)
 class Tile:
     """
-    metadata representation of mosaic subwindow 
-
-    does not store raster payload or decoded arrays 
+    feature rich composed object 
     """
-    id: str 
-    parent_id: str 
-    source_uri: str 
-    crs: str 
-    footprint: Bounds  
 
-    x_off: int 
-    y_off: int 
-    width: int 
-    height: int 
+    plan: PlanRow 
+    tile_id: str | None = None 
+    source: RasterFile  | None = None 
+    read: TileRead | None = None 
+    geo: GeoData | None = None 
 
-    transform: tuple[float, float, float, float, float, float]
 
-    band_count: int | None = None 
-    dtype: str | None = None 
 
-    shard_ref: str | None = None 
-    label: str | None = None 
 
-    def record(self) -> TileRow:
-        return TileRow( 
-                       tile_id=self.id, 
-                       )
+"""
     @property 
     def window(self) -> tuple[int, int, int, int]
-        """
-        pixel window as (x_off, y_off, width, height)
-
-        """
         return (self.x_off, self.y_off, self.width, self.height)
     
     def with_label(self, label: str | None) -> "TILE":
@@ -141,3 +163,4 @@ class TileRow:
             bands=int(record.get("bands", 0)),
             dtype=str(record.get("dtype", "")),
         )
+"""
