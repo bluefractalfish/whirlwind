@@ -22,20 +22,10 @@ class DownsampleResult:
     downsampled: MOSAIC 
 
 
-class DownsampleWorkflow:
-    def __init__(
-            self, 
-            mosaic_repo: MosaicRepoProtocol,
-            raster_repo: RasterRepoProtocol,
-            inspect_op: InspectMosaicOp,
-            downsample_op: DownsampleMosaicOp,
-            ) -> None:
-        self.mosaic_repo = mosaic_repo 
-        self.raster_repo = raster_repo 
-        self.inspect_op = inspect_op 
-        self.downsample_op = downsample_op 
-    def run(self, request: DownsampleRequest) -> DownsampleResult:
-        source = self.mosaic_repo.get_by_uri(request.input_uri)
+class Downsample(Command):
+    name = "downsample "
+
+    def run(self, tokens: list[str], config: Config) -> int: 
         if source is None:
             source = self.inspect_op.run(request.input_uri)
             self.mosaic_repo.put(source)

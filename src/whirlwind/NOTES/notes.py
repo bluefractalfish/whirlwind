@@ -231,3 +231,178 @@ class MosaicMetadata:
         for row in rows:
             names.update(row.keys())
         return sorted(names)
+
+
+############################################# 
+
+
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional, Sequence
+
+@dataclass(frozen=True)
+class LabelField:
+    name: str
+    kind: str   # "str", "int", "float", "date"
+
+@dataclass(frozen=True)
+class LabelLayerSpec:
+    name: str
+    geometry_type: str   # "LineString" or "Polygon"
+    fields: Sequence[LabelField]
+
+@dataclass(frozen=True)
+class LabelSpec:
+    layers: Sequence[LabelLayerSpec]
+
+    @classmethod
+    def default(cls) -> "LabelSpec":
+        common = [
+            LabelField("label_id", "str"),
+            LabelField("mosaic_id", "str"),
+            LabelField("source_uri", "str"),
+            LabelField("browse_uri", "str"),
+            LabelField("label_type", "str"),
+            LabelField("event_date", "str"),
+            LabelField("notes", "str"),
+            LabelField("created_at", "str"),
+            LabelField("updated_at", "str"),
+        ]
+        return cls(
+            layers=[
+                LabelLayerSpec("damage_path", "LineString", common),
+                LabelLayerSpec("damage_area", "Polygon", common),
+            ]
+        )
+
+@dataclass(frozen=True)
+class LabelPlan:
+    mosaic_id: str
+    source_uri: str
+    browse_uri: Path
+    out_dir: Path
+    gpkg_path: Path
+    metadata_path: Path
+    crs_wkt: str
+    spec: LabelSpec
+
+    @classmethod
+    def from_browse(
+        cls,
+        mosaic_id: str,
+        source_uri: str,
+        browse_uri: str | Path,
+        out_root: str | Path,
+        crs_wkt: str,
+        spec: Optional[LabelSpec] = None,
+    ) -> "LabelPlan":
+        browse_path = Path(browse_uri).expanduser().resolve()
+        root = Path(out_root).expanduser().resolve()
+        out_dir = root / mosaic_id
+        return cls(
+            mosaic_id=mosaic_id,
+            source_uri=source_uri,
+            browse_uri=browse_path,
+            out_dir=out_dir,
+            gpkg_path=out_dir / "labels.gpkg",
+            metadata_path=out_dir / "label_plan.json",
+            crs_wkt=crs_wkt,
+            spec=spec or LabelSpec.default(),
+        )
+
+    def to_record(self) -> dict[str, object]:
+        out = asdict(self)
+        out["browse_uri"] = str(self.browse_uri)
+        out["out_dir"] = str(self.out_dir)
+        out["gpkg_path"] = str(self.gpkg_path)
+        out["metadata_path"] = str(self.metadata_path)
+        return out
+
+class LabelBackend:
+    @staticmethod
+    def _ogr_geom_type(name: str) -> int:
+        lut = {
+            "LineString": ogr.wkbLineString,
+            "Polygon": ogr.wkbPolygon,
+        }
+        if name not in lut:
+            raise ValueError(f"unsupported geometry type: {name}")
+        return lut[name]
+
+    @staticmethod
+    def _ogr_field_type(kind: str) -> int:
+        lut = {
+            "str": ogr.OFTString,
+            "int": ogr.OFTInteger,
+            "float": ogr.OFTReal,
+            "date": ogr.OFTDate,
+        }
+        if kind not in lut:
+            raise ValueError(f"unsupported field type: {kind}")
+        return lut[kind]
+
+    @classmethod
+    def create_plan(cls, plan: LabelPlan, overwrite: bool = False) -> None:
+        plan.out_dir.mkdir(parents=True, exist_ok=True)
+
+        driver = ogr.GetDriverByName("GPKG")
+        if driver is None:
+            raise RuntimeError("GPKG driver not available")
+
+        if plan.gpkg_path.exists():
+            if overwrite:
+                driver.DeleteDataSource(str(plan.gpkg_path))
+            else:
+                raise FileExistsError(f"GeoPackage already exists: {plan.gpkg_path}")
+
+        ds = driver.CreateDataSource(str(plan.gpkg_path))
+        if ds is None:
+            raise RuntimeError(f"failed to create geopackage: {plan.gpkg_path}")
+
+        try:
+            srs = osr.SpatialReference()
+            if plan.crs_wkt:
+                srs.ImportFromWkt(plan.crs_wkt)
+            else:
+                srs = None
+
+            for layer_spec in plan.spec.layers:
+                layer = ds.CreateLayer(
+                    layer_spec.name,
+                    srs=srs,
+                    geom_type=cls._ogr_geom_type(layer_spec.geometry_type),
+                )
+                if layer is None:
+                    raise RuntimeError(f"failed to create layer: {layer_spec.name}")
+
+                for fld in layer_spec.fields:
+                    defn = ogr.FieldDefn(fld.name, cls._ogr_field_type(fld.kind))
+                    if fld.kind == "str":
+                        defn.SetWidth(254)
+                    rc = layer.CreateField(defn)
+                    if rc != 0:
+                        raise RuntimeError(
+                            f"failed to create field {fld.name} on {layer_spec.name}"
+                        )
+        finally:
+            ds = None
+
+        meta = {
+            "mosaic_id": plan.mosaic_id,
+            "source_uri": plan.source_uri,
+            "browse_uri": str(plan.browse_uri),
+            "gpkg_path": str(plan.gpkg_path),
+            "crs_wkt": plan.crs_wkt,
+            "layers": [
+                {
+                    "name": lyr.name,
+                    "geometry_type": lyr.geometry_type,
+                    "fields": [f.__dict__ for f in lyr.fields],
+                }
+                for lyr in plan.spec.layers
+            ],
+        }
+
+        with plan.metadata_path.open("w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)

@@ -8,52 +8,172 @@
         - write two entries per tile <tile_id>.npy and <tile_id>.json 
         - rotate to next shard after shard_size samples 
     PUBLIC:
-        - ShardWriter 
+ 
+    req = ShardRequest(
+        out_dir=Path("./artifacts/shards"),
+        prefix="mosaic_abc",
+        shard_size=4096,
+        )
+
+        encoder = TileEncoder(
+            mosaic_id="mosaic_abc",
+            source_uri="/data/mosaic.tif",
+            )
+
+        with ShardWriter(req) as writer:
+            for tile in tiles:
+                encoded = encoder.encode(tile)
+                placement = writer.write(encoded)
+                print(placement.shard, placement.key)
         
 """
 from __future__ import annotations
 import io
 import tarfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field 
 from pathlib import Path
 from typing import Optional
 
+
+from whirlwind.config import Config 
+from whirlwind.geometry.tile import Tile, EncodedTile
+from whirlwind.filetrees.mosaicbranch import MosaicBranch
+
+
+@dataclass
+class ShardRequest: 
+    """ 
+    purpose 
+    --------
+    configuration for shard writing 
+    
+    usage 
+    -------- 
+    request = ShardRequest(MosaicBranch, Config) 
+
+    behavior 
+    -------- 
+    builds prefix, shard_size, out_dir from config
+
+    """
+    out_dir: Path 
+    prefix: str
+    shard_size: int 
+    start_index: int = 1 
+
+    def __init__(self, branch: MosaicBranch, config: Config) -> None : 
+        shatter_config = config.parse("mosaic","shatter")
+        self.prefix = shatter_config["shard_prefix"]
+        self.shard_size = shatter_config["shard_size"]
+        self.out_dir = branch.get_shard_dir()
+
+
+@dataclass(frozen=True)
+class ShardPlacement: 
+    """ result of writing one encoded tile """
+    tile_id: str 
+    key: str 
+    shard_path: str 
+    shard_index: int 
+
 @dataclass
 class ShardWriter:
-    out_dir: Path
-    prefix: str
-    shard_size: int
-    shard_index: int = 1
-    samples_in_shard: int = 0
-    tar: Optional[tarfile.TarFile] = None
-    tar_path: Optional[Path] = None
+    """ 
+        takes in ShardRequest and safely open, make sure path for tar is valid, 
+        and for an EncodedTile write each of key.npy and key.json for that tiles bytes 
+        Return a ShardPlacement object with pointer to shard and tile key. 
+
+        Input 
+        ---------- 
+        request: ShardRequest(Mosaic_Branch, Config)
+        
+        Output 
+        ---------- 
+        self.write(encoded_tile) -> ShardPlacement 
+
+        Usage 
+        ---------- 
+
+        encoder = TileEncoder(
+            mosaic_id="mosaic_abc",
+            source_uri="/data/mosaic.tif",
+            )
+
+        with ShardWriter(req) as writer:
+            for tile in tiles:
+                encoded = encoder.encode(tile)
+                placement = writer.write(encoded)
+                print(placement.shard, placement.key)
+    """ 
+    request: ShardRequest 
+    shard_index: int = field(init=False)
+    total_written: int = field(default=0, init=False)
+
+    tar: Optional[tarfile.TarFile] = field(default=None, init=False)
+    tar_path: Optional[Path] = field(default=None, init=False) 
+    
+    def __post_init__(self) -> None: 
+        self.request.out_dir.mkdir(parents=True, exist_ok=True)
+        self.shard_index = self.request.start_index 
+    
+    def __enter__(self) -> "ShardWriter":
+        return self 
+
+    def __exit__(self, exc_type, exc, tb) -> None: 
+        self.close()
+    
+    def _current_shard_name(self) -> str: 
+        return f"{self.request.prefix}-{self.shard_index:03d}.tar"
+    
     def _open_next(self) -> None:
         if self.tar is not None:
             self.tar.close()
-        name = f"{self.prefix}-{self.shard_index:03d}.tar"
-        self.tar_path = self.out_dir / name
-        self.tar = tarfile.open(self.tar_path, "w")
-        self.samples_in_shard = 0
-        self.shard_index += 1
 
-    def write_sample(self, key: str, npy: bytes, meta_json: bytes) -> Path:
-        if self.tar is None or self.samples_in_shard >= self.shard_size:
+        self.tar_path = self.request.out_dir / self._current_shard_name()
+        self.tar = tarfile.open(self.tar_path, "w")
+        self.samples_in_shard = 0 
+        self.shard_index += 1 
+
+    def _ensure_open(self) -> None: 
+        if self.tar is None:
             self._open_next()
-        assert self.tar is not None
+            return 
+        if self.samples_in_shard >= self.request.shard_size: 
+            self._open_next()
+    def _write_member(self, name: str, payload: bytes) -> None: 
+        if self.tar is None:
+            raise RuntimeError("tar shard is not open; cannot write")
+
+        info = tarfile.TarInfo(name)
+        info.size = len(payload)
+        info.mtime = int(time.time())
+        self.tar.addfile(info, io.BytesIO(payload))
+
+    def write(self, tile: EncodedTile) -> ShardPlacement:
+        """
+        Write one encoded tile into the current shard.
+
+        Writes:
+          <key>.npy
+          <key>.json
+        """
+        self._ensure_open()
+
         assert self.tar_path is not None
-        npy_name = f"<{key}>.npy"
-        ti = tarfile.TarInfo(npy_name)
-        ti.size = len(npy)
-        ti.mtime = int(time.time())
-        self.tar.addfile(ti, io.BytesIO(npy))
-        js_name = f"<{key}>.json"
-        tj = tarfile.TarInfo(js_name)
-        tj.size = len(meta_json)
-        tj.mtime = int(time.time())
-        self.tar.addfile(tj, io.BytesIO(meta_json))
+
+        self._write_member(f"{tile.key}.npy", tile.npy_bytes)
+        self._write_member(f"{tile.key}.json", tile.json_bytes)
+
         self.samples_in_shard += 1
-        return self.tar_path
+        self.total_written += 1
+
+        return ShardPlacement(
+            tile_id=tile.tile_id,
+            key=tile.key,
+            shard_path=self.tar_path.name,
+            shard_index=self.shard_index - 1,
+        )
 
     def close(self) -> None:
         if self.tar is not None:

@@ -61,6 +61,9 @@ class MosaicBranch:
     def get_meta_file_path(self, file: str) -> Path: 
         return self.metadata_dir / file
 
+    def get_shard_dir(self) -> Path: 
+        return self.shards_dir
+
     def exists(self) -> bool:
         return self.mosaic_dir.exists()
     

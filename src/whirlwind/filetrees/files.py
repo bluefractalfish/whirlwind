@@ -28,7 +28,18 @@ EXT2ID: Dict[str, Any] = {
 
 @dataclass 
 class RasterFile:
-    """ of procotol File, created with extensions .tif/tiff"""
+    """ 
+    of procotol File, created with extensions .tif/tiff 
+    
+    contains 
+    -------- 
+    path: Path 
+    uri: str 
+    ext: str (extension) 
+    fid: FileID 
+    
+
+    """
     path: Path 
     uri: str 
     ext: str 
@@ -49,6 +60,11 @@ class RasterFile:
     @property 
     def get_path(self) -> Path: 
         return self.path 
+
+    @property 
+    def mid(self) -> str: 
+        "return mosaic_id or FileID.uid for self"
+        return self.fid.uid 
  
 
 @dataclass  

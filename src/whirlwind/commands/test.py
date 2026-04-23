@@ -7,6 +7,8 @@ from whirlwind.config import Config
 from whirlwind.commands.catalog import BuildMetadataManifests, BuildIDManifest, BuildMosaicBranches 
 from whirlwind.commands.filesystem import BuildTree, CutTree 
 from whirlwind.commands.planners.plan_tiles import TesselationPlan
+from whirlwind.commands.tiles.test_tesselate import Tesselate 
+from whirlwind.commands.mosaics.test_downsampler import Downsample
 import os 
 
 #from whirlwind.commands.mosaic import ShardMosaicCommand 
@@ -30,6 +32,10 @@ class Test(Command):
                 return CutTree().run(tokens[1:], config)
             case "tileplan":
                 return TesselationPlan().run(tokens[1:], config)
+            case "tile":
+                return Tesselate().run(tokens[1:], config)
+            case "downsample":
+                return Downsample().run(tokens[1:],config)
             case _:
                 print("nope?")
                 pass

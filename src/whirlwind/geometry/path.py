@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass, field, asdict 
+from typing import Any, Sequence, Optional 
+from pathlib import Path 
 
 from whirlwind.geometry.footprint import FootPrint
+from whirlwind.filetrees.mosaicbranch import MosaicBranch
 
 
 @dataclass(frozen=True)
@@ -51,3 +53,67 @@ class DamagePath:
         if value is None:
             return None
         return str(value)
+
+
+@dataclass(frozen=True)
+class LabelField: 
+    name: str  # e.g. label_id, mosaic_id, even_date, ... 
+    kind: str # 'str' | 'int' | 'float' | 'date' 
+
+@dataclass(frozen=True)
+class LayerSpec: 
+    name: str # e.g. damage_path, damage_area 
+    geometry: str # LineString | Polygon
+    fields: Sequence[LabelField] 
+
+@dataclass(frozen=True)
+class LabelSpec: 
+    layers: Sequence[LayerSpec] 
+
+    @classmethod 
+    def default(cls) -> "LabelSpec":
+        common_fields = [
+                LabelField("label_id", "str"),
+                LabelField("mosaic_id", "str"),
+                LabelField("source_uri", "str"),
+                LabelField("browse_uri", "str"),
+                LabelField("label_type", "str"),
+                LabelField("even_date", "str"),
+                LabelField("notes", "str"),
+                LabelField("created_at", "str"),
+                LabelField("updated_at", "str")
+                ]
+        return cls(
+                layers=[
+                    LayerSpec("damage_path", "LineString", common_fields), 
+                    LayerSpec("damage_area", "Polygon", common_fields)
+                    ]
+                )
+@dataclass(frozen=True)
+class LabelPlan: 
+    mosaic_id: str 
+    source_uri: str 
+    browse_uri: str 
+    out_dir: Path 
+    gpkg_path: Path 
+    metadata_path: Path 
+    crs_wkt: str 
+    spec: LabelSpec 
+
+    @classmethod 
+    def from_browse(
+            cls, 
+            branch: MosaicBranch, 
+            crs_wkt: str, 
+            spec: Optional[LabelSpec] = None 
+            ) -> "LabelPlan":
+        ... 
+
+    def record(self) -> dict[str, object]:
+        out = asdict(self)
+        out["browse_uri"] = str(self.browse_uri)
+        out["out_dir"] = str(self.out_dir)
+        out["gpkg_path"] = str(self.gpkg_path)
+        out["metadata_path"] = str(self.metadata_path)
+        return out
+

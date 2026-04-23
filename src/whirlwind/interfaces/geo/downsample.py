@@ -12,44 +12,26 @@ from osgeo import ogr, osr
 import subprocess 
 from osgeo import gdal 
 from pathlib import Path 
-from whirlwind.ui import face
-from whirlwind.tools.ids import gen_uuid_from_str, gen_uuid_from_path
-from whirlwind.tools.pathfinder import build_path
+from whirlwind.specs.downsample import DSSpec 
 
 from dataclasses import dataclass 
 from typing import Optional, Tuple, Union, List, Any, Dict
 
-        
-################
-## CORE LOGIC ##
-################
 
-def downsample_mosaic(source_path: Path,  params: DSParams, subproc: bool=True) -> Path | None:
-    
-    exists, dest_dir = downsample_dir(str(source_path), params.out_dir)
-    if dest_dir is None:
-        face.error("an error was encountered constructing path")
-        return
-    out_path = dest_dir / f"browse-{gen_uuid_from_path(source_path)}"
-    if exists == 1:
-        face.print(f"browser ready mosaic already exists at {out_path}")
-        do = input("    downsample anyway? (y/n)")
-        if do == "y":
-            face.print(f"overwritting {out_path}...")
-            cmd =  build_gdal_subprocess(source_path, out_path, params) 
-        else:
-            return
+@dataclass 
+class Downsampler:
+    def __init__(self, src_path: str | Path, out_path: str | Path, spec: DSSpec) -> None: 
+        self.src_path = Path(src_path).expanduser().resolve()
+        self.out_path = Path(out_path).expanduser().resolve() 
+        self.spec = spec 
 
-    cmd =  build_gdal_subprocess(source_path, out_path, params) 
+    def run(self) -> Path: 
+        cmd =  build_gdal_subprocess(self.src_path, self.out_path, self.spec) 
+        subprocess.run(cmd, check=True)
+        return self.out_path 
 
-    face.print("downsampling...")
-    subprocess.run(cmd, check=True)
-    face.process(str(source_path),"gdal_translate",f"{out_path.name}\n")
 
-    ## change names of PATHSS
-    return Path(params.out_dir) / f"{gen_uuid_from_str(str(source_path))}"
-
-def build_gdal_subprocess(source_path: Path, out_path: Path, params: DSParams) -> List[Path | str]:
+def build_gdal_subprocess(source_path: Path, out_path: Path, params: DSSpec) -> List[Path | str]:
 
     cmd = ["gdal_translate","-q","-of", "GTiff"]
     if params.dtype:
@@ -82,19 +64,9 @@ def build_gdal_subprocess(source_path: Path, out_path: Path, params: DSParams) -
     cmd += ["--config","GDAL_TRANSLATE_COPY_SRC_MDD", "YES"]
 
 
-
     cmd += [source_path, out_path]
     
     return cmd
 
 
-######################
-## SPECIALIZED HELP ##
-######################
-
-def downsample_dir(source: str, out_path: Path) -> tuple[int,Path|None]: 
-
-    dest = out_path / f"{gen_uuid_from_str(source)}" 
-    exists, final_destination = build_path(dest)
-    return exists, final_destination
 
