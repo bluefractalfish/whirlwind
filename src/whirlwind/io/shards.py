@@ -62,11 +62,28 @@ class ShardRequest:
     shard_size: int 
     start_index: int = 1 
 
-    def __init__(self, branch: MosaicBranch, config: Config) -> None : 
-        shatter_config = config.parse("mosaic","shatter")
-        self.prefix = shatter_config["shard_prefix"]
-        self.shard_size = shatter_config["shard_size"]
-        self.out_dir = branch.get_shard_dir()
+    def __init__(self, branch: MosaicBranch | None=None, 
+                 config: Config | None=None, 
+                 prefix: str | None=None, 
+                 shard_size: int | None=None, 
+                 out_dir: Path | str | None=None ) -> None : 
+
+        if config is not None:
+            shatter_config = config.parse("mosaic","shatter")
+            self.prefix = shatter_config["shard_prefix"]
+            self.shard_size = shatter_config["shard_size"]
+        if branch is not None:
+            self.out_dir = branch.get_shard_dir()
+        if prefix is not None:
+            self.prefix = prefix 
+        if shard_size is not None:
+            self.shard_size = shard_size 
+        if out_dir is not None: 
+            self.out_dir = Path(out_dir).expanduser().resolve() 
+
+    @classmethod
+    def from_path(cls, out_path: Path | str, prefix: str, size: int = 2024 ) -> "ShardRequest": 
+        return cls(prefix=prefix, shard_size=size, out_dir=out_path)
 
 
 @dataclass(frozen=True)
@@ -141,6 +158,7 @@ class ShardWriter:
             return 
         if self.samples_in_shard >= self.request.shard_size: 
             self._open_next()
+
     def _write_member(self, name: str, payload: bytes) -> None: 
         if self.tar is None:
             raise RuntimeError("tar shard is not open; cannot write")
@@ -180,4 +198,46 @@ class ShardWriter:
             self.tar.close()
             self.tar = None
             self.tar_path = None
+
+@dataclass 
+class SplitShardWriter: 
+    """ 
+        router for ShardWriter to direct encoded tiles into damage/nodamage subdirectories 
+
+        input 
+        ------ 
+        takes a shard request with config, tokens and instantiates two new SplitShardRequests  
+    """
+
+    def __init__(self, request: ShardRequest): 
+        self.dmg_dir = request.out_dir / "damage"
+        self.ndmg_dir = request.out_dir / "nodamage"
+        
+        self.dmg_req = ShardRequest(prefix="damage", shard_size=2024, out_dir=self.dmg_dir)
+        self.ndmg_req = ShardRequest(prefix="nodamage", shard_size=2024, out_dir=self.ndmg_dir)
+
+        self.dmg_writer = ShardWriter(self.dmg_req)
+        self.ndmg_writer = ShardWriter(self.ndmg_req)
+
+    def __enter__(self) -> "SplitShardWriter":
+        return self 
+
+    def __exit__(self, exc_type, exc, tb) -> None: 
+        self.close()
+
+    def write(self, tile: EncodedTile) -> ShardPlacement:
+        metadata = tile.metadata
+        damage = metadata["labels"]["damage"]
+        
+        if damage: 
+            return self.dmg_writer.write(tile)
+        else: 
+            return self.ndmg_writer.write(tile)
+
+    def close(self) -> None:
+        if self.dmg_writer.tar is not None:
+            self.dmg_writer.close()
+
+        if self.ndmg_writer.tar is not None:
+            self.ndmg_writer.close()
 

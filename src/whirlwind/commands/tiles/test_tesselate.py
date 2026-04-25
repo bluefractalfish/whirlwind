@@ -13,7 +13,11 @@ from whirlwind.filetrees.files import RasterFile
 from whirlwind.io.planio import TilePlanIO, PlanRow 
 
 from whirlwind.geometry.tile import EncodedTile, TileEncoder
-from whirlwind.io.shards import ShardWriter, ShardRequest 
+from whirlwind.io.shards import ShardWriter, ShardRequest, SplitShardWriter
+from whirlwind.io.manifests import CSVSink, make_sink, ManifestRow, manifest_row_from_encoded
+from whirlwind.interfaces.label.damage_labels import DamageLabeler 
+manifest_fieldnames = list(ManifestRow.__dataclass_fields__.keys())
+
 
 @dataclass 
 class TesselateRequest:
@@ -37,15 +41,25 @@ class Tesselate(Command):
             branch = MosaicBranch.plant(request.tree.root, mosaic_id).ensure()
             planio = TilePlanIO(branch, request.spec)
             encoder = TileEncoder(src=f) 
+            man_path = branch.manifest_dir/"tile_manifest"
+            sink = make_sink( "csv", man_path, fieldnames=manifest_fieldnames)
             req = ShardRequest(branch, config) 
-            with ShardWriter(req) as writer:
+            with SplitShardWriter(req) as writer:
                 with WindowReader(p) as reader: 
+                    labeler = DamageLabeler.from_gpkg(
+                                gpkg_path=branch.browse_dir/"damaged_geometry.gpkg",
+                                area_layer="damage_area",
+                                line_layer="damage_path",
+                                target_crs=reader.ds.crs )
+                    
                     for tile in reader.tiles_from_rows(planio.read_csv()): 
+                        tile = labeler.label(tile)
                         encoded = encoder.encode(tile)
                         placement = writer.write(encoded)
+                        row = manifest_row_from_encoded(encoded, placement.key)
+                        sink.write(row)
                         print(placement.shard_path, placement.key)
         
-
 
         return 0
 

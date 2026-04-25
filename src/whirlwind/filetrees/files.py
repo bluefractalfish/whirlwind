@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path 
 from typing import Any, Protocol, Tuple, runtime_checkable, Iterator 
-
+from osgeo import gdal 
 
 @runtime_checkable 
 class Searchable(Protocol):
@@ -40,16 +40,26 @@ class RasterFile:
     
 
     """
-    path: Path 
-    uri: str 
-    ext: str 
-    fid: FileID 
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, georefs: bool = False):
         self.path = Path(path).expanduser().resolve()
         self.ext = self.path.suffix.lower() 
         self.uri = self.path.as_uri() 
         self.fid = FileID(self.uri, self.ext)
+        
+        if georefs:
+            ds = gdal.Open(self.path, gdal.GA_ReadOnly)
+            if ds is None:
+                raise RuntimeError(f"failed to open raster: {self.uri}")
+
+            try:
+                self.crs_wkt: str = ds.GetProjection() or ""
+                self.width: int = ds.RasterXSize
+                self.height: int = ds.RasterYSize
+                self.count: int = ds.RasterCount
+                self.transform = ds.GetGeoTransform(can_return_null=True)
+            finally:
+                ds = None
     @property 
     def record(self) -> Dict[str, Any]:
         return { 

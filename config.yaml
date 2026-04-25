@@ -1,9 +1,9 @@
 global:
   version: "testing"
-  run_id: run_t02
+  run_id: run_lt01
   io:
     in_dir: /home/rhea/B/
-    dest_dir: /home/rhea/W/artifacts
+    dest_dir: /home/rhea/B/artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -23,12 +23,12 @@ mosaic:
     target_resolution: null
     target_width: null
     target_height: null
-    overview_levels: null
+    overview_levels: null 
     scale_factor: 0.278
     resampling: bilinear
     dtype: Byte
     compression: LZW
-    tiled: true
+    tiled: True
     nodata: 0
     preserve_bounds: false
 
@@ -36,6 +36,7 @@ mosaic:
     tile_size: 1024
     stride: 1024
     drop_partial: true
+  shatter: 
     shard_size: 2048
     shard_prefix: tiles
     manifest: csv

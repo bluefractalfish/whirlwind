@@ -270,6 +270,7 @@ class WindowReader:
                 out_dtype=out_dtype,
                 bands=bands,
             )
+
             geo = self.get_geodata(row)
 
             return Tile(

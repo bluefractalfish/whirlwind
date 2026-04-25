@@ -7,6 +7,7 @@ from whirlwind.config import Config
 from whirlwind.commands.catalog import BuildMetadataManifests, BuildIDManifest, BuildMosaicBranches 
 from whirlwind.commands.filesystem import BuildTree, CutTree 
 from whirlwind.commands.planners.plan_tiles import TesselationPlan
+from whirlwind.commands.planners.plan_dpaths import BuildPathPlan
 from whirlwind.commands.tiles.test_tesselate import Tesselate 
 from whirlwind.commands.mosaics.test_downsampler import Downsample
 import os 
@@ -36,6 +37,8 @@ class Test(Command):
                 return Tesselate().run(tokens[1:], config)
             case "downsample":
                 return Downsample().run(tokens[1:],config)
+            case "pathplan":
+                return BuildPathPlan().run(tokens[1:], config)
             case _:
                 print("nope?")
                 pass

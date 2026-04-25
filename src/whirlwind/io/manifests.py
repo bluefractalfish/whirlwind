@@ -20,6 +20,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Protocol
 
+from whirlwind.geometry.tile import EncodedTile 
+from whirlwind.io.shards import ShardPlacement
 
 @dataclass(frozen=True)
 class ManifestRow:
@@ -44,14 +46,33 @@ class ManifestSink(Protocol):
     def close(self) -> None: ...
 
 class CSVSink:
-    def __init__(self, path: Path, fieldnames: List[str]) -> None:
+    def __init__(
+        self,
+        path: Path,
+        fieldnames: list[str],
+        append: bool = True,
+    ) -> None:
+
         self.path = path
+        self.fieldnames = fieldnames
+
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.f = path.open("w", newline="", encoding="utf-8")
+
+        file_exists = path.exists()
+        file_has_rows = file_exists and path.stat().st_size > 0
+
+        mode = "a" if append else "w"
+
+        self.f = path.open(mode, newline="", encoding="utf-8")
         self.w = csv.DictWriter(self.f, fieldnames=fieldnames)
-        self.w.writeheader()
+
+        if not file_has_rows or not append:
+            self.w.writeheader()
+
     def write(self, row: ManifestRow) -> None:
         self.w.writerow(asdict(row))
+        self.f.flush()
+
     def close(self) -> None:
         self.f.close()
 
@@ -84,12 +105,45 @@ class NullSink:
     def close(self) -> None:
         return
 
-def make_sink(kind: str, path: Path, fieldnames: List[str]) -> ManifestSink:
+def make_sink(
+    kind: str,
+    path: Path,
+    fieldnames: list[str],
+    append: bool = True,
+) -> ManifestSink:
     k = (kind or "csv").lower()
+
     if k == "csv":
-        return CSVSink(path, fieldnames)
+        return CSVSink(path, fieldnames, append=append)
+
     if k == "parquet":
         return ParquetSink(path)
+
     if k == "none":
         return NullSink()
+
     raise ValueError(f"unknown manifest kind: {kind}")
+
+def manifest_row_from_encoded(encoded: EncodedTile, shard: str) -> ManifestRow: 
+    meta: dict[str, Any] = encoded.metadata 
+
+    window = meta["window"]
+    bounds = meta["bounds"]
+
+    return ManifestRow(
+        tile_id=encoded.tile_id,
+        shard=str(shard),
+        key=encoded.key,
+        source_uri=str(meta["source_uri"]),
+        x_off=int(window["x_off"]),
+        y_off=int(window["y_off"]),
+        w=int(window["w"]),
+        h=int(window["h"]),
+        crs=meta.get("crs"),
+        minx=float(bounds["minx"]),
+        miny=float(bounds["miny"]),
+        maxx=float(bounds["maxx"]),
+        maxy=float(bounds["maxy"]),
+        bands=int(meta["bands"]),
+        dtype=str(meta["dtype"]),
+    )

@@ -9,6 +9,7 @@ import shutil
 @dataclass(frozen=True)
 class MosaicBranch:
     root: Path 
+    mosaic_id: str 
     mosaic_dir: Path 
     browse_dir: Path
     shards_dir: Path 
@@ -28,6 +29,7 @@ class MosaicBranch:
         mosaic_dir = root / mosaic_id 
         return cls(
                 root = root, 
+                mosaic_id = mosaic_id,
                 mosaic_dir = mosaic_dir, 
                 browse_dir = mosaic_dir / "browse",
                 shards_dir = mosaic_dir / "shards",

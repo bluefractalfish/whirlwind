@@ -18,7 +18,7 @@ from whirlwind.commands.base import Command
 from whirlwind.config import Config 
 from whirlwind.tools.pathfinder import build_path 
 from whirlwind.manifests import IDManifest
-from whirlwind.filetrees import RunTree, MosaicBranch
+from whirlwind.filetrees import RunTree
 
 # Buildmanifest
 class BuildIDManifest(Command):

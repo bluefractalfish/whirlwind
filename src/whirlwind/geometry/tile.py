@@ -53,13 +53,12 @@ class Tile:
     """
     feature rich composed object 
     """
-
     plan: PlanRow 
     tile_id: str | None = None 
     source: RasterFile  | None = None 
     read: TileRead | None = None 
     geo: GeoData | None = None 
-    label: str | None=None
+    label: dict[str, Any] | None=None
 
 @dataclass(frozen=True)
 class EncodedTile: 
@@ -145,7 +144,7 @@ class TileEncoder:
         }
 
         if tile.label is not None:
-            meta["labels"] = list(tile.label)
+            meta["labels"] = dict(tile.label)
 
         if tile.tile_id is not None:
             meta["tile_ref_id"] = tile.tile_id
@@ -174,118 +173,3 @@ class TileEncoder:
                 metadata=metadata
             )
 
-@dataclass(frozen=True)
-class BinLabel: 
-    """ label object which holds label features for binary class labeling"""
-    # semantic label, i.e. damage, no_damage 
-    semlabel: str | None = None 
-    # int label, i.e. 0 -> no damage, 1 -> damage 
-    intlabel: int | None = None 
-    # confidence measure, float between 0-1 
-    confidence: float | None = None 
-    # annotations, e.g. damage ammount 
-    annotation: str | None = None 
-
-""" 
-    @property   
-    def window(self) -> tuple[int, int, int, int]
-        return (self.x_off, self.y_off, self.width, self.height)
-    
-    def with_label(self, label: str | None) -> "TILE":
-        return TILE(
-            id=self.id,
-            parent_id=self.parent_id,
-            source_uri=self.source_uri,
-            crs=self.crs,
-            footprint=self.footprint,
-            x_off=self.x_off,
-            y_off=self.y_off,
-            width=self.width,
-            height=self.height,
-            transform=self.transform,
-            band_count=self.band_count,
-            dtype=self.dtype,
-            shard_ref=self.shard_ref,
-            label=label,
-        )
-
-    def with_shard_ref(self, shard_ref: str | None) -> "TILE":
-        return TILE(
-            id=self.id,
-            parent_id=self.parent_id,
-            source_uri=self.source_uri,
-            crs=self.crs,
-            footprint=self.footprint,
-            x_off=self.x_off,
-            y_off=self.y_off,
-            width=self.width,
-            height=self.height,
-            transform=self.transform,
-            band_count=self.band_count,
-            dtype=self.dtype,
-            shard_ref=shard_ref,
-            label=self.label,
-        )
-
-@dataclass(frozen=True)
-class TileRow:
-    FIELDNAMES: ClassVar[tuple[str, ...]] = (
-        "tile_id",
-        "shard",
-        "key",
-        "source_uri",
-        "mosaic_id",
-        "x_off",
-        "y_off",
-        "w",
-        "h",
-        "crs",
-        "minx",
-        "miny",
-        "maxx",
-        "maxy",
-        "bands",
-        "dtype",
-    )
-
-    tile_id: str
-    shard: str
-    key: str
-    source_uri: str
-    mosaic_id: str
-    x_off: int
-    y_off: int
-    w: int
-    h: int
-    crs: str
-    minx: float
-    miny: float
-    maxx: float
-    maxy: float
-    bands: int
-    dtype: str
-
-    def to_record(self) -> dict[str, Any]:
-        return {name: getattr(self, name) for name in self.FIELDNAMES}
-
-    @classmethod
-    def from_record(cls, record: Mapping[str, Any]) -> "TileRow":
-        return cls(
-            tile_id=str(record.get("tile_id", "")),
-            shard=str(record.get("shard", "")),
-            key=str(record.get("key", "")),
-            source_uri=str(record.get("source_uri", "")),
-            mosaic_id=str(record.get("mosaic_id", "")),
-            x_off=int(record.get("x_off", 0)),
-            y_off=int(record.get("y_off", 0)),
-            w=int(record.get("w", 0)),
-            h=int(record.get("h", 0)),
-            crs=str(record.get("crs", "")),
-            minx=float(record.get("minx", 0.0)),
-            miny=float(record.get("miny", 0.0)),
-            maxx=float(record.get("maxx", 0.0)),
-            maxy=float(record.get("maxy", 0.0)),
-            bands=int(record.get("bands", 0)),
-            dtype=str(record.get("dtype", "")),
-        )
-"""
