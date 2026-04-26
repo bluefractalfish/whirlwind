@@ -86,7 +86,7 @@ class CommandContext:
         if path.is_absolute():
             return path.resolve()
 
-        return (self.project_root / path).resolve()
+        return (self.projectroot / path).resolve()
 
     def section(self, *keys: str) -> dict[str, Any]:
         obj: Any = self.config.merged

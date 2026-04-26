@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from whirlwind.commands.base import Command 
 from whirlwind.domain.config.schema import Config 
-from whirlwind.ui import face
+from whirlwind.face import face
 
 @dataclass 
 class CommandRouter(Command):

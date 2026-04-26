@@ -20,7 +20,7 @@ import yaml
 
 from dataclasses import dataclass
 from pathlib import Path
-from whirlwind.adapters.filesystem.pathfinder import find_home_
+from whirlwind.tools.pathfinder import find_home_
 from typing import Any, Dict, Tuple
 from .loader import normalize, load_yaml, DEF_CON, deep_merge
 
@@ -55,14 +55,7 @@ class Config:
             raise ValueError(f"config error: configuration for {command} not found")
             return {}
         return subcommand_cfg
-
-    def in_path(self) -> Path: 
-        try: 
-            in_path = self.parse("global", "io")["in_dir"]
-            return Path(in_path)
-        except Exception: 
-            raise ValueError(f"config: there isnt an input path there")
-
+    
     def out_path(self) -> Path:
         try: 
             out_path = self.parse("global", "io")["dest_dir"]

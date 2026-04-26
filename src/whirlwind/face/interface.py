@@ -36,7 +36,7 @@ class Theme:
     width: int = 60
 
 @dataclass
-class Pantalla:
+class Interface:
     """
     Terminal User Interface handles all printing to the users console. Using the rich API 
     this class initiates a Console object then prints to the terminal using console.print() 

@@ -1,6 +1,6 @@
 
 
-from whirlwind.ui import face 
+from whirlwind.face import face 
 from whirlwind.commands.bridge import RequestBuilder, TokenView, ResultReporter
 from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config 

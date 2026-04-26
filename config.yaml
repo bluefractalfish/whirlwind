@@ -1,6 +1,6 @@
 global:
   version: "testing"
-  run_id: run_lt01
+  run_id: run_t03
   io:
     in_dir: /home/rhea/B/
     dest_dir: /home/rhea/B/artifacts/
@@ -9,38 +9,40 @@ global:
 manifest:
   global:
     in_dir: ./mnt
-  build:
+  ids:
     file_name: manifest.csv
-  stats:
+  meta:
     file_name: metadata.csv
   validate:
 
-mosaic:
-  info: 
-  footprint: 
-  validate: 
+operations: 
   downsample:
-    target_resolution: null
-    target_width: null
-    target_height: null
-    overview_levels: null 
-    scale_factor: 0.278
+    scale_factor: 0.25
     resampling: bilinear
     dtype: Byte
     compression: LZW
-    tiled: True
+    tiled: true
     nodata: 0
-    preserve_bounds: false
+
+    display:
+      enabled: true
+      method: percentile
+      p_low: 2.0
+      p_high: 98.0
+      dst_min: 0
+      dst_max: 255
+      sample_windows: 512
+      sample_size: 256
 
   tesselate:
     tile_size: 1024
     stride: 1024
     drop_partial: true
+
   shatter: 
     shard_size: 2048
     shard_prefix: tiles
     manifest: csv
-
 
 tile:
   quantize:
@@ -51,13 +53,3 @@ tile:
     per_band: true
     stats: sample
     num_samples: 1048
-  read:
-  label:
-  write: 
-  stats: 
-
-label:
-  init: 
-  build:
-  validate:
-

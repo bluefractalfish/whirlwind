@@ -1,5 +1,5 @@
 from typing import Literal 
-from whirlwind.ui import face 
+from whirlwind.face import face 
 from whirlwind.bridges.catalogs.discovermetadata import Request, Result
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView
 from whirlwind.commands.context import CommandContext
@@ -23,16 +23,18 @@ class BuildMetadataRequest(RequestBuilder[Request]):
         self,
         tokens: list[str],
         config: Config, ) -> Request:
+
+
         tv = TokenView.parse(tokens)
         ctx = CommandContext(config)
 
         manifest_cfg = ctx.section("catalog", "manifest")
         if not manifest_cfg:
-            manifest_cfg = ctx.section("catalog", "build")
+            manifest_cfg = ctx.section("manifest", "ids")
 
         metadata_cfg = ctx.section("catalog", "metadata")
         if not metadata_cfg:
-            metadata_cfg = ctx.section("catalog", "stats")
+            metadata_cfg = ctx.section("manifest", "meta")
 
         return Request(
             run_tree=ctx.run_tree,

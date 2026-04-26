@@ -1,42 +1,43 @@
 
+import os 
 from dataclasses import dataclass
+
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.ui import face 
-from pathlib import Path 
-
-
-from whirlwind.commands.base import Command 
-#from whirlwind.commands.filesystem import BuildTree, CutTree 
-#from whirlwind.commands.planners.plan_tiles import TesselationPlan
-#from whirlwind.commands.planners.plan_dpaths import BuildPathPlan
-#from whirlwind.commands.tiles.test_tesselate import Tesselate 
-
-from whirlwind.domain.filesystem.runtree import RunTree
-from whirlwind.domain.config import Config
 from whirlwind.bridges.specs.downsample import DSSpec
 from whirlwind.bridges.rasterops.downsample import DownsampleBridge, Request
 from whirlwind.bridges.catalogs.writeidmanifest import IDManifestBridge
 from whirlwind.bridges.catalogs.discovermetadata import DiscoverMetadataBridge
-from whirlwind.commands.bridge import ABridgeCommand
-from whirlwind.commands.catalog.write_id_manifest import IDManifestRequestBuilder, IDManifestReporter
-from whirlwind.commands.catalog.write_metadata import BuildMetadataRequest, BuildMetadataReporter 
+from whirlwind.bridges.rasterops.downsample import DownsampleBridge
+from whirlwind.commands.base import Command 
+from whirlwind.commands.bridge import Bridge 
+from whirlwind.commands.builders.catalog.write_id_manifest_builders import IDManifestRequestBuilder, IDManifestReporter
+from whirlwind.commands.builders.catalog.write_metadata_builders import BuildMetadataRequest, BuildMetadataReporter 
+from whirlwind.commands.builders.rasters.downsample_raster import BuildDownsampleReporter, BuildDownsampleRequest
+from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.domain.config import Config
 from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
 from whirlwind.domain.filesystem.files import RasterFile 
-import os 
 
-BuildIDManifestCommand = ABridgeCommand(
+WriteIDManifestCommand = Bridge(
     name="ids",
     builder=IDManifestRequestBuilder(),
     bridge=IDManifestBridge(),
     reporter=IDManifestReporter(),
 )
 
-BuildMetadataCommand = ABridgeCommand(
+WriteMetadataCommand = Bridge(
     name="meta",
     builder=BuildMetadataRequest(),
     bridge=DiscoverMetadataBridge(),
     reporter=BuildMetadataReporter(),
 )
+
+DownsampleCommand = Bridge(
+    name = "downsample", 
+    builder = BuildDownsampleRequest(), 
+    bridge= DownsampleBridge(), 
+    reporter = BuildDownsampleReporter()
+        )
 
 #from whirlwind.commands.mosaic import ShardMosaicCommand 
 @dataclass
@@ -48,9 +49,9 @@ class Test(Command):
             return 1
         match tokens[0]:
             case "ids":
-                return BuildIDManifestCommand.run(tokens[1:], config)
+                return WriteIDManifestCommand.run(tokens[1:], config)
             case "meta":
-                return BuildMetadataCommand.run(tokens[1:], config)
+                return WriteMetadataCommand.run(tokens[1:], config)
             case "tileplan":
                 ...
                 #return TesselationPlan().run(tokens[1:], config)
@@ -58,22 +59,7 @@ class Test(Command):
                 ...
                 #return Tesselate().run(tokens[1:], config)
             case "downsample":
-                spec = DSSpec.from_config(config)
-                request = Request(run_tree=RunTree.plant(config.out_path() / config.run_id()), 
-                                            spec = spec, 
-                                            overwrite = "-f" in tokens,
-                                            display_range= "-d" in tokens) 
-
-                manifest = IDManifest.from_tree(request.run_tree) 
-                for p in manifest.paths():
-                    f = RasterFile(p)
-                    mosaic_id = f.mid 
-                    branch = MosaicBranch.plant(request.run_tree.root, mosaic_id).ensure()
-                    out = branch.browse_dir / f"br-{mosaic_id}.tif"
-                    source = p 
-                    written_out= DownsampleBridge().run(source, out, request )
-                    print(f"{written_out} written") 
-                return 1
+                return DownsampleCommand.run(tokens[1:], config)
             case "pathplan":
                 ...
                 #return BuildPathPlan().run(tokens[1:], config)

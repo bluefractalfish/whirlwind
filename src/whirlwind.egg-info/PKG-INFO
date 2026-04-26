@@ -6,3 +6,4 @@ Requires-Dist: rich>=13
 Requires-Dist: numpy
 Requires-Dist: rasterio
 Requires-Dist: pyyaml
+Requires-Dist: cmd2>=2.4

@@ -2,3 +2,4 @@ rich>=13
 numpy
 rasterio
 pyyaml
+cmd2>=2.4

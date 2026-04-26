@@ -17,13 +17,17 @@ from __future__ import annotations
 from typing import Dict, Iterable, List
 
 from whirlwind.commands.base import Command 
+#from whirlwind.commands.wrangle import WrangleCommand
+from whirlwind.tools.ids import gen_run_id 
+#from whirlwind.ui import face 
+
 from whirlwind.domain.config import Config 
 
 class WhirlwindApp:
 
     def __init__(self, cmds: Iterable[Command], config: Config) -> None:
         self._commands: Dict[str, Command] = {c.name: c for c in cmds}
-        self.run_id = config.run_id()
+        self.run_id = gen_run_id() 
         self.config = config 
 
     def run(self, tokens: list[str]) -> int:
