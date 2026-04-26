@@ -20,9 +20,9 @@ from typing import Optional
 
 from rich.traceback import install 
 
-from whirlwind.config import Config
+from whirlwind.domain.config import Config
 
-from whirlwind.core import bootstrapp  
+from whirlwind.entrypoint import bootstrapp  
 
 #install(show_locals=True)
 

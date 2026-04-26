@@ -12,7 +12,7 @@
 """
 from typing import Any, List 
 from abc import ABC, abstractmethod
-from whirlwind.config import Config
+from whirlwind.domain.config import Config
 
 
 class Command(ABC):

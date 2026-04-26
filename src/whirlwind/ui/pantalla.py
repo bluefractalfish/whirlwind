@@ -18,7 +18,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.traceback import install
 
-from whirlwind.core.state import STATE 
+from whirlwind.entrypoint.state import STATE 
 
 #install(show_locals=True)
 
