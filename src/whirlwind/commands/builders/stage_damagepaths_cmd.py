@@ -1,14 +1,10 @@
 
-from typing import Literal 
-from whirlwind.face import face 
-from whirlwind.bridges.staging.stage_damagepaths import Request, Result
-from whirlwind.bridges.specs.path import PathSpec
-from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView
-from whirlwind.commands.context import CommandContext
 from whirlwind.adapters.io.idmanifest import IDManifest
+from whirlwind.bridges.staging.stage_damagepaths import DamagepathStagingBridge, Request, Result
+from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
+from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config 
-
-
+from whirlwind.face import face 
 
 class BuildDamagePathStageRequest(RequestBuilder[Request]):
    def from_tokens(
@@ -40,4 +36,10 @@ class BuildDamagePathStageReporter(ResultReporter[Result]):
         face.info(f"referencing manifest: {result.manifest_path}")
 
         return result.code 
-        
+
+StagePathsCommand = BridgeCommand(
+        name = "stage damage paths",
+        builder = BuildDamagePathStageRequest(), 
+        bridge = DamagepathStagingBridge(), 
+        reporter=BuildDamagePathStageReporter()
+        )

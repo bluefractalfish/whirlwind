@@ -35,9 +35,11 @@ class WindowPlanner:
         Example Usage 
         --------------- 
 
-        reader = WindowPlan(p, spec)
-            for row in reader.rows():
-                planio.append_csv(row)
+        spec = TSpec(tile_size=512, stride=512, drop_partial=True)
+        planner = WindowPlanner(path, spec)
+
+        sink = WindowPlanCSV("./artifacts/dev/plans/tile_plan.csv")
+        n = sink.write(planner.rows(), force=True)
     """
 
     def __init__(self, path: str | Path, spec: TSpec) -> None:

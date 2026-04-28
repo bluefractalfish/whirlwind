@@ -2,11 +2,10 @@ from whirlwind.face import face
 from whirlwind.bridges.specs.downsample import DSSpec 
 
 from whirlwind.bridges.catalogs.writeidmanifest import IDManifest
-from whirlwind.bridges.rasterops.downsample import Request, Result
+from whirlwind.bridges.rasterops.downsample import Request, Result, DownsampleBridge
 from whirlwind.commands.context import CommandContext 
-from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView
+from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.domain.config import Config
-from whirlwind.domain.filesystem import runtree 
 
 
 class BuildDownsampleRequest(RequestBuilder[Request]):
@@ -44,3 +43,10 @@ class BuildDownsampleReporter(ResultReporter[Result]):
 
         return result.code 
         
+
+DownsampleCommand = BridgeCommand(
+    name = "downsample", 
+    builder = BuildDownsampleRequest(), 
+    bridge= DownsampleBridge(), 
+    reporter = BuildDownsampleReporter()
+        )

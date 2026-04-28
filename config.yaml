@@ -33,8 +33,8 @@ operations:
       dst_max: 255
       sample_windows: 512
       sample_size: 256
-
-  tesselate:
+plan: 
+  tiles:
     tile_size: 1024
     stride: 1024
     drop_partial: true

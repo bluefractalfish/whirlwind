@@ -23,7 +23,7 @@ class TSpec:
 
     @classmethod
     def from_config(cls, config: Config) -> "TSpec":
-        raw = config.parse("mosaic","tesselate")
+        raw = config.parse("plan","tiles")
         tile_size = int(raw["tile_size"])
         stride = int(raw["stride"])
         drop_partial = bool(raw["drop_partial"])

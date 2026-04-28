@@ -36,9 +36,9 @@ from pathlib import Path
 from typing import Optional
 
 
-from whirlwind.config import Config 
-from whirlwind.geometry.tile import Tile, EncodedTile
-from whirlwind.filetrees.mosaicbranch import MosaicBranch
+from whirlwind.domain.config import Config 
+from whirlwind.domain.geometry.tiles.tile import Tile, EncodedTile
+from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
 
 
 @dataclass

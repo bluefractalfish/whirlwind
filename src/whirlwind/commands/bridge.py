@@ -76,7 +76,7 @@ class RequestBuilder(Protocol[RequestType_co]):
     def from_tokens(self, tokens: list[str], config: Config) -> RequestType_co: 
         ...
 
-class BridgeLayer(Protocol[RequestType_contra, ResultType_co]):
+class Bridge(Protocol[RequestType_contra, ResultType_co]):
     """
         intermediate layer recieving typed requests, 
         calling adapters, returns typed result 
@@ -95,7 +95,7 @@ class ResultReporter(Protocol[ResultType_contra]):
         ... 
 
 @dataclass 
-class Bridge(Generic[RequestType, ResultType]): 
+class BridgeCommand(Generic[RequestType, ResultType]): 
     """ 
         generic command wrapper 
 
@@ -106,7 +106,7 @@ class Bridge(Generic[RequestType, ResultType]):
     """
     name: str 
     builder: RequestBuilder[RequestType]
-    bridge: BridgeLayer[RequestType, ResultType]
+    bridge: Bridge[RequestType, ResultType]
     reporter: ResultReporter[ResultType]
 
     def run(self, tokens: list[str], config: Config) -> int: 

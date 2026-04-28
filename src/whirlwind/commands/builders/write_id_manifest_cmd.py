@@ -1,11 +1,11 @@
 
 
 from whirlwind.face import face 
-from whirlwind.commands.bridge import RequestBuilder, TokenView, ResultReporter
+from whirlwind.commands.bridge import RequestBuilder, TokenView, ResultReporter, BridgeCommand
 from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config 
 
-from whirlwind.bridges.catalogs.writeidmanifest import Request, Result
+from whirlwind.bridges.catalogs.writeidmanifest import Request, Result, IDManifestBridge
 
 
 class IDManifestRequestBuilder(RequestBuilder[Request]):
@@ -44,3 +44,11 @@ class IDManifestReporter(ResultReporter[Result]):
             face.info(f"manifest written: {result.manifest_path}")
         face.info(f"files: {result.files_written}")
         return result.code 
+
+
+WriteIDManifestCommand = BridgeCommand(
+    name="write id manifest",
+    builder=IDManifestRequestBuilder(),
+    bridge=IDManifestBridge(),
+    reporter=IDManifestReporter(),
+)

@@ -1,9 +1,10 @@
 from typing import Literal 
 from whirlwind.face import face 
-from whirlwind.bridges.catalogs.discovermetadata import Request, Result
-from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView
+from whirlwind.bridges.catalogs.discovermetadata import Request, Result, DiscoverMetadataBridge
+from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config 
+
 
 MetadataMode = Literal["core", "extended", "full"]
 
@@ -80,3 +81,11 @@ class BuildMetadataReporter(ResultReporter[Result]):
             face.info(f"errors:  {summary.errors}")
 
         return result.code
+
+
+DiscoverMetadataCommand = BridgeCommand(
+        name="discover metadata", 
+        builder=BuildMetadataRequest(), 
+        bridge = DiscoverMetadataBridge(), 
+        reporter=BuildMetadataReporter(), 
+    )
