@@ -64,7 +64,7 @@ class DownsampleBridge:
         summaries: list[Summary] = []
         for p in request.paths: 
             f = RasterFile(p)
-            mosaic_id = f.mid 
+            mosaic_id = f.file_id
             branch = MosaicBranch.plant(
                                 request.run_tree.root, 
                                 mosaic_id)

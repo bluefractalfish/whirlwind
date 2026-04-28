@@ -128,7 +128,7 @@ class GeoMetadataExtractor:
             "image_structure": d.GetMetadata("IMAGE_STRUCTURE") or {},
             "subdatasets": d.GetMetadata("SUBDATASETS") or {},
             "uri": self.f.uri,
-            "mosaic_id": self.f.fid.uid,
+            "mosaic_id": self.f.mosaic_id,
         }     
 
     def _extract_extended(self) -> dict[str, Any]:
@@ -158,7 +158,7 @@ class GeoMetadataExtractor:
             "bands": [self._extract_band(self.ds.GetRasterBand(i), i) 
                             for i in range(1, self.ds.RasterCount + 1)],
             "uri": self.f.uri,
-            "mosaic_id": self.f.fid.uid,
+            "mosaic_id": self.f.mosaic_id,
         }
     
     def _extract_all_metadata(self) -> dict[str, Any]:

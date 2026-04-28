@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone 
 from dataclasses import dataclass, field, asdict 
 from typing import Any, Sequence, Optional 
 from pathlib import Path 
 
-from whirlwind.geometry.footprint import FootPrint
-from whirlwind.filetrees.mosaicbranch import MosaicBranch
-
 
 @dataclass(frozen=True)
 class LabelField: 
-    name: str  # e.g. path_id, mosaic_id, even_date, ... 
+    name: str  # e.g. path_id, mosaic_id, event_date, ... 
     kind: str # 'str' | 'int' | 'float' | 'date' 
 
 @dataclass(frozen=True)
@@ -31,7 +29,7 @@ class PathSpec:
                 LabelField("source_uri", "str"),
                 LabelField("browse_uri", "str"),
                 LabelField("label_type", "str"),
-                LabelField("even_date", "str"),
+                LabelField("event_date", "str"),
                 LabelField("notes", "str"),
                 LabelField("created_at", "str"),
                 LabelField("updated_at", "str")
@@ -42,3 +40,5 @@ class PathSpec:
                     LayerSpec("damage_area", "Polygon", common_fields)
                     ]
                 )
+
+

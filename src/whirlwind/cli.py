@@ -18,13 +18,11 @@ import argparse
 import sys 
 from typing import Optional
 
-from rich.traceback import install 
 
 from whirlwind.domain.config import Config
 
 from whirlwind.entrypoint import bootstrapp  
 
-#install(show_locals=True)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="whirlwind")

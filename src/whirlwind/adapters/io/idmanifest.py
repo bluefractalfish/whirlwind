@@ -53,6 +53,9 @@ class IDManifest:
         for value in self._column("path"):
             yield Path(value)
 
+    def mids(self) -> Iterator[str]:
+            yield from self._column("mids")
+
     def _column(self, name: str) -> Iterator[str]:
         with self.path.open("r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)

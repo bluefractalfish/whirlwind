@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path 
 from typing import Iterator, Tuple 
 
-from whirlwind.domain.filesystem.files import FileRef
+from whirlwind.domain.filesystem.files import RasterFile
 
 @dataclass 
 class DiscoverFiles: 
@@ -45,11 +45,11 @@ class DiscoverFiles:
         self.path = Path(path).expanduser().resolve()
         self.uri = self.path.as_uri()
     
-    def discover(self, options: Tuple[str,...]) -> Iterator[FileRef]:
+    def discover(self, options: Tuple[str,...]) -> Iterator[RasterFile]:
         if self.path.is_dir():
             for f in self.path.rglob("*"):
                 if f.is_file() and f.suffix.lower() in options:
-                    yield FileRef(f)
+                    yield RasterFile(f)
 
     def is_empty(self, options: Tuple[str, ...]) -> bool:
         if not self.path.is_dir():

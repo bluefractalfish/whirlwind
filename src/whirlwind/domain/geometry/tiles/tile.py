@@ -110,7 +110,7 @@ class TileEncoder:
 
     def __init__(self, src: RasterFile) -> None:
         parent_id = src.fid 
-        self.mosaic_id = parent_id.uid 
+        self.mosaic_id = src.mosaic_id 
         self.source_uri = parent_id.uri 
 
     def gen_tile_id(self, tile: Tile) -> str: 

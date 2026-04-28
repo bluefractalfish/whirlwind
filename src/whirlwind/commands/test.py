@@ -2,21 +2,18 @@
 import os 
 from dataclasses import dataclass
 
-from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.bridges.specs.downsample import DSSpec
-from whirlwind.bridges.rasterops.downsample import DownsampleBridge, Request
+from whirlwind.bridges.rasterops.downsample import DownsampleBridge
 from whirlwind.bridges.catalogs.writeidmanifest import IDManifestBridge
 from whirlwind.bridges.catalogs.discovermetadata import DiscoverMetadataBridge
 from whirlwind.bridges.rasterops.downsample import DownsampleBridge
+from whirlwind.bridges.staging.stage_damagepaths import DamagepathStagingBridge
 from whirlwind.commands.base import Command 
 from whirlwind.commands.bridge import Bridge 
 from whirlwind.commands.builders.catalog.write_id_manifest_builders import IDManifestRequestBuilder, IDManifestReporter
 from whirlwind.commands.builders.catalog.write_metadata_builders import BuildMetadataRequest, BuildMetadataReporter 
 from whirlwind.commands.builders.rasters.downsample_raster import BuildDownsampleReporter, BuildDownsampleRequest
-from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.commands.builders.staging.stage_damagepaths import BuildDamagePathStageReporter, BuildDamagePathStageRequest
 from whirlwind.domain.config import Config
-from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
-from whirlwind.domain.filesystem.files import RasterFile 
 
 WriteIDManifestCommand = Bridge(
     name="ids",
@@ -38,6 +35,13 @@ DownsampleCommand = Bridge(
     bridge= DownsampleBridge(), 
     reporter = BuildDownsampleReporter()
         )
+
+StagePathsCommand = Bridge(
+    name = "stage", 
+    builder = BuildDamagePathStageRequest(), 
+    bridge = DamagepathStagingBridge(), 
+    reporter = BuildDamagePathStageReporter()
+)
 
 #from whirlwind.commands.mosaic import ShardMosaicCommand 
 @dataclass
@@ -61,8 +65,7 @@ class Test(Command):
             case "downsample":
                 return DownsampleCommand.run(tokens[1:], config)
             case "pathplan":
-                ...
-                #return BuildPathPlan().run(tokens[1:], config)
+                return StagePathsCommand.run(tokens[1:], config)
             case _:
                 print("nope?")
                 pass

@@ -51,8 +51,9 @@ FileID(uri: Path | str, ext: str="")
 """
 from __future__ import annotations 
 
+import re 
 from pathlib import Path 
-from typing import Any, Protocol 
+from typing import Any 
 from osgeo import gdal 
 
 
@@ -117,12 +118,25 @@ class RasterFile:
 
     def record(self) -> Dict[str, Any]:
         return { 
+                "mosaic_id": self.mosaic_id,
                 "id": self.fid.get_uid(), 
                 "uri": self.uri, 
                 "path": self.path
                 }
     def get_path(self) -> Path: 
         return self.path 
+    
+    @property
+    def file_id(self) -> str: 
+        return self.fid.uid 
+
+    @property
+    def variant_id(self) -> str: 
+        return variant_from_path(self.path).variant_id 
+
+    @property
+    def mosaic_id(self) -> str: 
+        return f"{self.file_id}-{self.variant_id}"
 
     @property 
     def mid(self) -> str: 
@@ -181,7 +195,7 @@ class FileID:
 
     """
     uid: str 
-    UUID_LEN: int=12
+    UUID_LEN: int=4
     
     def __init__(self, uri: Path | str, ext: str = ""):
         self.uri = Path(uri) 
@@ -203,3 +217,58 @@ class FileID:
 
 
 
+@dataclass(frozen=True)
+class RasterVariant:
+    variant_id: str
+    variant_type: str
+    spectral_id: str | None = None
+    source: str = "filename"
+
+
+VARIANT_ALIASES: dict[str, RasterVariant] = {
+    "DSM": RasterVariant("DSM", "elevation_surface"),
+    "DEM": RasterVariant("DEM", "elevation_ground"),
+    "DTM": RasterVariant("DTM", "elevation_ground"),
+    "CHM": RasterVariant("CHM", "canopy_height"),
+    "NDVI": RasterVariant("NDVI", "vegetation_index", "ndvi"),
+    "BGR": RasterVariant("BGR", "color_composite", "bgr"),
+    "RGB": RasterVariant("RGB", "color_composite", "rgb"),
+    "NIR": RasterVariant("NIR", "spectral_band", "nir"),
+    "RED": RasterVariant("RED", "spectral_band", "red"),
+    "GREEN": RasterVariant("GREEN", "spectral_band", "green"),
+    "BLUE": RasterVariant("BLUE", "spectral_band", "blue"),
+    "SWIR1": RasterVariant("SWIR1", "spectral_band", "swir1"),
+    "SWIR2": RasterVariant("SWIR2", "spectral_band", "swir2"),
+    "ERIC": RasterVariant("ERIC", "custom"),
+}
+
+
+def variant_from_path(path: str | Path) -> RasterVariant:
+    stem = Path(path).stem.upper()
+
+    tokens = [
+        token
+        for token in re.split(r"[^A-Z0-9]+", stem)
+        if token
+    ]
+
+    # Prefer exact token match.
+    for token in tokens:
+        if token in VARIANT_ALIASES:
+            return VARIANT_ALIASES[token]
+
+    # Fallback for compact names like SiteDSM2024 or AreaNDVI.
+    for key, variant in VARIANT_ALIASES.items():
+        if key in stem:
+            return variant
+
+    return RasterVariant(
+        variant_id="NULL",
+        variant_type="unknown",
+        spectral_id=None,
+        source="unknown",
+    )
+
+
+def make_mosaic_id(file_id: str, variant_id: str) -> str:
+    return f"{file_id}-{variant_id}"

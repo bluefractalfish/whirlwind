@@ -68,7 +68,7 @@ class MosaicBranch:
 
     """
     root: Path 
-    mosaic_id: str 
+    file_id: str 
     mosaic_dir: Path 
     browse_dir: Path
     shards_dir: Path 
@@ -76,19 +76,19 @@ class MosaicBranch:
     metadata_dir: Path 
 
     @classmethod 
-    def plant(cls, root: Path, mosaic_id: str) -> "MosaicBranch":
+    def plant(cls, root: Path, file_id: str) -> "MosaicBranch":
         """ constructs output tree based upon a canonical structure:
-                mosaic_id/
+                file_id/
                     browse/
                     shards/ 
                     manifest/ 
                     metadata/
         """
         root = root.expanduser().resolve()
-        mosaic_dir = root / mosaic_id 
+        mosaic_dir = root / file_id 
         return cls(
                 root = root, 
-                mosaic_id = mosaic_id,
+                file_id = file_id,
                 mosaic_dir = mosaic_dir, 
                 browse_dir = mosaic_dir / "browse",
                 shards_dir = mosaic_dir / "shards",
