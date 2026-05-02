@@ -13,6 +13,8 @@ from whirlwind.commands.builders.write_id_manifest_cmd import WriteIDManifestCom
 from whirlwind.commands.builders.discover_metadata_cmd import DiscoverMetadataCommand
 from whirlwind.commands.builders.stage_damagepaths_cmd import StagePathsCommand 
 from whirlwind.commands.builders.stage_tesselation_cmd import StageTesselationCommand
+from whirlwind.commands.builders.tesselate_mosaics_cmd import TesselationCommand 
+from whirlwind.commands.builders.export_shards_cmd import ExportShardsCommand
 
 #from whirlwind.commands.mosaic import ShardMosaicCommand 
 @dataclass
@@ -30,12 +32,13 @@ class Test(Command):
             case "tileplan":
                 return StageTesselationCommand.run(tokens[1:], config)
             case "tile":
-                ...
-                #return Tesselate().run(tokens[1:], config)
+                return TesselationCommand.run(tokens[1:], config)
             case "downsample":
                 return DownsampleCommand.run(tokens[1:], config)
             case "pathplan":
-                return StagePathsCommand.run(tokens[1:], config)
+                return StagePathsCommand.run(tokens[1:], config) 
+            case "export": 
+                return ExportShardsCommand.run(tokens[1:], config)
             case _:
                 print("nope?")
                 pass

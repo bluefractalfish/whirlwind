@@ -22,32 +22,41 @@ class IDManifestRequestBuilder(RequestBuilder[Request]):
         src_dir = ctx.resolve_path(tv.arg(0) or ctx.in_dir)
         file_types_raw = manifest_cfg.get("file_types", [".tif",".tiff"])
         file_types = tuple(str(x) for x in file_types_raw)
+        
+        force = tv.has("-f","--force")
+        verbose = tv.has("-v", "--verbose")
+
 
         return Request(
                 src_dir=src_dir, 
                 run_tree = ctx.run_tree, 
                 manifest_name=str(manifest_cfg.get("file_name", "manifest.csv")),
                 file_types=file_types,
-                force=tv.has("-f", "--force"),
+                verbose = verbose, 
+                force=force,
                 )
-
-
 
 class IDManifestReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 
         if result.code != 0: 
             face.error(f"manifest not written or no rasters found: {result.manifest_path}")
-            face.info(f"files: {result.files_written}")
+            face.error(f"files: {result.files_written}")
+        if result.verbose: 
+            face.header("manifest")
+            face.table(result.data[0], result.data[1])
         if result.skipped:
-            face.info(f"manifest exists: {result.manifest_path}")
+            face.print(f"manifest already exists: {result.manifest_path}")
+            face.div()
+            face.print(f"run with `-f` or `--force` to overwrite")
+            face.div()
         else:
-            face.info(f"manifest written: {result.manifest_path}")
-        face.info(f"files: {result.files_written}")
+            face.print(f"manifest written: {result.manifest_path}")
+        face.info(f"files written: {result.files_written}")
         return result.code 
 
 
 WriteIDManifestCommand = BridgeCommand(
-    name="write id manifest",
+    name="manifest",
     builder=IDManifestRequestBuilder(),
     bridge=IDManifestBridge(),
     reporter=IDManifestReporter(),

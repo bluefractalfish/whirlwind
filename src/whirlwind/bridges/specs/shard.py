@@ -12,3 +12,4 @@ class ShardSpec:
 
     def to_record(self) -> dict[str, object]:
         return asdict(self)
+

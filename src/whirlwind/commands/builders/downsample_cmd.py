@@ -28,18 +28,24 @@ class BuildDownsampleRequest(RequestBuilder[Request]):
                 spec = spec, 
                 manifest_path = manifest_path, 
                 paths = paths, 
-                overwrite="-f" in tv.flags or "--overwrite" in tv.flags, 
+                overwrite="-f" in tv.flags or "--force" in tv.flags, 
                 display_range="-d" in tv.flags or "--display-range" in tv.flags
                 )
 
 
 class BuildDownsampleReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 
-        face.info(f"downsampling from manifest")
-        face.info(f"manifest: {result.manifest_path}")
+        if result.exists == result.rasters_seen: 
+            face.info("downsampled rasters already exist")
+            face.div()
+            face.info("run downsample with `-f` or `--force` to overwrite")
+            face.div()
+            return result.code
+        
 
-        for summary in result.summaries:
-            face.info(f"{summary.src_path}")
+        face.print(f"rasters seen: {result.rasters_seen}")
+        face.print(f"downsampled: {result.downsampled}")
+        face.info(f"manifest: {result.manifest_path}")
 
         return result.code 
         

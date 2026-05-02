@@ -16,6 +16,7 @@ from whirlwind.geometry.tile import EncodedTile, TileEncoder
 from whirlwind.io.shards import ShardWriter, ShardRequest, SplitShardWriter
 from whirlwind.io.manifests import CSVSink, make_sink, ManifestRow, manifest_row_from_encoded
 from whirlwind.interfaces.label.damage_labels import DamageLabeler 
+
 manifest_fieldnames = list(ManifestRow.__dataclass_fields__.keys())
 
 

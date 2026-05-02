@@ -123,6 +123,13 @@ class RasterFile:
                 "uri": self.uri, 
                 "path": self.path
                 }
+    
+    def col_row(self) -> tuple[list[str],list[str]]:
+        record = self.record()
+        cols = list(record.keys())
+        rows = list(record.values())
+        return cols, rows 
+
     def get_path(self) -> Path: 
         return self.path 
     

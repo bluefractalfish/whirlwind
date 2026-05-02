@@ -87,14 +87,10 @@ def write_dict_csv(
     rows: Sequence[Mapping[str, Any]],
     *,
     fieldnames: list[str] | None = None,
-) -> Path:
+        ) -> Path:
+
     """
     Write dictionaries to CSV.
-
-    Memory note
-    -----------
-    This function receives a list of rows. That is fine for small/medium
-    metadata manifests. For very large catalogs, add a streaming writer later.
     """
 
     out = Path(path).expanduser().resolve()

@@ -14,9 +14,19 @@ from whirlwind.face import face
 @dataclass 
 class CommandRouter(Command):
     """ routes command group to its subcommands 
+        
+        
 
         example usage 
         -------------- 
+        
+        CommandRouter(
+            name="test",
+            routes=(
+                "ids": WriteIDManifestCommand
+                 ...
+            )
+        )
 
         test ids ./mnt -f 
             --> routes["ids"].run([".mnt","-f"], config)

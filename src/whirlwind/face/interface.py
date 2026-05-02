@@ -1,7 +1,10 @@
 # rich (UI / logging)
 from __future__ import annotations 
+import time 
 from dataclasses import dataclass, field 
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator 
+
+from contextlib import contextmanager 
 
 from rich.align import Align
 from rich.console import Console
@@ -16,11 +19,6 @@ from rich.progress import (
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-from rich.traceback import install
-
-from whirlwind.entrypoint.state import STATE 
-
-#install(show_locals=True)
 
 @dataclass 
 class Theme: 
@@ -46,29 +44,37 @@ class Interface:
     theme: Theme = field(default_factory=Theme)
 
     def print(self, message: Any ) -> None:
-        self._console.print(f"  [{self.theme.text}]{message}[/]")
+        self._console.print(f"[{self.theme.text}]{message}[/]")
     
     def info(self, message: Any ) -> None:
-        self._console.print(f"  [{self.theme.info}]{message}[/]")
+        self._console.print(f"[{self.theme.info}]{message}[/]")
     def debug(self, message: Any ) -> None:
         self._console.print(f"  [{self.theme.debug}]{message}[/]")
     def warning(self, message: Any ) -> None:
-        self._console.print(f"  [{self.theme.warn}]{message}[/]")
+        self._console.print(f"[{self.theme.warn}]{message}[/]")
     def error(self, message: Any ) -> None:
-        self._console.print(f"  [{self.theme.error}]{message}[/]")
+        self._console.print(f"[{self.theme.error}]{message}[/]")
     def success(self, message: Any ) -> None:
-        self._console.print(f"  [{self.theme.text}]{message}[/]")
+        self._console.print(f"[{self.theme.text}]{message}[/]")
     
-    
+    def format_s(self, seconds: float) -> str:
+        if seconds < 1: 
+            return f"{seconds * 1000:.0f}ms"
+        if seconds < 60:
+            return f"{seconds:.2f}s"
+        minutes = int(seconds // 60)
+        rest = seconds % 60 
+        return f"{minutes}m {rest:.1f}s"
+ 
     def row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
         value_style = value_style or self.theme.text
-        self._console.print(f"  [{key_style}]{key}[/]: [{value_style}]{value}[/]")
+        self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
     def info_row(self, key: str, value: Any, *, key_style: str = "bold white", value_style: str | None = None) -> None:
         value_style = value_style or self.theme.text
-        self._console.print(f"  [{key_style}]{key}[/]: [{value_style}]{value}[/]")
+        self._console.print(f"[{key_style}]{key}[/]: [{value_style}]{value}[/]")
 
     def prog_row(self, key: str, value: Any) -> None:
-        self._console.print(f"    [dim][{key}][/]: [bold white]{value}[/]")
+        self._console.print(f"[dim][{key}][/]: [bold white]{value}[/]")
 
     def rule(self, title: str = "", *, style: str | None = None) -> None:
         self._console.print(Rule(title=title, style=style or self.theme.rule))
@@ -76,7 +82,7 @@ class Interface:
         div = "-" * self.theme.width 
         self._console.print(div)
     def process(self, in_name: str, process_name: str, out_name: str) -> None:
-        self._console.print(f"  [{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
+        self._console.print(f"[{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
     
     def header(self, msg: str) -> None:
         self._console.print(Align.center(f"[{self.theme.info}]_{msg}_[/]"))
@@ -96,6 +102,34 @@ class Interface:
                 border_style=border_style or self.theme.panel_border,
             )
         )
+    
+    @contextmanager 
+    def phase(self, index: int, total: int, message: str, delay: float=0.2) -> Iterator[None]:
+        start = time.perf_counter()
+        self._console.print(
+            f"[{index}/{total}][{self.theme.info}] {message}[/]"
+        )
+        
+        time.sleep(delay)
+
+        try:
+            yield
+        except Exception:
+            elapsed = time.perf_counter() - start - delay 
+            self._console.print(
+                f"[{self.theme.error}] failed[/]" 
+                f"{message}" 
+                f"[dim][{self.format_s(elapsed)}][/]"
+            )
+            time.sleep(delay)
+            raise
+        else:
+            elapsed = time.perf_counter() - start - delay 
+            self._console.print(
+                f"[{self.theme.success}]DONE [/]"
+                f"[dim][{self.format_s(elapsed)}][/]"
+            )
+            time.sleep(delay)
 
     def exception(self, msg: str = "error") -> None:
         self._console.print(f"[{self.theme.error}]{msg}[/]")

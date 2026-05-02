@@ -1,9 +1,9 @@
 global:
   version: "testing"
-  run_id: run_t03
+  run_id: run_t05
   io:
     in_dir: /home/rhea/B/
-    dest_dir: /home/rhea/B/artifacts/
+    dest_dir: /home/rhea/C/test_artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -17,7 +17,7 @@ manifest:
 
 operations: 
   downsample:
-    scale_factor: 0.25
+    scale_factor: 0.55
     resampling: bilinear
     dtype: Byte
     compression: LZW
@@ -33,16 +33,18 @@ operations:
       dst_max: 255
       sample_windows: 512
       sample_size: 256
+
+  tesselate: 
+    shard_size: 2048
+    shard_prefix: shard
+    manifest_kind: csv 
+
 plan: 
   tiles:
-    tile_size: 1024
-    stride: 1024
+    tile_size: 256
+    stride: 265
     drop_partial: true
 
-  shatter: 
-    shard_size: 2048
-    shard_prefix: tiles
-    manifest: csv
 
 tile:
   quantize:

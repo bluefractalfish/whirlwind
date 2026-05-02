@@ -75,11 +75,13 @@ class Downsampler:
             spec=spec,
         )
 
-    def run(self, *, overwrite: bool = False,  
+    def run(self, 
+            *, 
+            overwrite: bool = False,  
             disp_range: bool = False, 
             quiet: bool = True ) -> tuple[int, str] :
-        self._validate_source()
 
+        self._validate_source()
 
         self.out_path.parent.mkdir(parents=True, exist_ok=True)
 

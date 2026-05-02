@@ -3,11 +3,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+
 from whirlwind.adapters.geo.metadata_extractor import GeoMetadataExtractor
 from whirlwind.adapters.io.csv_rows import read_csv_one_row, write_dict_csv
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.domain.filesystem.files import RasterFile
 from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.face import face 
 
 
 MetadataMode = Literal["core", "extended", "full"]
@@ -41,22 +43,28 @@ class Result:
 
 class DiscoverMetadataBridge:
     def run(self, request: Request) -> Result:
-        request.run_tree.ensure()
 
-        manifest_path = request.run_tree.get_manifest_path_csv(request.manifest_name)
-        manifest = IDManifest(manifest_path)
+        with face.phase(1,3,"ensuring runtree, finding manifest..."):
+            request.run_tree.ensure()
 
-        if not manifest.exists():
-            raise FileNotFoundError(
-                f"ID manifest does not exist: {manifest_path}. "
-                "write id manifest first."
-            )
+            manifest_path = request.run_tree.get_manifest_path_csv(request.manifest_name)
+            manifest = IDManifest(manifest_path)
+
+            if not manifest.exists():
+                raise FileNotFoundError(
+                    f"ID manifest does not exist: {manifest_path}. "
+                    "write id manifest first."
+                )
+        
 
         summaries: list[Summary] = []
-
-        for mode in request.modes:
-            summaries.append(self._write_mode(request, manifest, mode))
-
+        with face.phase(2,3,f"parsing modes: {request.modes}"):
+            pass 
+        with face.progress() as p:
+            t = p.add_task("discovering metadata", total=len(request.modes))
+            for mode in request.modes:
+                p.advance(t,1)
+                summaries.append(self._write_mode(request, manifest, mode, p))
         code = 0 if all(summary.errors == 0 for summary in summaries) else 1
 
         return Result(
@@ -70,6 +78,7 @@ class DiscoverMetadataBridge:
         request: Request,
         manifest: IDManifest,
         mode: MetadataMode,
+        p,
     ) -> Summary:
         rows: list[dict[str, object]] = []
 
@@ -77,41 +86,43 @@ class DiscoverMetadataBridge:
         rasters_written = 0
         rasters_skipped = 0
         errors = 0
+        
+        with p:
+            t = p.add_task("walking manifest", total=manifest.length)
+            for raster_path in manifest.paths():
+                rasters_seen += 1
 
-        for raster_path in manifest.paths():
-            rasters_seen += 1
+                try:
+                    raster = RasterFile(raster_path)
+                    branch = request.run_tree.plant_mosaic_branch(raster.mid)
 
-            try:
-                raster = RasterFile(raster_path)
-                branch = request.run_tree.plant_mosaic_branch(raster.mid)
+                    per_mosaic_path = branch.metadata_dir / f"{mode}-metadata.csv"
 
-                per_mosaic_path = branch.metadata_dir / f"{mode}-metadata.csv"
+                    if per_mosaic_path.exists() and not request.force:
+                        rows.append(dict(read_csv_one_row(per_mosaic_path)))
+                        rasters_skipped += 1
+                        continue
 
-                if per_mosaic_path.exists() and not request.force:
-                    rows.append(dict(read_csv_one_row(per_mosaic_path)))
-                    rasters_skipped += 1
-                    continue
+                    metadata = GeoMetadataExtractor(
+                        path=raster_path,
+                        mode=mode,
+                    ).discover()
 
-                metadata = GeoMetadataExtractor(
-                    path=raster_path,
-                    mode=mode,
-                ).discover()
+                    write_dict_csv(per_mosaic_path, [metadata])
+                    rows.append(metadata)
+                    rasters_written += 1
 
-                write_dict_csv(per_mosaic_path, [metadata])
-                rows.append(metadata)
-                rasters_written += 1
-
-            except Exception as exc:
-                errors += 1
-                rows.append(
-                    {
-                        "path": str(raster_path),
-                        "mode": mode,
-                        "error": type(exc).__name__,
-                        "message": str(exc),
-                    }
-                )
-
+                except Exception as exc:
+                    errors += 1
+                    rows.append(
+                        {
+                            "path": str(raster_path),
+                            "mode": mode,
+                            "error": type(exc).__name__,
+                            "message": str(exc),
+                        }
+                    )
+                p.advance(t,1)
         aggregate_path = request.run_tree.manifest_dir / f"{mode}-metadata.csv"
 
         if request.file_format != "csv":

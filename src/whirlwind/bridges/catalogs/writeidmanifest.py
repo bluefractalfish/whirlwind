@@ -6,7 +6,7 @@
 
 from whirlwind.adapters.io.idmanifest import IDManifest 
 from whirlwind.domain.filesystem.runtree import RunTree 
-
+from whirlwind.face import face
 
 
 from dataclasses import dataclass 
@@ -18,14 +18,19 @@ class Request:
     run_tree: RunTree 
     manifest_name: str = "manifest.csv"
     file_types: tuple[str,...] = (".tif",".tiff")
+    verbose: bool = False 
     force: bool = False 
+    
 
 @dataclass(frozen=True)
 class Result: 
     manifest_path: Path 
     files_written: int 
     skipped: bool 
+    verbose: bool 
+    data: tuple[list[str], list[list[str]]] | None=None
     code: int = 0 
+
 
 
 class IDManifestBridge: 
@@ -36,39 +41,59 @@ class IDManifestBridge:
 
     def run(self, request: Request) -> Result: 
 
-        request.run_tree.ensure()
+        code = 0 
+        with face.phase(1,3, "ensuring runtree, finding path..."):
+            request.run_tree.ensure()
         
-        # get path from tree. usually manifest/manifest.csv
-        manifest_path = request.run_tree.get_manifest_path_csv(request.manifest_name)
-        
-        if manifest_path.exists() and not request.force:
-            existing = IDManifest(manifest_path,file_types=request.file_types)
-            return Result(
-                    manifest_path=manifest_path,
-                    files_written=self._count_existing_files(existing),
-                    skipped=True, 
-                    code=0
+            # get path from tree. usually manifest/manifest.csv
+            manifest_path = request.run_tree.get_manifest_path_csv(request.manifest_name)
+
+            manifest = IDManifest(
+                    path=manifest_path, 
+                    file_types=request.file_types
                     )
+        
+        # get manifest data as list of columns and rows for printing, null of quiet 
+        if request.verbose: 
+            cols, rows = manifest.show_dont_write(request.src_dir)
+        else:
+            cols, rows = [], []
+            
+        if manifest_path.exists() and not request.force:
+            with face.phase(2,3, "notice: manifest exists for this path, request force to overwrite"):
+                existing = IDManifest(manifest_path,file_types=request.file_types)
+                with face.phase(3,3,"returning without writing"):
+                    return Result(
+                            manifest_path=manifest_path,
+                            files_written=0,
+                            skipped=True, 
+                            verbose = request.verbose,
+                            data = (cols, rows),
+                            code=0 
+                            )
+        
+        with face.phase(2,3,"writing manifest..."):
+            code = manifest.write_from(request.src_dir) # 0, no error. 1, error 
+            if code != 0: 
+                with face.phase(3,3,"something went wrong with writing manifest"):
+                    return Result(
+                            manifest_path=manifest_path, 
+                            files_written=0, 
+                            skipped=False, 
+                            verbose = request.verbose, 
+                            data = (cols, rows),
+                            code=code 
+                        )
 
-        manifest = IDManifest(
-                path=manifest_path, 
-                file_types=request.file_types
-                )
-        code = manifest.write_from(request.src_dir)
-
-        if code != 0: 
+        with face.phase(3,3,"building report..."):
             return Result(
                     manifest_path=manifest_path, 
-                    files_written=0, 
+                    files_written=self._count_existing_files(manifest),
                     skipped=False, 
-                    code=code 
-                )
-        return Result(
-                manifest_path=manifest_path, 
-                files_written=self._count_existing_files(manifest),
-                skipped=False, 
-                code=0
-                )
+                    verbose = request.verbose, 
+                    data = (cols, rows),
+                    code=0
+                    )
 
     def _count_existing_files(self, manifest: IDManifest) -> int: 
         try: 

@@ -71,14 +71,14 @@ class BuildMetadataRequest(RequestBuilder[Request]):
 
 class BuildMetadataReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:
-        face.info(f"manifest: {result.manifest_path}")
+        face.info(f"manifest used: {result.manifest_path}")
 
         for summary in result.summaries:
-            face.info(f"{summary.mode}: {summary.aggregate_path}")
-            face.info(f"rasters seen: {summary.rasters_seen}")
-            face.info(f"written: {summary.rasters_written}")
-            face.info(f"skipped:  {summary.rasters_skipped}")
-            face.info(f"errors:  {summary.errors}")
+            face.print(f"{summary.mode}: {summary.aggregate_path}")
+            face.print(f"rasters seen: {summary.rasters_seen}")
+            face.print(f"written: {summary.rasters_written}")
+            face.print(f"skipped: {summary.rasters_skipped}")
+            face.error(f"errors: {summary.errors}")
 
         return result.code
 

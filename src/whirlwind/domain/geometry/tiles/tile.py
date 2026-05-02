@@ -37,6 +37,7 @@ import io
 import json 
 import numpy as np 
 from rasterio import Affine 
+from pathlib import Path 
 
 from whirlwind.domain.filesystem.files import RasterFile
 from whirlwind.domain.geometry.tiles.plannedwindow import PlannedWindow
@@ -89,6 +90,48 @@ class EncodedTile:
     json_bytes: bytes 
     metadata: dict[str, Any]
 
+    def as_manifest_row(self, shard: str) -> ManifestRow: 
+        meta: dict[str, Any] = self.metadata 
+
+        window = meta["window"]
+        bounds = meta["bounds"]
+
+        return ManifestRow(
+            tile_id=self.tile_id,
+            shard=str(shard),
+            key=self.key,
+            source_uri=str(meta["source_uri"]),
+            x_off=int(window["x_off"]),
+            y_off=int(window["y_off"]),
+            w=int(window["w"]),
+            h=int(window["h"]),
+            crs=meta.get("crs"),
+            minx=float(bounds["minx"]),
+            miny=float(bounds["miny"]),
+            maxx=float(bounds["maxx"]),
+            maxy=float(bounds["maxy"]),
+            bands=int(meta["bands"]),
+            dtype=str(meta["dtype"]),
+        )
+
+@dataclass(frozen=True)
+class ManifestRow:
+    tile_id: str
+    shard: str
+    key: str
+    source_uri: str
+    x_off: int
+    y_off: int
+    w: int
+    h: int
+    crs: str | None
+    minx: float
+    miny: float
+    maxx: float
+    maxy: float
+    bands: int
+    dtype: str
+
 class TileEncoder: 
     """
     init 
@@ -110,12 +153,12 @@ class TileEncoder:
 
     def __init__(self, src: RasterFile) -> None:
         parent_id = src.fid 
-        self.mosaic_id = src.mosaic_id 
+        self.file_id = src.file_id 
         self.source_uri = parent_id.uri 
 
     def gen_tile_id(self, tile: Tile) -> str: 
         row = tile.plan
-        return f"{self.mosaic_id}_r{row.row_i:03d}_c{row.col_i:03d}"
+        return f"{self.file_id}_r{row.row_i:03d}_c{row.col_i:03d}"
 
     def gen_key(self, tile: Tile) -> str: 
         return self.gen_tile_id(tile) 
@@ -134,7 +177,7 @@ class TileEncoder:
 
         meta: dict[str, Any] = {
             "tile_id": tile_id,
-            "mosaic_id": self.mosaic_id,
+            "source_file_id": self.file_id,
             "source_uri": str(self.source_uri),
             "row_i": tile.plan.row_i,
             "col_i": tile.plan.col_i,
@@ -192,4 +235,105 @@ class TileEncoder:
                 json_bytes=js, 
                 metadata=metadata
             )
+
+
+
+@dataclass(frozen=True)
+class EncodedPair: 
+    key: str 
+    npy: bytes 
+    metadata: dict[str, Any]
+
+    def load_npy_tile(self) -> np.ndarray: 
+        """ 
+        loads one tile tensor from npy bytes 
+        
+        expects shape: (bands, height, width) 
+        can also take: (height, width)
+
+        returns array with shape (bands, height, width)
+        """
+        arr = np.load(io.BytesIO(self.npy)) 
+
+        if arr.ndim == 2: 
+            arr = arr[np.newaxis, :, :]
+
+        if arr.ndim != 3: 
+            raise ValueError(f"expected array shape: (bands, height, width), got {arr.shape}")
+
+        return arr 
+    
+    def tile_out_path(self, out_dir: Path) -> Path: 
+        """ build output path for one tile """
+        tile_id = self.metadata.get("tile_id") or self.key 
+        return out_dir / f"{tile_id}.tif"
+
+
+    def profile(
+        self, 
+        arr: np.ndarray, 
+        *,
+        compress: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Build a rasterio GeoTIFF profile from tile array and metadata.
+
+        Important:
+            No nodata is set here. Display TIFFs should not use nodata,
+            especially when writing RGB/RGBA for QGIS inspection.
+        """ 
+
+        if arr.ndim == 2:
+            arr = arr[np.newaxis, :, :] 
+
+        if arr.ndim != 3:
+            raise ValueError(
+                f"expected array shape: (bands, height, width), got {arr.shape}"
+            )
+
+        metadata = self.metadata
+        count, height, width = arr.shape
+
+        transform_values = metadata.get("transform")
+        if transform_values is None:
+            tile_id = metadata.get("tile_id", "<unknown>")
+            raise ValueError(f"tile metadata missing transform: {tile_id}")
+
+        profile: dict[str, Any] = {
+            "driver": "GTiff",
+            "height": height,
+            "width": width,
+            "count": count,
+            "dtype": arr.dtype,
+            "crs": metadata.get("crs") or None,
+            "transform": self.to_affine(transform_values),
+        }
+
+        if compress is not None:
+            profile["compress"] = compress
+
+        # internal tiling helps QGIS/GDAL for normal 256/512 tiles.
+        # avoid invalid block sizes for very small edge tiles.
+        if width >= 16 and height >= 16:
+            profile["tiled"] = True
+            profile["blockxsize"] = min(256, width)
+            profile["blockysize"] = min(256, height)
+
+        # defensive: never propagate nodata into display outputs.
+        profile.pop("nodata", None)
+
+        return profile
+
+    def to_affine(self, v: list[float] | tuple[float, ...]) -> Affine:
+        """
+        Rebuild rasterio Affine from metadata transform list.
+
+        Expected:
+            [a, b, c, d, e, f]
+        """
+        if len(v) != 6:
+            raise ValueError(f"expected transform with 6 values, got {len(v)}")
+
+        return Affine(v[0], v[1], v[2], v[3], v[4], v[5])
+
 

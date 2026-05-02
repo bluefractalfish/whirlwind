@@ -17,13 +17,13 @@ holds information about this runs files, manifest, and mosaicbranches
     methods: 
     -------- 
     exists -> bool 
-    plant_mosaic_branch(mosaic_id: str) -> MosaicBranch 
+    plant_mosaic_branch(file_id: str) -> MosaicBranch 
     mosaic_branches_from_manifest(manifest) -> int (number of mosaicbranches planted)
     get_manifest_path_csv(name: str = "manifest.csv") -> Path 
     get_metadata_path(name: str = "metadata.csv") -> Path 
 
     ***CAUTION*** 
-    prune(mosaic_id: str) -> int (recursively destroys mosaicbranch at mosaic_id)
+    prune(file_id: str) -> int (recursively destroys mosaicbranch at file_id)
     recursively_prune() -> int (recursively destroys itself)
 
     """
@@ -60,15 +60,15 @@ class RunTree:
         methods: 
         -------- 
         exists -> bool 
-        plant_mosaic_branch(mosaic_id: str) -> MosaicBranch 
-        get_mosaic_branch(mosaic_id: str ) -> MosaicBranch
+        plant_mosaic_branch(file_id: str) -> MosaicBranch 
+        get_mosaic_branch(file_id: str ) -> MosaicBranch
         mosaic_branches_from_manifest(manifest) -> int (number of mosaicbranches planted)
         
         get_manifest_path_csv(name: str = "manifest.csv") -> Path 
         get_metadata_path(name: str = "metadata.csv") -> Path 
 
         **CAUTION**
-        prune(mosaic_id) -> int (recursively prunes mosaicbranch at that mosaic_id )
+        prune(file_id) -> int (recursively prunes mosaicbranch at that file_id )
         recursively_prune() -> int (recursively destroys itself)
   
   
@@ -113,13 +113,13 @@ class RunTree:
         self.manifest_dir.mkdir(parents=True, exist_ok=True)
         return self
 
-    def plant_mosaic_branch(self, mosaic_id: str) -> MosaicBranch:
-        """ plant a MosaicBranch at RunTree root, with mosaic_id"""
-        mosaic = MosaicBranch.plant(self.root, mosaic_id)
+    def plant_mosaic_branch(self, file_id: str) -> MosaicBranch:
+        """ plant a MosaicBranch at RunTree root, with file_id"""
+        mosaic = MosaicBranch.plant(self.root, file_id)
         return mosaic 
 
-    def get_mosaic_branch(self, mosaic_id: str) -> MosaicBranch: 
-        return self.plant_mosaic_branch(mosaic_id)
+    def get_mosaic_branch(self, file_id: str) -> MosaicBranch: 
+        return self.plant_mosaic_branch(file_id)
 
     def mosaic_branches_from_manifest(self, manifest) -> int: 
         """ given a manifest of mosaic ids, plant all the mosaics at current root """
@@ -130,8 +130,8 @@ class RunTree:
             num_mosaics += 1
         return num_mosaics
     
-    def prune(self, mosaic_id: str ) -> int: 
-        branch = self.get_mosaic_branch(mosaic_id)
+    def prune(self, file_id: str ) -> int: 
+        branch = self.get_mosaic_branch(file_id)
         if branch.exists(): 
             shutil.rmtree(branch.mosaic_dir)
             return 0 

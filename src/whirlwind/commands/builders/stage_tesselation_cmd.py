@@ -23,30 +23,33 @@ class BuildTileStagingRequest(RequestBuilder[Request]):
         manifest = IDManifest(manifest_path)
         paths = manifest.paths()
         
+        force = "-f" in tv.flags or "--force" in tv.flags
         return Request(
                 spec = spec, 
                 tree = run_tree, 
                 manifest=manifest, 
                 paths=paths, 
-                force = True if "-f" in tv.flags else False, 
+                force =force, 
                 )
 
     
 class PlanTilingReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:
-        if result.skipped:
-            face.info(f"tile plan exists")
+        if result.code == 2:
+            face.print(f"tile plan already exists")
+            face.div()
+            face.print("run with `-f` or `--force` to overwrite")
+            face.div()
             return result.code
 
-        face.info(f"rasters seen: {result.rasters_seen}")
-        face.info(f"tiles planned: {result.tiles_written}")
-        face.info(f"return code: {result.code}")
+        face.print(f"rasters seen: {result.rasters_seen}")
+        face.print(f"tiles planned: {result.tiles_written}")
 
         return result.code
 
 
 StageTesselationCommand = BridgeCommand(
-        name = "stage tesselation",
+        name = "tiling",
         builder=BuildTileStagingRequest(), 
         bridge=StageTesselationBridge(), 
         reporter=PlanTilingReporter()
