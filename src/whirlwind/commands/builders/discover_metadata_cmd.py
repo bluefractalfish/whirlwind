@@ -78,7 +78,7 @@ class BuildMetadataReporter(ResultReporter[Result]):
             face.print(f"rasters seen: {summary.rasters_seen}")
             face.print(f"written: {summary.rasters_written}")
             face.print(f"skipped: {summary.rasters_skipped}")
-            face.error(f"errors: {summary.errors}")
+            face.print(f"errors: {summary.errors}")
 
         return result.code
 

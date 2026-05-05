@@ -117,7 +117,7 @@ class Interface:
         except Exception:
             elapsed = time.perf_counter() - start - delay 
             self._console.print(
-                f"[{self.theme.error}] failed[/]" 
+                f"[{self.theme.error}]failed [/]" 
                 f"{message}" 
                 f"[dim][{self.format_s(elapsed)}][/]"
             )

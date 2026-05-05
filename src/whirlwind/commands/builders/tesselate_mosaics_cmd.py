@@ -22,12 +22,14 @@ class BuildTesselationRequest(RequestBuilder[Request]):
         ctx = CommandContext(config)
         
         spec = TSpec.from_config(ctx.config)
+        print(spec.drop_partial)
         tree = ctx.run_tree
         shard_cfg = ctx.section("operations", "tesselate")
         manifest_name = ctx.section("manifest", "ids")["file_name"]
         manifest_path = tree.get_manifest_path_csv(manifest_name)
         manifest = IDManifest(manifest_path)
         paths = manifest.paths()
+        
 
         return Request(
                 spec = spec, 

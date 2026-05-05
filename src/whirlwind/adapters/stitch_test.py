@@ -22,42 +22,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from whirlwind.domain.filesystem.runtree import RunTree
+
 
 @dataclass(frozen=True)
-class StitchRequest:
-    """
-    Configuration for stitching tile GeoTIFFs.
-
-    input_dir:
-        Directory containing exported tile GeoTIFFs.
-
-    vrt_path:
-        Output VRT path.
-
-    out_tif:
-        Final stitched GeoTIFF path.
-
-    pattern:
-        Tile search pattern. Use "**/*.tif" if your shard exporter grouped
-        tiles into subdirectories.
-
-    overwrite:
-        If True, pass overwrite flags where GDAL supports them.
-
-    bigtiff:
-        Use BIGTIFF=YES for large outputs.
-
-    tiled:
-        Write tiled GeoTIFF output.
-
-    compress:
-        None means no compression.
-        Examples: "DEFLATE", "LZW".
-    """
-
-    input_dir: Path
-    vrt_path: Path
-    out_tif: Path
+class Request:
+    run_tree: RunTree 
+    shard_dirs: Iterable[Path]
     pattern: str = "**/*.tif"
     overwrite: bool = True
     bigtiff: bool = True
@@ -66,12 +37,15 @@ class StitchRequest:
 
 
 @dataclass(frozen=True)
-class StitchResult:
+class Result:
     tiles_seen: int
     list_path: Path
     vrt_path: Path
     out_tif: Path
 
+
+class StitchTifBridge: 
+    ... 
 
 def iter_tile_tifs(input_dir: Path, pattern: str = "**/*.tif") -> Iterable[Path]:
     """

@@ -22,12 +22,15 @@ class BuildExportShardRequest(RequestBuilder[Request]):
         manifest_path = run_tree.get_manifest_path_csv(manifest_name)
         manifest = IDManifest(manifest_path)
         paths = manifest.paths()
+
         return Request(
                 run_tree=run_tree, 
+                manifest=manifest, 
                 paths=paths, 
-                shard_sub_dir="damage", 
+                shard_sub_dir="damage" if "--damage" in tv.flags else None, 
                 display_bands=(0,1,2), 
-                stop_on_error="-r" in tv.flags
+                overwrite="-f" in tv.flags,
+                stop_on_error="-r" in tv.flags, 
                 )
 
 class BuildReporter(ResultReporter[Result]):

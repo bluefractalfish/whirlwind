@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import  Literal, Iterable 
 
+from whirlwind.adapters.io.convertshards import convert_to_tif
 from whirlwind.domain.filesystem.runtree import RunTree
 from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
 from whirlwind.domain.filesystem.files import RasterFile
-from whirlwind.adapters.io.convertshards import convert_to_tif
+from whirlwind.adapters.io.idmanifest import IDManifest
+from whirlwind.face import face 
 
 ExportMode = Literal["display", "raw"]
 DisplayKind = Literal["rgb", "rgba"]
@@ -20,8 +22,9 @@ DisplayKind = Literal["rgb", "rgba"]
 @dataclass(frozen=True)
 class Request:
     run_tree: RunTree
+    manifest: IDManifest 
     paths: Iterable[Path]
-    shard_sub_dir: str
+    shard_sub_dir: str | None = None 
     display_bands: tuple[int, int, int] | None=None 
     alpha_band: int = 3 
     grouped: bool = True 
@@ -53,6 +56,7 @@ class Result:
     result of shard export operation on list of files 
     """
     shards_seen: int 
+    tifs_written: int 
     summaries: tuple[Summary,...]
     code: int
 
@@ -81,47 +85,73 @@ class ExportShardsBridge:
                     )
 
         """
+        with face.phase(1,5,"locating manifest...", delay=0.5):
+            if not request.manifest.exists():
+                face.error(f"no manifest found for request")
+                face.div()
+                face.info("run `discover manifest` or ? for help")
+                face.div()
+                raise FileNotFoundError 
+
+        with face.phase(2,5,"building request..."): pass
+        with face.phase(3,5,"building command to translate shards to tifs..."): pass 
         summaries: list[Summary] = []
         shards_seen = 0 
-        for p in request.paths:
-            print(p)
-            f = RasterFile(p)
-            fid = f.file_id 
-            # find mosaic branch for this path 
-            branch = MosaicBranch.plant(request.run_tree.root, fid).ensure()
-            #find shard_dir if exists. expects somethind like shards/"damage" 
-            shard_dir = branch.shards_dir / request.shard_sub_dir 
-            #find tiles_dir 
-            out_dir = branch.tiles_dir / f"{request.shard_sub_dir}"
-            
-            for shard_path in sorted(shard_dir.rglob(request.pattern)): 
-                if not shard_path.is_file():
-                    continue 
-                shards_seen +=1 
-                tile_out = out_dir / shard_path.stem if request.grouped else out_dir 
-                seen, written, errors = convert_to_tif(
-                            shard_path=shard_path, 
-                            out_dir=tile_out, 
-                            mode=request.mode, 
-                            display_kind=request.display_kind, 
-                            display_bands=request.display_bands, 
-                            alpha_band=request.alpha_band, 
-                            p_low=request.p_low, 
-                            p_high=request.p_high, 
-                            compress=request.compress, 
-                            stop_on_error=request.stop_on_error
-                        )
-                summaries.append(Summary(
-                    src_path=shard_path, 
-                    out_path=tile_out, 
-                    tiles_seen=seen, 
-                    shards_seen=1, 
-                    tiles_written=written, 
-                    errors=errors
-                    ))
-            
+        tifs_written = 0 
+        with face.phase(4,5, "exporting shards..."): 
+            with face.progress() as pr: 
+                t1 = pr.add_task("traversing manifest...", total=request.manifest.length)
+                t2 = pr.add_task("translating",total=request.manifest.length)
+                for p in request.paths:
+                    pr.advance(t1,1)
+                    pr.update(t2,description=f"translating tiles from {p}")
+                    f = RasterFile(p)
+                    fid = f.file_id 
+                    # find mosaic branch for this path 
+                    branch = MosaicBranch.plant(request.run_tree.root, fid).ensure()
+                    #find shard_dir if exists. expects somethind like shards/"damage" 
+                    if request.shard_sub_dir: 
+                        shard_dir = branch.shards_dir / request.shard_sub_dir 
+                        out_dir = branch.tiles_dir / f"{request.shard_sub_dir}"
+                    else: 
+                        shard_dir = branch.shards_dir
+                        out_dir = branch.tiles_dir 
+                    n_shards = sum(1 for p in shard_dir.rglob(request.pattern) if p.is_file())
+                    #find tiles_dir 
+
+                    t3 = pr.add_task("converting shards",total=n_shards)
+                    for shard_path in sorted(shard_dir.rglob(request.pattern)): 
+                        if not shard_path.is_file():
+                            continue 
+                        pr.update(t3, description=f"converting {shard_path.name}")
+                        pr.advance(t3,1)
+                        shards_seen +=1 
+                        tile_out = out_dir / shard_path.stem if request.grouped else out_dir 
+                        seen, written, errors = convert_to_tif(
+                                    shard_path=shard_path, 
+                                    out_dir=tile_out, 
+                                    mode=request.mode, 
+                                    display_kind=request.display_kind, 
+                                    display_bands=request.display_bands, 
+                                    alpha_band=request.alpha_band, 
+                                    p_low=request.p_low, 
+                                    p_high=request.p_high, 
+                                    compress=request.compress, 
+                                    stop_on_error=request.stop_on_error
+                                )
+                        tifs_written += written
+                        summaries.append(Summary(
+                            src_path=shard_path, 
+                            out_path=tile_out, 
+                            tiles_seen=seen, 
+                            shards_seen=1, 
+                            tiles_written=written, 
+                            errors=errors
+                            ))
+        face.phase(5,5, "building report") 
         return Result(shards_seen=shards_seen,
                       summaries=tuple(summaries), 
+                      tifs_written = tifs_written,
                       code = 0 if all(s.errors==0 for s in summaries) else 1
                     )
 

@@ -38,6 +38,10 @@ class WindowPlanCSV:
         return n
 
     def read(self) -> Iterator[PlannedWindow]:
+        if not self.path.is_file() or not self.path.exists():
+            print("no window plan has been made")
+            raise FileNotFoundError
+
         with self.path.open("r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for record in reader:

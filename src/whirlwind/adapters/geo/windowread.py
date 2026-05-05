@@ -156,4 +156,7 @@ class RasterioWindowReader:
 
     def tiles_from_rows(self, rows: Iterable[PlannedWindow]) -> Iterator[Tile]:
         for row in rows:
-            yield self.tile_from_row(row)
+            try: 
+                yield self.tile_from_row(row)
+            except ValueError:
+                continue 
