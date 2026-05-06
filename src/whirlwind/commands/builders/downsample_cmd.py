@@ -19,7 +19,7 @@ class BuildDownsampleRequest(RequestBuilder[Request]):
 
         spec = DSSpec.from_config(ctx.config)
         run_tree = ctx.run_tree 
-        manifest_name = ctx.section("manifest","ids")["file_name"]
+        manifest_name = ctx.section("manifest","build")["file_name"]
         manifest_path = run_tree.get_manifest_path_csv(manifest_name)
         manifest = IDManifest(manifest_path)
         paths = manifest.paths()

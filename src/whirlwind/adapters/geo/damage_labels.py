@@ -16,7 +16,7 @@ class DamageLabeler:
     ------ 
     labeler = DamageLabeler(
         damage_areas=damage_area_geoms,
-        damage_lines=damage_line_geoms,
+        center_lines=damage_line_geoms,
         )
 
     with WindowReader(raster_path) as reader:
@@ -24,12 +24,12 @@ class DamageLabeler:
             tile = labeler.label(tile)
             encoded = encoder.encode(tile)
     """
-    def __init__(self, damage_areas, damage_lines) -> None:
+    def __init__(self, damage_areas, center_lines) -> None:
         self.damage_areas = list(damage_areas)
-        self.damage_lines = list(damage_lines)
+        self.center_lines = list(center_lines)
 
         self.area_index = STRtree(self.damage_areas) if self.damage_areas else None
-        self.line_index = STRtree(self.damage_lines) if self.damage_lines else None
+        self.line_index = STRtree(self.center_lines) if self.center_lines else None
 
     @classmethod
     def from_gpkg(
@@ -62,7 +62,7 @@ class DamageLabeler:
 
             return cls(
                 damage_areas=area_geoms,
-                damage_lines=line_geoms,
+                center_lines=line_geoms,
             )
 
     def label(self, tile: Tile) -> Tile:
@@ -70,7 +70,7 @@ class DamageLabeler:
             return replace(tile, label={
                 "damage": False,
                 "label_reason": "missing_geodata",
-                "distance_to_damage_line": None,
+                "distance_to_center_line": None,
             })
 
         minx, miny, maxx, maxy = tile.geo.bounds
@@ -86,13 +86,13 @@ class DamageLabeler:
 
 
         line_dist = None
-        if self.damage_lines:
-            line_dist = min(center.distance(line) for line in self.damage_lines)
+        if self.center_lines:
+            line_dist = min(center.distance(line) for line in self.center_lines)
 
         label: dict[str, Any] = {
             "damage": bool(area_hits),
             "damage_area_intersects": bool(area_hits),
-            "distance_to_damage_line": line_dist,
+            "distance_to_center_line": line_dist,
         }
 
         return replace(tile, label=label)

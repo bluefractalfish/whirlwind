@@ -57,7 +57,7 @@ from whirlwind.adapters.display.colorcontrols import to_rgb, to_rgba, interpret_
 
 ExportMode = Literal["display", "raw"] 
 DisplayKind = Literal["rgb", "rgba"]
- 
+ColorBy = Literal["centerline_distance"] 
  
 def convert_to_tif(
         shard_path: Path | str, 
@@ -70,7 +70,9 @@ def convert_to_tif(
         p_low: float, 
         p_high: float, 
         compress: str | None, 
-        stop_on_error: bool 
+        stop_on_error: bool, 
+        color_by: ColorBy | None=None, 
+        distance_max: float | None=None 
         ) -> tuple[int, int, int]: 
 
     """
@@ -107,11 +109,13 @@ def convert_to_tif(
     tiles_written = 0 
     errors = 0 
 
+    if color_by == "centerline_distance" and distance_max is None:
+        distance_max = max_damage_distance(shard_path)
+
     for pair in iter_encoded_pairs(shard_path):
         tiles_seen += 1 
 
         try: 
-
             write_tile(
                     pair,
                     out_dir,
@@ -121,7 +125,9 @@ def convert_to_tif(
                     alpha_band=alpha_band, 
                     p_low=p_low, 
                     p_high=p_high, 
-                    compress=compress
+                    compress=compress, 
+                    color_by=color_by, 
+                    distance_max=distance_max
                 )
             tiles_written += 1 
 
@@ -180,6 +186,82 @@ def iter_encoded_pairs(shard_path: Path | str) -> Iterator[EncodedPair]:
                 meta = json_by_key.pop(key)
                 yield EncodedPair(key=key, npy=npy, metadata=meta)
 
+def max_damage_distance(shard_path: Path | str) -> float | None:
+    """
+    Return max labels.distance_to_center_line across one shard.
+
+    """
+    shard_path = Path(shard_path)
+    max_dist: float | None = None
+
+    with tarfile.open(shard_path, "r") as tar:
+        for member in tar:
+            if not member.isfile():
+                continue
+
+            if Path(member.name).suffix.lower() != ".json":
+                continue
+
+            f = tar.extractfile(member)
+            if f is None:
+                continue
+
+            metadata = json.loads(f.read().decode("utf-8"))
+            labels = metadata.get("labels") or {}
+            dist = labels.get("distance_to_center_line")
+
+            if dist is None:
+                continue
+
+            try:
+                d = float(dist)
+            except (TypeError, ValueError):
+                continue
+
+            if not np.isfinite(d):
+                continue
+
+            max_dist = d if max_dist is None else max(max_dist, d)
+
+    return max_dist
+
+def distance_to_rgb_tile(
+    metadata: dict[str, Any],
+    *,
+    height: int,
+    width: int,
+    max_distance: float | None,
+) -> np.ndarray:
+    """
+    Build a 3-band uint8 RGB tile from labels.distance_to_center_line.
+
+    Color rule:
+        missing distance -> gray
+        near line        -> red
+        far from line    -> blue
+    """
+    labels = metadata.get("labels") or {}
+    dist = labels.get("distance_to_center_line")
+    print(dist)
+    if dist is None or max_distance is None or max_distance <= 0:
+        rgb = np.array([128, 128, 128], dtype=np.uint8)
+    else:
+        d = float(dist)
+        t = np.clip(d / max_distance, 0.0, 1.0)
+
+        red = int(round((1.0 - t) * 255))
+        green = 0
+        blue = int(round(t * 255))
+
+        rgb = np.array([red, green, blue], dtype=np.uint8)
+
+    out = np.empty((3, height, width), dtype=np.uint8)
+    out[0].fill(rgb[0])
+    out[1].fill(rgb[1])
+    out[2].fill(rgb[2])
+
+    return out
+
 def write_tile(
         pair: EncodedPair,
         out_dir: Path, 
@@ -191,6 +273,8 @@ def write_tile(
         p_high: float, 
         display_bands: tuple[int, int, int] | None=None, 
         compress: str | None=None, 
+        color_by: ColorBy | None=None, 
+        distance_max: float | None=None 
         ) -> None: 
     """ 
         write one EncodedPair as a Geotiff 
@@ -226,7 +310,16 @@ def write_tile(
     if arr.ndim != 3:
         raise ValueError(f"expected array shape (bands, height, width), got {arr.shape}")
 
-    if mode == "display":
+    if color_by == "centerline_distance":
+        _, height, width = arr.shape
+        arr = distance_to_rgb_tile(
+            pair.metadata,
+            height=height,
+            width=width,
+            max_distance=distance_max,
+        )
+
+    elif mode == "display":
         if display_kind == "rgb":
             arr = to_rgb(
                 arr,

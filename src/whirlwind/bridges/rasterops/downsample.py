@@ -87,7 +87,7 @@ class DownsampleBridge:
                     pr.advance(t1,1)
 
                     f = RasterFile(p)
-                    mosaic_id = f.file_id
+                    mosaic_id = f.mosaic_id
                     branch = MosaicBranch.plant(
                                         request.run_tree.root, 
                                         mosaic_id)

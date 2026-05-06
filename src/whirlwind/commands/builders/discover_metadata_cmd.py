@@ -31,7 +31,7 @@ class BuildMetadataRequest(RequestBuilder[Request]):
 
         manifest_cfg = ctx.section("catalog", "manifest")
         if not manifest_cfg:
-            manifest_cfg = ctx.section("manifest", "ids")
+            manifest_cfg = ctx.section("manifest", "build")
 
         metadata_cfg = ctx.section("catalog", "metadata")
         if not metadata_cfg:

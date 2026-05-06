@@ -31,6 +31,20 @@ ResultType_contra = TypeVar("ResultType_contra", contravariant=True)
 class TokenView: 
     """ 
     lightweight parsed view of shell tokens 
+    supports: 
+    ---------------
+    positional args:
+            ./mnt
+
+        boolean flags:
+            -f
+            --force
+
+        key-value options:
+            +mosaic=m-240119-DSM-a31f
+            +variant=DSM
+            +date=240119
+            +metamosaic=mm-denver-a91f2c
 
     example usage: 
     --------------- 
@@ -43,17 +57,45 @@ class TokenView:
     """
     flags: set[str]
     args: list[str]
+    options: dict[str, list[str]]
 
     @classmethod 
     def parse(cls, tokens: list[str]) -> "TokenView":
+        flags: set[str] = set()
+        args: list[str] = []
+        options: dict[str, list[str]] = {}
+
+        for token in tokens:
+            if token.startswith("+") and "=" in token:
+                key, value = token.split("=", 1)
+                options.setdefault(key, []).append(value)
+
+            elif token.startswith("-") or token.startswith("--"):
+                flags.add(token)
+
+            else:
+                args.append(token)
+
         return cls(
-                flags = {t for t in tokens if t.startswith("-")},
-                args = [t for t in tokens if not t.startswith("-")],
+                flags = flags,
+                args = args,
+                options = options 
                 )
 
     def has(self, *names: str) -> bool:
         return any(name in self.flags for name in names)
 
+    def values(self, *names: str) -> tuple[str, ...]:
+        out: list[str] = []
+        for name in names:
+            out.extend(self.options.get(name, []))
+        return tuple(out)
+
+    def value(self, name: str, default: str | None = None) -> str | None:
+        values = self.options.get(name, [])
+        if not values:
+            return default
+        return values[-1]
 
     def arg(self, index:int, default: str | None=None) -> str | None:
         if index < len(self.args):

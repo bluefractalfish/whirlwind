@@ -1,15 +1,15 @@
 global:
   version: "testing"
-  run_id: run_t05
+  run_id: r12
   io:
     in_dir: /home/rhea/B/
-    dest_dir: /home/rhea/C/test_artifacts/
+    dest_dir: /home/rhea/B/run_artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
   global:
     in_dir: ./mnt
-  ids:
+  build:
     file_name: manifest.csv
   meta:
     file_name: metadata.csv
@@ -17,7 +17,7 @@ manifest:
 
 operations: 
   downsample:
-    scale_factor: 0.55
+    scale_factor: 0.50
     resampling: bilinear
     dtype: Byte
     compression: LZW
@@ -41,8 +41,8 @@ operations:
 
 plan: 
   tiles:
-    tile_size: 256
-    stride: 265
+    tile_size: 128
+    stride: 128
     drop_partial: true
 
 

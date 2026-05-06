@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any 
 
 from whirlwind.domain.config import Config 
-from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.domain.filesystem.runtree import RunTree, TreeLayout
 from whirlwind.adapters.filesystem.pathfinder import find_home_
+
+
 
 FALLBACKS: dict[str, str] = {
         "in_dir": "./mnt",
@@ -72,7 +74,8 @@ class CommandContext:
 
     @property
     def run_tree(self) -> RunTree:
-        return RunTree.plant(self.dest_dir / self.run_id)
+        layout = TreeLayout()
+        return RunTree.plant(self.dest_dir / self.run_id, layout=layout)
 
     def resolve_path(self, value: str | Path) -> Path:
         """

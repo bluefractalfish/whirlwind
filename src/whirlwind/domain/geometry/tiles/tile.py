@@ -39,7 +39,7 @@ import numpy as np
 from rasterio import Affine 
 from pathlib import Path 
 
-from whirlwind.domain.filesystem.files import RasterFile
+from whirlwind.domain.filesystem.files import RasterFile, FileID
 from whirlwind.domain.geometry.tiles.plannedwindow import PlannedWindow
 
 @dataclass(frozen=True)
@@ -153,11 +153,13 @@ class TileEncoder:
 
     def __init__(self, src: RasterFile) -> None:
         parent_id = src.fid 
-        self.file_id = src.file_id 
+        self.file_id = src.raster_id 
         self.source_uri = parent_id.uri 
 
     def gen_tile_id(self, tile: Tile) -> str: 
         row = tile.plan
+        return FileID.tile(self.file_id, row.row_i, row.col_i )
+
         return f"{self.file_id}_r{row.row_i:03d}_c{row.col_i:03d}"
 
     def gen_key(self, tile: Tile) -> str: 
@@ -177,7 +179,8 @@ class TileEncoder:
 
         meta: dict[str, Any] = {
             "tile_id": tile_id,
-            "source_file_id": self.file_id,
+            "mosaic_id": self.file_id,
+            "branch_id": FileID.branch(self.file_id),
             "source_uri": str(self.source_uri),
             "row_i": tile.plan.row_i,
             "col_i": tile.plan.col_i,

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import  Literal, Iterable 
 
-from whirlwind.adapters.io.convertshards import convert_to_tif
+from whirlwind.adapters.io.convertshards import convert_to_tif, ColorBy 
 from whirlwind.domain.filesystem.runtree import RunTree
 from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
 from whirlwind.domain.filesystem.files import RasterFile
@@ -34,6 +34,8 @@ class Request:
     pattern: str = "*.tar"
     mode: ExportMode = "display"
     display_kind: DisplayKind = "rgb"
+    color_by: ColorBy | None=None 
+    distance_max: float | None=None 
     overwrite: bool = False
     stop_on_error: bool = False 
 
@@ -106,7 +108,7 @@ class ExportShardsBridge:
                     pr.advance(t1,1)
                     pr.update(t2,description=f"translating tiles from {p}")
                     f = RasterFile(p)
-                    fid = f.file_id 
+                    fid = f.mosaic_id 
                     # find mosaic branch for this path 
                     branch = MosaicBranch.plant(request.run_tree.root, fid).ensure()
                     #find shard_dir if exists. expects somethind like shards/"damage" 
@@ -119,12 +121,9 @@ class ExportShardsBridge:
                     n_shards = sum(1 for p in shard_dir.rglob(request.pattern) if p.is_file())
                     #find tiles_dir 
 
-                    t3 = pr.add_task("converting shards",total=n_shards)
                     for shard_path in sorted(shard_dir.rglob(request.pattern)): 
                         if not shard_path.is_file():
                             continue 
-                        pr.update(t3, description=f"converting {shard_path.name}")
-                        pr.advance(t3,1)
                         shards_seen +=1 
                         tile_out = out_dir / shard_path.stem if request.grouped else out_dir 
                         seen, written, errors = convert_to_tif(
@@ -137,8 +136,11 @@ class ExportShardsBridge:
                                     p_low=request.p_low, 
                                     p_high=request.p_high, 
                                     compress=request.compress, 
-                                    stop_on_error=request.stop_on_error
+                                    stop_on_error=request.stop_on_error, 
+                                    color_by=request.color_by, 
+                                    distance_max=request.distance_max 
                                 )
+
                         tifs_written += written
                         summaries.append(Summary(
                             src_path=shard_path, 

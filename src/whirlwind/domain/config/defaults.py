@@ -49,6 +49,15 @@ DEF_CON: Dict[str, Any] = {
                       },
             "validate": {},
             },
+        "metamosaic": {
+            "build": {
+                "stem": "locale",
+                "mode": "link",
+                "manifest_name": "metamosaic.csv",
+                "root_manifest_name": "manifest.csv",
+                "force": False,
+                }
+            },
         "mosaic" : {
             "info": {},
             "footprint": {},

@@ -18,7 +18,7 @@ class BuildExportShardRequest(RequestBuilder[Request]):
         ctx = CommandContext(config)
 
         run_tree = ctx.run_tree 
-        manifest_name = ctx.section("manifest","ids")["file_name"]
+        manifest_name = ctx.section("manifest","build")["file_name"]
         manifest_path = run_tree.get_manifest_path_csv(manifest_name)
         manifest = IDManifest(manifest_path)
         paths = manifest.paths()
@@ -29,6 +29,7 @@ class BuildExportShardRequest(RequestBuilder[Request]):
                 paths=paths, 
                 shard_sub_dir="damage" if "--damage" in tv.flags else None, 
                 display_bands=(0,1,2), 
+                color_by = "centerline_distance" if "-c" in tv.flags else None, 
                 overwrite="-f" in tv.flags,
                 stop_on_error="-r" in tv.flags, 
                 )

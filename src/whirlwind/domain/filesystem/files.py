@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import datetime as dt 
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,92 @@ EXT2ID: Dict[str, Any] = {
     "s": (".tar",),
     "d": (".gpkg",),
 }
+
+@dataclass
+class FileID:
+    """
+    central authority for deterministic file ids.
+ 
+    """
+    
+
+    uid: str
+    ID_SCHEME = "id_scheme_05"
+    ID_VERSION = "2"
+    UUID_LEN: int = 4
+
+    def __init__(self, uri: Path | str, ext: str = ""):
+        self.uri = str(uri)
+        pref = next((k for k, v in EXT2ID.items() if ext in v), "")
+        self.uid = self.gen_uid(pref)
+    
+    @staticmethod 
+    def _hash(value: str, size: int = 6) -> str: 
+        return _short_hash(value, size=size)
+    
+    @staticmethod
+    def mosaic (path: str | Path) -> str: 
+        uri = _as_uri(path) 
+        variant = _variant_from_path(path)
+        date = _date_from_path(path) 
+        h = _short_hash(uri, size=6) 
+        return f"M-{date}-{variant.variant_id}-{h}"
+    
+    @staticmethod 
+    def metamosaic(
+            member_ids: tuple[str, ...] | list [str], 
+            stem: str = "locale",
+            *,
+            hash_len: int = 6
+            ) -> str: 
+        """ 
+        construct a deterministic metamosaic ID from a group of mosaic IDs 
+        
+        metamosaic_id = MM-<stem>-<hash_of_members> 
+        
+        """
+
+        clean_stem = FileID.slug(stem) 
+        canonical = "|".join(sorted(str(mid) for mid in member_ids if str(mid))) 
+        h = _short_hash(canonical, size=hash_len)
+        return f"MM-{clean_stem}-{h}" 
+
+    @staticmethod 
+    def branch(mosaic_id: str) -> str: 
+        """ so future branch naming doesnt change bridge code """
+        return str(mosaic_id)
+    
+    @staticmethod 
+    def tile(mosaic_id: str, row_i: int, col_i: int, sigfig: int=4) -> str: 
+        return f"{mosaic_id}_r{row_i:04d}_c{col_i:04d}" 
+
+    @staticmethod 
+    def shard(branch_id: str, shard_index: int, prefix: str = "S") -> str:
+        return f"{prefix}-{branch_id}-{shard_index:06d}.tar"
+
+    @staticmethod 
+    def slug(value: str) -> str: 
+        slug = re.sub(r"[^A-Za-z0-9]+", "-", value.strip()).strip("-").lower()
+        return slug or "locale"
+
+    def gen_uid(self, pref: str) -> str:
+        u = uuid.uuid5(uuid.NAMESPACE_URL, str(self.uri))
+        uid = hashlib.blake2b(
+            u.bytes,
+            digest_size=max(1, self.UUID_LEN // 2),
+        ).hexdigest()
+        return pref + uid
+
+    def record(self) -> Dict[str, object]:
+        return {
+            "uri": str(self.uri),
+            "uid": self.uid,
+            "id_scheme": self.ID_SCHEME, 
+            "id_version": self.ID_VERSION
+        }
+
+    def get_uid(self) -> str:
+        return self.uid
 
 
 @dataclass(frozen=True)
@@ -72,7 +159,7 @@ VARIANT_ALIASES: dict[str, RasterVariant] = {
 }
 
 
-def variant_from_path(path: str | Path) -> RasterVariant:
+def _variant_from_path(path: str | Path) -> RasterVariant:
     """
     Extract raster product/spectrum/variant from filename.
 
@@ -108,7 +195,8 @@ def variant_from_path(path: str | Path) -> RasterVariant:
     )
 
 
-def date_from_path(path: str | Path) -> str:
+
+def _date_from_path(path: str | Path) -> str:
     """
     Extract acquisition/date token from raster filename.
 
@@ -124,43 +212,54 @@ def date_from_path(path: str | Path) -> str:
         2024_01_19_denver_DSM.tif    -> 240119
         240119_denver_DSM.tif        -> 240119
     """
+
     stem = Path(path).stem
 
-    # YYYYMMDD, YYYY-MM-DD, YYYY_MM_DD
-    m = re.search(
+    patterns = (
         r"(?<!\d)(20\d{2})[-_]?([01]\d)[-_]?([0-3]\d)(?!\d)",
-        stem,
-    )
-    if m:
-        yyyy, mm, dd = m.groups()
-        return f"{yyyy[-2:]}{mm}{dd}"
-
-    # YYMMDD
-    m = re.search(
         r"(?<!\d)(\d{2})([01]\d)([0-3]\d)(?!\d)",
-        stem,
     )
-    if m:
-        yyyy, mm, dd = m.groups()
-        return f"{yyyy[-2:]}{mm}{dd}"
+
+    for pattern in patterns:
+        m = re.search(pattern, stem)
+        if not m:
+            continue
+
+        y, mm, dd = m.groups()
+        yyyy = y if len(y) == 4 else f"20{y}"
+
+        try:
+            parsed = dt.datetime.strptime(f"{yyyy}{mm}{dd}", "%Y%m%d")
+        except ValueError:
+            continue
+
+        return parsed.strftime("%y%m%d")
 
     return "nulldate"
 
 
-def short_hash(value: str, size: int = 6) -> str:
+def _short_hash(value: str, size: int = 6) -> str:
     digest_size = max(1, (size + 1) // 2)
     return hashlib.blake2b(
         value.encode("utf-8"),
         digest_size=digest_size,
     ).hexdigest()[:size]
 
+def _as_uri(value: str | Path) -> str: 
+    """
+        normalize path-like input into stable string for deterministic hash
 
-def raster_file_id(path: str | Path, date: bool=False) -> str:
-    p = Path(path).expanduser().resolve()
-    variant = variant_from_path(p)
-    h = short_hash(p.parent.as_uri(), size=4)
+    """
+    if isinstance(value, Path):
+        return value.expanduser().resolve().as_uri()
 
-    return f"m{h}{variant.variant_id}"
+    raw = str(value) 
+
+    if "://" in raw or raw.startswith("/vsi"):
+        return raw 
+
+    return Path(raw).expanduser().resolve().as_uri()
+
 
 
 @dataclass
@@ -197,8 +296,9 @@ class RasterFile:
 
         # Generic hashed file id retained for compatibility.
         self.fid = FileID(self.uri, self.ext)
-
-        self.raster_id = raster_file_id(self.path)
+            
+        # semantic raster ID for mosaics 
+        self.raster_id = FileID.mosaic(self.path)
 
         if georefs:
             ds = gdal.Open(str(self.path), gdal.GA_ReadOnly)
@@ -214,18 +314,47 @@ class RasterFile:
             finally:
                 ds = None
 
+    @property
+    def variant_id(self) -> str:
+        return _variant_from_path(self.path).variant_id
+
+    @property
+    def date(self) -> str:
+        return _date_from_path(self.path)
+
+    @property
+    def mosaic_id(self) -> str:
+        return self.raster_id
+
     def record(self) -> Dict[str, Any]:
-        variant = variant_from_path(self.path)
-        date = date_from_path(self.path)
+        """ 
+            manifest row for source mosaic 
+
+            new canonical fields: 
+                mosaic_id 
+                source_uri 
+
+        """
+
+        variant = _variant_from_path(self.path)
+        date = _date_from_path(self.path)
 
         return {
-            "file_id": self.file_id,
+            
+            # canonical identity fields 
+            "mosaic_id": self.mosaic_id,
+            "source_uri": self.uri, 
+            "path": str(self.path),
+
+            # semantic fields 
             "date": date,
             "variant_id": variant.variant_id,
             "variant_type": variant.variant_type,
             "spectral_id": variant.spectral_id or "",
-            "uri": self.uri,
-            "path": self.path,
+            
+            # id policy fields 
+            "id_scheme": FileID.ID_SCHEME, 
+            "id_version": FileID.ID_VERSION
         }
 
     def col_row(self) -> tuple[list[str], list[Any]]:
@@ -237,26 +366,6 @@ class RasterFile:
     def get_path(self) -> Path:
         return self.path
 
-    @property
-    def file_id(self) -> str:
-        return self.raster_id
-
-
-    @property
-    def variant_id(self) -> str:
-        return variant_from_path(self.path).variant_id
-
-    @property
-    def date(self) -> str:
-        return date_from_path(self.path)
-
-    @property
-    def mosaic_id(self) -> str:
-        return self.file_id
-
-    @property
-    def mid(self) -> str:
-        return self.file_id
 
 
 @dataclass
@@ -282,44 +391,11 @@ class FileRef:
             "id": self.fid.get_uid(),
             "uri": self.uri,
             "path": self.path,
+            "id_scheme": FileID.ID_SCHEME, 
+            "id_version": FileID.ID_VERSION
         }
 
     def get_path(self) -> Path:
         return self.path
 
-
-@dataclass
-class FileID:
-    """
-    Generic deterministic file id.
-
-    For RasterFile, prefer RasterFile.file_id.
-    This class remains useful for generic files such as shards,
-    gpkg files, and non-raster file references.
-    """
-
-    uid: str
-    UUID_LEN: int = 4
-
-    def __init__(self, uri: Path | str, ext: str = ""):
-        self.uri = str(uri)
-        pref = next((k for k, v in EXT2ID.items() if ext in v), "")
-        self.uid = self.gen_uid(pref)
-
-    def gen_uid(self, pref: str) -> str:
-        u = uuid.uuid5(uuid.NAMESPACE_URL, str(self.uri))
-        uid = hashlib.blake2b(
-            u.bytes,
-            digest_size=max(1, self.UUID_LEN // 2),
-        ).hexdigest()
-        return pref + uid
-
-    def record(self) -> Dict[str, object]:
-        return {
-            "uri": str(self.uri),
-            "uid": self.uid,
-        }
-
-    def get_uid(self) -> str:
-        return self.uid
 

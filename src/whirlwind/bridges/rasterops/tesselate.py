@@ -84,6 +84,7 @@ class TesselationBridge:
                 # get sink code (sc): 1 -> ok, else error 
                 sc = tiler.build_sinks()
                 if sc != 1: 
+                    print(sc)
                     summaries.append(Summary(error=1,code=sc))
                     continue 
 
@@ -122,7 +123,7 @@ class RasterTiler:
         self.request = request 
         self.code = 0 
         f = RasterFile(p)
-        fid = f.file_id 
+        fid = f.mosaic_id 
         self.encoder = TileEncoder(src=f)
         branch = MosaicBranch.plant(request.tree.root, fid).ensure()
         self.shard_dir = branch.shards_dir
@@ -189,7 +190,7 @@ class RasterTiler:
                 labeler = DamageLabeler.from_gpkg(
                             gpkg_path=self.gpkg_path,
                             area_layer="damage_area",
-                            line_layer="damage_path",
+                            line_layer="center_line",
                             target_crs=reader.ds.crs )
                 n_tiles = 0  
                 for tile in reader.tiles_from_rows(planned_windows): 

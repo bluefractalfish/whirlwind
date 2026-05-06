@@ -2,12 +2,12 @@
 
 PUBLIC  
 --------- 
-MosaicBranch().plant(root: Path, file_id: str) -> MosaicBranch  
+MosaicBranch().plant(root: Path, mosaic_id: str) -> MosaicBranch  
                .ensure() -> MosaicBranch (builds subdirectories if dont exist)
 
 
     default structure: 
-            file_id/
+            mosaic_id/
                 browse/
                 shards/
                 manifest/
@@ -81,7 +81,7 @@ class MosaicBranch:
 
     """
     root: Path 
-    file_id: str 
+    mosaic_id: str 
     mosaic_dir: Path 
     browse_dir: Path
     shards_dir: Path 
@@ -89,11 +89,27 @@ class MosaicBranch:
     manifest_dir: Path 
     staging_dir: Path 
     metadata_dir: Path 
+    
+    @classmethod
+    def plant_at(cls, mosaic_dir: Path, mosaic_id: str) -> "MosaicBranch":
+        mosaic_dir = Path(mosaic_dir).expanduser().resolve()
+        return cls(
+                root = mosaic_dir.parent, 
+                mosaic_id = mosaic_id, 
+                mosaic_dir = mosaic_dir,
+                browse_dir = mosaic_dir / "browse",
+                shards_dir=mosaic_dir / "shards",
+                tiles_dir=mosaic_dir / "tiles",
+                manifest_dir=mosaic_dir / "manifest",
+                metadata_dir=mosaic_dir / "metadata",
+                staging_dir=mosaic_dir / "staging",
+        )
+
 
     @classmethod 
-    def plant(cls, root: Path, file_id: str) -> "MosaicBranch":
+    def plant(cls, root: Path, mosaic_id: str) -> "MosaicBranch":
         """ constructs output tree based upon a canonical structure:
-                file_id/
+                mosaic_id/
                     browse/
                     shards/ 
                     tiles/ 
@@ -102,10 +118,10 @@ class MosaicBranch:
                     staging/
         """
         root = root.expanduser().resolve()
-        mosaic_dir = root / file_id 
+        mosaic_dir = root / mosaic_id 
         return cls(
                 root = root, 
-                file_id = file_id,
+                mosaic_id = mosaic_id,
                 mosaic_dir = mosaic_dir, 
                 browse_dir = mosaic_dir / "browse",
                 shards_dir = mosaic_dir / "shards",

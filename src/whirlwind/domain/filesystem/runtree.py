@@ -38,6 +38,7 @@ from typing import List
 import shutil 
 
 from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
+from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
 from whirlwind.domain.config import Config 
 #from whirlwind.manifests.idmanifest import IDManifest
 
@@ -77,28 +78,22 @@ class RunTree:
     root: Path 
     # the path holding any manifests, 
     manifest_dir: Path 
-    # a dictionary of mosaic branches 
-    #branches: dict[str, Any] = {}
+    layout: TreeLayout 
 
     @classmethod
-    def plant(cls, root: str | Path) -> "RunTree":
+    def plant(cls, root: str | Path, layout: TreeLayout | None=None) -> "RunTree":
         """ plant a tree at root. checks if root already exists and overwrites if requested, calling ensure() and returning RunTree"""
         root = Path(root).expanduser().resolve()
-        #######################################
-        ## CHECK IF ROOT EXISTS, OVERWRITE IF NOT EMPTY?  ##
-        #######################################
+        layout = layout or TreeLayout()
 
         tree = cls( root = root, 
-                   manifest_dir = root /"manifest",
+                   manifest_dir = layout.manifest_dir(root),
+                   layout=layout
                    ) 
 
-        ############################################
-        ## RUN ENSURE(), mkdir for root, manifest ##
-        tree.ensure()
-        ############################################
+        return tree.ensure()
 
-        return tree 
-    
+   
     @classmethod 
     def from_config(cls, config: Config) -> "RunTree":
        out_root = config.out_path() / config.run_id()
@@ -117,6 +112,29 @@ class RunTree:
         """ plant a MosaicBranch at RunTree root, with file_id"""
         mosaic = MosaicBranch.plant(self.root, file_id)
         return mosaic 
+    
+    def branch_for(self, record: MosaicRecord) -> MosaicBranch: 
+        if record.metamosaic_id: 
+            branch_dir = self.layout.metamosaic_branch_dir(
+                    self.root, 
+                    record.metamosaic_id, 
+                    record.mosaic_id 
+                    )
+        else:
+            branch_dir = self.layout.mosaic_branch_dir(
+                    self.root, 
+                    record.mosaic_id 
+                )
+        
+        return MosaicBranch.plant_at(branch_dir, record.mosaic_id)
+    
+    def metamosaic_tree(self, metamosaic_id: str) -> MetamosaicTree: 
+        return MetamosaicTree.plant(
+                self.layout.metamosaic_dir(self.root, metamosaic_id),
+                metamosaic_id
+            )
+    def root_manifest_path(self, name: str = "manifest.csv") -> Path: 
+        return self.layout.root_manifest_path(self.root, name) 
 
     def get_mosaic_branch(self, file_id: str) -> MosaicBranch: 
         return self.plant_mosaic_branch(file_id)
@@ -152,3 +170,37 @@ class RunTree:
         return self.manifest_dir / name 
     
 
+
+
+@dataclass 
+class TreeLayout: 
+    version: str = "layout-v2"
+
+    def manifest_dir(self, root: Path) -> Path:
+        return root / "manifest"
+
+    def root_manifest_path(self, root: Path, name: str) -> Path: 
+        return self.manifest_dir(root) / name 
+
+    def loose_mosaics_dir(self, root: Path) -> Path: 
+        return root / "mosaics" 
+
+    def mosaic_branch_dir(self, root: Path, mosaic_id: str) -> Path: 
+        return self.loose_mosaics_dir(root) / mosaic_id 
+
+    def metamosaics_dir(self, root: Path) -> Path: 
+        return root / "metamosaics" 
+
+    def metamosaic_dir(self, root: Path, metamosaic_id: str) -> Path: 
+        return self.metamosaics_dir(root) / metamosaic_id 
+
+    def metamosaic_branches_dir(self, root: Path, metamosaic_id: str) -> Path: 
+        return self.metamosaic_dir(root, metamosaic_id) / "branches" 
+
+    def metamosaic_branch_dir(
+            self, 
+            root: Path, 
+            metamosaic_id: str, 
+            mosaic_id: str, 
+            ) -> Path: 
+        return self.metamosaic_branches_dir(root, metamosaic_id) / mosaic_id 

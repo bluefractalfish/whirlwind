@@ -44,7 +44,7 @@ class PathPlan:
         return out
 
     def meta(self) -> dict[str, object]:
-        file_id = self.branch.file_id
+        file_id = self.branch.mosaic_id
         browse_uri = self.branch.browse_dir
 
         return {
@@ -80,8 +80,8 @@ class PathPlan:
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
             return {
-                "path_id": f"{self.branch.file_id}-{layer_name}",
-                "file_id": str(self.branch.file_id),
+                "path_id": f"{self.branch.mosaic_id}-{layer_name}",
+                "file_id": str(self.branch.mosaic_id),
                 "browse_uri": str(self.branch.browse_dir),
                 "gpkg_path": str(self.gpkg_path),
                 "metadata_path": str(self.metadata_path),
@@ -190,7 +190,7 @@ class DamagePathPlanner:
                 srs.ImportFromWkt(plan.crs_wkt)
             else:
                 srs = None  
-            # damage_path, damage_area, etc
+            # center_line, damage_area, etc
             for layer_spec in plan.spec.layers: 
                 layer = ds.CreateLayer(
                         layer_spec.name, 

@@ -6,6 +6,7 @@ from typing import Iterator
 
 from whirlwind.adapters.filesystem.discoverfiles import DiscoverFiles
 from whirlwind.domain.filesystem.runtree import RunTree 
+from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord 
 
 class IDManifest:
     def __init__(
@@ -29,6 +30,16 @@ class IDManifest:
     def exists(self) -> bool:
         return self.path.exists() and self.path.is_file() and self.path.stat().st_size > 0
     
+    def rows(self) -> Iterator[dict[str, str]]:
+        with self.path.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                yield dict(row)
+
+    def records(self) -> Iterator[MosaicRecord]:
+        for row in self.rows():
+            yield MosaicRecord.from_row(row)
+
     def show_dont_write(self, src: str | Path) -> tuple[list[str], list[list[str]]]: 
         discovery = DiscoverFiles(src) 
         
@@ -60,9 +71,18 @@ class IDManifest:
                 writer.writerow(row)
 
         return 0
-    
+
+    def mosaic_ids(self) -> Iterator[str]:
+        try:
+            yield from self._column("mosaic_id")
+        except ValueError:
+            yield from self._column("file_id")
+
     def ids(self) -> Iterator[str]:
-        yield from self._column("id")
+        yield from self.mosaic_ids()
+
+    def mids(self) -> Iterator[str]:
+        yield from self.mosaic_ids()
 
     def uris(self) -> Iterator[str]:
         yield from self._column("uri")
@@ -70,9 +90,6 @@ class IDManifest:
     def paths(self) -> Iterator[Path]:
         for value in self._column("path"):
             yield Path(value)
-    
-    def mids(self) -> Iterator[str]:
-            yield from self._column("mids")
 
     def _column(self, name: str) -> Iterator[str]:
         with self.path.open("r", newline="", encoding="utf-8") as f:
