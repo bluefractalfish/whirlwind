@@ -36,7 +36,7 @@ class PathSpec:
                 ]
         return cls(
                 layers=[
-                    LayerSpec("damage_path", "LineString", common_fields), 
+                    LayerSpec("center_line", "LineString", common_fields), 
                     LayerSpec("damage_area", "Polygon", common_fields)
                     ]
                 )

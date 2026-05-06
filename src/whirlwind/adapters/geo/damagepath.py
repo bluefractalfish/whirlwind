@@ -25,7 +25,7 @@ class PathPlan:
             ) -> "PathPlan":
 
         # create empty gpkg 
-        gpkg_path = branch.browse_dir / "staged_path.gpkg"
+        gpkg_path = branch.browse_dir / "damage_path.gpkg"
         meta_path = branch.staging_dir / "path_plan.json"
         
         return cls(

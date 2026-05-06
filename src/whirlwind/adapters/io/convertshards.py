@@ -72,7 +72,8 @@ def convert_to_tif(
         compress: str | None, 
         stop_on_error: bool, 
         color_by: ColorBy | None=None, 
-        distance_max: float | None=None 
+        distance_max: float | None=None, 
+        alpha: float = 0.05,
         ) -> tuple[int, int, int]: 
 
     """
@@ -127,7 +128,8 @@ def convert_to_tif(
                     p_high=p_high, 
                     compress=compress, 
                     color_by=color_by, 
-                    distance_max=distance_max
+                    distance_max=distance_max,
+                    alpha=alpha
                 )
             tiles_written += 1 
 
@@ -242,7 +244,6 @@ def distance_to_rgb_tile(
     """
     labels = metadata.get("labels") or {}
     dist = labels.get("distance_to_center_line")
-    print(dist)
     if dist is None or max_distance is None or max_distance <= 0:
         rgb = np.array([128, 128, 128], dtype=np.uint8)
     else:
@@ -262,6 +263,27 @@ def distance_to_rgb_tile(
 
     return out
 
+def blend_rgb_overlay(
+    base_rgb: np.ndarray,
+    overlay_rgb: np.ndarray,
+    *,
+    alpha: float,
+) -> np.ndarray:
+
+    if base_rgb.shape != overlay_rgb.shape:
+        raise ValueError(
+            f"overlay shape mismatch: base={base_rgb.shape}, overlay={overlay_rgb.shape}"
+        )
+
+    alpha = float(np.clip(alpha, 0.0, 1.0))
+
+    blended = (
+        base_rgb.astype(np.float32) * (1.0 - alpha)
+        + overlay_rgb.astype(np.float32) * alpha
+    )
+
+    return np.clip(blended, 0, 255).astype(np.uint8)
+
 def write_tile(
         pair: EncodedPair,
         out_dir: Path, 
@@ -274,7 +296,8 @@ def write_tile(
         display_bands: tuple[int, int, int] | None=None, 
         compress: str | None=None, 
         color_by: ColorBy | None=None, 
-        distance_max: float | None=None 
+        distance_max: float | None=None, 
+        alpha: float = 0.03
         ) -> None: 
     """ 
         write one EncodedPair as a Geotiff 
@@ -312,11 +335,25 @@ def write_tile(
 
     if color_by == "centerline_distance":
         _, height, width = arr.shape
-        arr = distance_to_rgb_tile(
+
+        base_rgb = to_rgb(
+            arr,
+            display_bands=display_bands,
+            p_low=p_low,
+            p_high=p_high,
+        )
+
+        overlay_rgb = distance_to_rgb_tile(
             pair.metadata,
             height=height,
             width=width,
             max_distance=distance_max,
+        )
+
+        arr = blend_rgb_overlay(
+            base_rgb,
+            overlay_rgb,
+            alpha=alpha,
         )
 
     elif mode == "display":
