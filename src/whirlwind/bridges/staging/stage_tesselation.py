@@ -1,5 +1,5 @@
 
-from typing import Iterator 
+from typing import Iterable 
 from pathlib import Path 
 from dataclasses import dataclass 
 
@@ -17,7 +17,7 @@ class Request:
     spec: TSpec 
     tree: RunTree 
     manifest: IDManifest 
-    paths: Iterator[Path]
+    paths: Iterable[Path]
     force: bool 
     plan_name: str="tile_plan.csv"
 

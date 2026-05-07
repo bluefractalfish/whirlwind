@@ -3,6 +3,7 @@ from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.bridges.staging.stage_damagepaths import DamagepathStagingBridge, Request, Result
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
+from whirlwind.commands.selector import pathset 
 from whirlwind.domain.config import Config 
 from whirlwind.face import face 
 
@@ -15,16 +16,14 @@ class BuildDamagePathStageRequest(RequestBuilder[Request]):
         tv = TokenView.parse(tokens)
         ctx = CommandContext(config) 
 
-        run_tree = ctx.run_tree 
-        manifest_path = run_tree.get_manifest_path_csv()
-        manifest = IDManifest(manifest_path)
-        paths = manifest.paths()
+        paths, manifest = pathset(tv, ctx)
+
         overwrite = "-f" in tv.flags or "--overwrite" in tv.flags 
         set_defaults = False if "--no-default" in tv.flags or "-nd" in tv.flags else True
 
         return Request(
                 tree=ctx.run_tree,
-                manifest_path = manifest_path, 
+                manifest = manifest, 
                 paths = paths, 
                 overwrite=overwrite,
                 set_defaults=set_defaults)

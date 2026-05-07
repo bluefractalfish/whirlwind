@@ -5,6 +5,7 @@ from whirlwind.bridges.catalogs.writeidmanifest import IDManifest
 from whirlwind.bridges.rasterops.downsample import Request, Result, DownsampleBridge
 from whirlwind.commands.context import CommandContext 
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
+from whirlwind.commands.selector import pathset 
 from whirlwind.domain.config import Config
 
 
@@ -18,15 +19,12 @@ class BuildDownsampleRequest(RequestBuilder[Request]):
         ctx = CommandContext(config)
 
         spec = DSSpec.from_config(ctx.config)
-        run_tree = ctx.run_tree 
-        manifest_name = ctx.section("manifest","build")["file_name"]
-        manifest_path = run_tree.get_manifest_path_csv(manifest_name)
-        manifest = IDManifest(manifest_path)
-        paths = manifest.paths()
+
+        paths, manifest = pathset(tv, ctx)
 
         return Request(run_tree = ctx.run_tree, 
                 spec = spec, 
-                manifest_path = manifest_path, 
+                manifest = manifest, 
                 paths = paths, 
                 overwrite="-f" in tv.flags or "--force" in tv.flags, 
                 display_range="-d" in tv.flags or "--display-range" in tv.flags

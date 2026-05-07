@@ -53,7 +53,7 @@ from pathlib import Path
 from dataclasses import dataclass 
 
 from whirlwind.domain.geometry.tiles.tile import EncodedPair 
-from whirlwind.adapters.display.colorcontrols import to_rgb, to_rgba, interpret_colors
+from whirlwind.adapters.display.colorcontrols import to_rgb, to_rgba, interpret_colors, blend_rgb_overlay
 
 ExportMode = Literal["display", "raw"] 
 DisplayKind = Literal["rgb", "rgba"]
@@ -73,7 +73,7 @@ def convert_to_tif(
         stop_on_error: bool, 
         color_by: ColorBy | None=None, 
         distance_max: float | None=None, 
-        alpha: float = 0.05,
+        alpha: float = 0.35,
         ) -> tuple[int, int, int]: 
 
     """
@@ -233,6 +233,7 @@ def distance_to_rgb_tile(
     height: int,
     width: int,
     max_distance: float | None,
+    gamma: float = 0.65
 ) -> np.ndarray:
     """
     Build a 3-band uint8 RGB tile from labels.distance_to_center_line.
@@ -248,7 +249,9 @@ def distance_to_rgb_tile(
         rgb = np.array([128, 128, 128], dtype=np.uint8)
     else:
         d = float(dist)
+
         t = np.clip(d / max_distance, 0.0, 1.0)
+        t = t ** gamma
 
         red = int(round((1.0 - t) * 255))
         green = 0
@@ -263,26 +266,6 @@ def distance_to_rgb_tile(
 
     return out
 
-def blend_rgb_overlay(
-    base_rgb: np.ndarray,
-    overlay_rgb: np.ndarray,
-    *,
-    alpha: float,
-) -> np.ndarray:
-
-    if base_rgb.shape != overlay_rgb.shape:
-        raise ValueError(
-            f"overlay shape mismatch: base={base_rgb.shape}, overlay={overlay_rgb.shape}"
-        )
-
-    alpha = float(np.clip(alpha, 0.0, 1.0))
-
-    blended = (
-        base_rgb.astype(np.float32) * (1.0 - alpha)
-        + overlay_rgb.astype(np.float32) * alpha
-    )
-
-    return np.clip(blended, 0, 255).astype(np.uint8)
 
 def write_tile(
         pair: EncodedPair,
@@ -297,7 +280,7 @@ def write_tile(
         compress: str | None=None, 
         color_by: ColorBy | None=None, 
         distance_max: float | None=None, 
-        alpha: float = 0.03
+        alpha: float = 0.23
         ) -> None: 
     """ 
         write one EncodedPair as a Geotiff 

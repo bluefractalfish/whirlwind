@@ -1,6 +1,7 @@
 
 
 from whirlwind.domain.config.schema import Config 
+from whirlwind.commands.selector import pathset 
 from whirlwind.bridges.specs.tiling import TSpec 
 from whirlwind.bridges.rasterops.tesselate import TesselationBridge, Request, Result 
 from whirlwind.adapters.io.idmanifest import IDManifest 
@@ -22,14 +23,10 @@ class BuildTesselationRequest(RequestBuilder[Request]):
         ctx = CommandContext(config)
         
         spec = TSpec.from_config(ctx.config)
-        print(spec.drop_partial)
         tree = ctx.run_tree
         shard_cfg = ctx.section("operations", "tesselate")
-        manifest_name = ctx.section("manifest", "build")["file_name"]
-        manifest_path = tree.get_manifest_path_csv(manifest_name)
-        manifest = IDManifest(manifest_path)
-        paths = manifest.paths()
-        
+ 
+        paths, manifest = pathset(tv, ctx)
 
         return Request(
                 spec = spec, 

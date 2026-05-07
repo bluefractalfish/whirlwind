@@ -1,6 +1,7 @@
 
 from whirlwind.bridges.catalogs.writeidmanifest import IDManifest
 from whirlwind.commands.context import CommandContext 
+from whirlwind.commands.selector import pathset 
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.domain.config import Config
 
@@ -18,10 +19,7 @@ class BuildExportShardRequest(RequestBuilder[Request]):
         ctx = CommandContext(config)
 
         run_tree = ctx.run_tree 
-        manifest_name = ctx.section("manifest","build")["file_name"]
-        manifest_path = run_tree.get_manifest_path_csv(manifest_name)
-        manifest = IDManifest(manifest_path)
-        paths = manifest.paths()
+        paths, manifest = pathset(tv, ctx) 
 
         return Request(
                 run_tree=run_tree, 

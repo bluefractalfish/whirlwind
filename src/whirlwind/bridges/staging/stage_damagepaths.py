@@ -1,4 +1,4 @@
-from typing import Iterator 
+from typing import Iterable 
 from pathlib import Path 
 from dataclasses import dataclass 
 
@@ -13,8 +13,8 @@ from whirlwind.face import face
 @dataclass 
 class Request: 
     tree: RunTree 
-    manifest_path: Path
-    paths: Iterator[Path]
+    manifest: IDManifest 
+    paths: Iterable[Path]
     overwrite: bool 
     set_defaults: bool 
 
@@ -44,7 +44,7 @@ class DamagepathStagingBridge:
 
         with face.phase(2,3,"creating geopackages for damagepaths..."): pass 
         with face.progress() as pr: 
-            length = IDManifest(request.manifest_path).length
+            length = request.manifest.length
             t = pr.add_task("planning damagepaths...",total=length)
             t2 = pr.add_task("writing empty gpkg layers...",total=2*length)
             for p in request.paths: 
@@ -77,7 +77,7 @@ class DamagepathStagingBridge:
         code = 2 if all(summary.skipped for summary in summaries) else code 
 
         return Result(
-                manifest_path=request.manifest_path,
+                manifest_path=request.manifest.path,
                 summaries = tuple(summaries), 
                 skipped = skipped, 
                 rasters_seen = rasters_seen, 

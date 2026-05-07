@@ -1,5 +1,7 @@
 from typing import Literal 
+from whirlwind.commands.selector import pathset 
 from whirlwind.face import face 
+from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.bridges.catalogs.discovermetadata import Request, Result, DiscoverMetadataBridge
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
@@ -37,11 +39,13 @@ class BuildMetadataRequest(RequestBuilder[Request]):
         if not metadata_cfg:
             metadata_cfg = ctx.section("manifest", "meta")
 
+        paths, manifest =  pathset(tv, ctx)
+
         return Request(
             run_tree=ctx.run_tree,
-            manifest_name=str(manifest_cfg.get("file_name", "manifest.csv")),
+            paths=paths, 
+            manifest=manifest,
             modes=self._resolve_modes(tv, metadata_cfg),
-            file_format=str(metadata_cfg.get("format", "csv")),
             force=tv.has("-f", "--force"),
         )
 
@@ -77,8 +81,8 @@ class BuildMetadataReporter(ResultReporter[Result]):
             face.print(f"{summary.mode}: {summary.aggregate_path}")
             face.print(f"rasters seen: {summary.rasters_seen}")
             face.print(f"written: {summary.rasters_written}")
-            face.print(f"skipped: {summary.rasters_skipped}")
-            face.print(f"errors: {summary.errors}")
+            face.print(f"skipped:  {summary.rasters_skipped}")
+            face.error(f"errors: {summary.errors}")
 
         return result.code
 

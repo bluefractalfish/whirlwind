@@ -38,7 +38,7 @@ class Request:
 
 @dataclass(frozen=True)
 class Result:
-    tiles_seen: int
+     tiles_seen: int
     list_path: Path
     vrt_path: Path
     out_tif: Path

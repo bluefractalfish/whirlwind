@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 
 
+from whirlwind.bridges.tiling.stitch_tifs import StitchTifsBridge
 from whirlwind.commands.base import Command 
 from whirlwind.domain.config import Config
 
@@ -15,6 +16,7 @@ from whirlwind.commands.builders.stage_damagepaths_cmd import StagePathsCommand
 from whirlwind.commands.builders.stage_tesselation_cmd import StageTesselationCommand
 from whirlwind.commands.builders.tesselate_mosaics_cmd import TesselationCommand 
 from whirlwind.commands.builders.export_shards_cmd import ExportShardsCommand
+from whirlwind.commands.builders.stitch_tifs_cmd import StitchCommand
 
 #from whirlwind.commands.mosaic import ShardMosaicCommand 
 @dataclass
@@ -39,6 +41,8 @@ class Test(Command):
                 return StagePathsCommand.run(tokens[1:], config) 
             case "export": 
                 return ExportShardsCommand.run(tokens[1:], config)
+            case "stitch":
+                return StitchCommand.run(tokens[1:], config)
             case _:
                 print("nope?")
                 pass

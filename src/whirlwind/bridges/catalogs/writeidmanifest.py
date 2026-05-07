@@ -35,7 +35,7 @@ class Result:
 
 class IDManifestBridge: 
     """ 
-        build a manifest of ids for rasters, etc 
+        build a manifest of ids for rasters
 
     """
 

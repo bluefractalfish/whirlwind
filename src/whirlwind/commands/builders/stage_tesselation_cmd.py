@@ -4,6 +4,7 @@ from whirlwind.bridges.staging.stage_tesselation import Result, Request, StageTe
 from whirlwind.bridges.specs.tiling import TSpec
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
+from whirlwind.commands.selector import pathset 
 from whirlwind.domain.config import Config 
 from whirlwind.face import face 
 
@@ -19,10 +20,10 @@ class BuildTileStagingRequest(RequestBuilder[Request]):
         
         spec = TSpec.from_config(ctx.config)
         run_tree = ctx.run_tree 
-        manifest_path = run_tree.get_manifest_path_csv()
-        manifest = IDManifest(manifest_path)
-        paths = manifest.paths()
         
+        paths, manifest = pathset(tv, ctx)
+
+
         force = "-f" in tv.flags or "--force" in tv.flags
         return Request(
                 spec = spec, 

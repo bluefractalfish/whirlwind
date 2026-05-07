@@ -3,6 +3,27 @@ import numpy as np
 from rasterio.enums import ColorInterp
 from rasterio.io import DatasetWriter 
 
+def blend_rgb_overlay(
+    base_rgb: np.ndarray,
+    overlay_rgb: np.ndarray,
+    *,
+    alpha: float,
+) -> np.ndarray:
+
+    if base_rgb.shape != overlay_rgb.shape:
+        raise ValueError(
+            f"overlay shape mismatch: base={base_rgb.shape}, overlay={overlay_rgb.shape}"
+        )
+
+    alpha = float(np.clip(alpha, 0.0, 1.0))
+
+    blended = (
+        base_rgb.astype(np.float32) * (1.0 - alpha)
+        + overlay_rgb.astype(np.float32) * alpha
+    )
+
+    return np.clip(blended, 0, 255).astype(np.uint8)
+
 def interpret_colors(dst: DatasetWriter, arr: np.ndarray) -> None:
     """
     Set color interpretation for QGIS/GDAL display.
@@ -63,7 +84,8 @@ def to_rgb(
         raise ValueError(f"expected array shape (bands, height, width), got {arr.shape}")
 
     if arr.shape[0] < 3:
-        return stretch_to_uint8(arr, p_low=p_low, p_high=p_high)
+        gray = stretch_to_uint8(arr[:1], p_low=p_low, p_high=p_high)
+        return np.repeat(gray, 3, axis=0)
 
     if display_bands is None:
         display_bands = (0, 1, 2)

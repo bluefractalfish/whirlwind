@@ -1,7 +1,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Iterable
 
 
 from whirlwind.adapters.geo.metadata_extractor import GeoMetadataExtractor
@@ -18,7 +18,8 @@ MetadataMode = Literal["core", "extended", "full"]
 @dataclass(frozen=True)
 class Request:
     run_tree: RunTree
-    manifest_name: str = "manifest.csv"
+    paths: Iterable[Path]
+    manifest: IDManifest
     modes: tuple[MetadataMode, ...] = ("core",)
     file_format: str = "csv"
     force: bool = False
@@ -47,12 +48,11 @@ class DiscoverMetadataBridge:
         with face.phase(1,3,"ensuring runtree, finding manifest..."):
             request.run_tree.ensure()
 
-            manifest_path = request.run_tree.get_manifest_path_csv(request.manifest_name)
-            manifest = IDManifest(manifest_path)
+            manifest = request.manifest
 
             if not manifest.exists():
                 raise FileNotFoundError(
-                    f"ID manifest does not exist: {manifest_path}. "
+                    f"ID manifest does not exist: {request.manifest.path}. "
                     "write id manifest first."
                 )
         
@@ -64,11 +64,11 @@ class DiscoverMetadataBridge:
             t = p.add_task("discovering metadata", total=len(request.modes))
             for mode in request.modes:
                 p.advance(t,1)
-                summaries.append(self._write_mode(request, manifest, mode, p))
+                summaries.append(self._write_mode(request, mode, p))
         code = 0 if all(summary.errors == 0 for summary in summaries) else 1
 
         return Result(
-            manifest_path=manifest_path,
+            manifest_path=manifest.path,
             summaries=tuple(summaries),
             code=code,
         )
@@ -76,7 +76,6 @@ class DiscoverMetadataBridge:
     def _write_mode(
         self,
         request: Request,
-        manifest: IDManifest,
         mode: MetadataMode,
         p,
     ) -> Summary:
@@ -88,13 +87,13 @@ class DiscoverMetadataBridge:
         errors = 0
         
         with p:
-            t = p.add_task("walking manifest", total=manifest.length)
-            for raster_path in manifest.paths():
+            t = p.add_task("walking manifest", total=len(list(request.paths)))
+            for raster_path in request.paths:
                 rasters_seen += 1
 
                 try:
                     raster = RasterFile(raster_path)
-                    branch = request.run_tree.plant_mosaic_branch(raster.mid)
+                    branch = request.run_tree.plant_mosaic_branch(raster.mosaic_id)
 
                     per_mosaic_path = branch.metadata_dir / f"{mode}-metadata.csv"
 

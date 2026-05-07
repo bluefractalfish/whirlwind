@@ -35,7 +35,7 @@ class IDManifest:
             reader = csv.DictReader(f)
             for row in reader:
                 yield dict(row)
-
+    
     def records(self) -> Iterator[MosaicRecord]:
         for row in self.rows():
             yield MosaicRecord.from_row(row)

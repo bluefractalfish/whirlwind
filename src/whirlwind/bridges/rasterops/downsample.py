@@ -37,7 +37,7 @@ from whirlwind.face import face
 class Request:
     run_tree: RunTree
     spec: DSSpec
-    manifest_path: Path 
+    manifest: IDManifest
     paths: Iterable[Path]
     overwrite: bool = False
     display_range: bool = False 
@@ -58,7 +58,7 @@ class Result:
     """ 
     result of downsample operation on list of files 
     """
-    manifest_path: Path 
+    manifest_path: Path
     summaries: tuple[Summary,...]
     downsampled: int 
     rasters_seen: int 
@@ -77,7 +77,7 @@ class DownsampleBridge:
         
         with face.phase(3,4,"downsampling manifest..."):
             with face.progress() as pr: 
-                length = IDManifest(request.manifest_path).length
+                length = request.manifest.length
                 t1 = pr.add_task("iterating mosaics",total=length)
                 t2 = pr.add_task("downsampling", total=length)
                 for p in request.paths: 
@@ -133,7 +133,7 @@ class DownsampleBridge:
         code = 0 if all(summary.errors == 0 for summary in summaries) else 1
         already_exists = sum(1 for s in summaries if s.exists)
         return Result(
-                manifest_path=request.manifest_path, 
+                manifest_path=request.manifest.path, 
                 summaries=tuple(summaries), 
                 rasters_seen=rasters_seen,
                 downsampled=downsampled,

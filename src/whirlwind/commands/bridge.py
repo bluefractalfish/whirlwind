@@ -41,10 +41,10 @@ class TokenView:
             --force
 
         key-value options:
-            +mosaic=m-240119-DSM-a31f
-            +variant=DSM
-            +date=240119
-            +metamosaic=mm-denver-a91f2c
+            --mosaic=m-240119-DSM-a31f
+            --variant=DSM
+            --date=240119
+            --metamosaic=mm-denver-a91f2c
 
     example usage: 
     --------------- 
@@ -66,7 +66,7 @@ class TokenView:
         options: dict[str, list[str]] = {}
 
         for token in tokens:
-            if token.startswith("+") and "=" in token:
+            if token.startswith("--") and "=" in token:
                 key, value = token.split("=", 1)
                 options.setdefault(key, []).append(value)
 

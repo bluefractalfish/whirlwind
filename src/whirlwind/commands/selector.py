@@ -1,8 +1,16 @@
 from dataclasses import dataclass 
+from typing import Iterable 
+from pathlib import Path
+
+from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.commands.bridge import TokenView
+from whirlwind.commands.context import CommandContext
 from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
 
-def selector_from_tokens(tv: TokenView) -> MosaicSelector:
+
+
+
+def selector(tv: TokenView) -> MosaicSelector:
     limit_values = tv.values("--limit")
     limit = int(limit_values[-1]) if limit_values else None
 
@@ -13,6 +21,20 @@ def selector_from_tokens(tv: TokenView) -> MosaicSelector:
         metamosaic_ids=tv.values("--metamosaic", "--metamosaic-id"),
         limit=limit,
     )
+
+def pathset(tv: TokenView, context: CommandContext) -> tuple[Iterable[Path], IDManifest]:
+    """ given a tokenview and command context,
+        
+        1) select mosaic paths from token view using MosaicSelector 
+        2) build manifest from command_context run tree 
+        3) return paths, manifest for paths selected from that manifest 
+
+        """
+    select = selector(tv)
+    manifest_p = context.run_tree.get_manifest_path_csv() 
+    manifest = IDManifest(manifest_p)  
+    return select.paths_from(manifest), manifest 
+
 
 @dataclass(frozen=True)
 class MosaicSelector:
@@ -32,3 +54,13 @@ class MosaicSelector:
         if self.metamosaic_ids and record.metamosaic_id not in self.metamosaic_ids:
             return False
         return True
+
+    def paths_from(self, manifest: IDManifest) -> Iterable[Path]: 
+
+        records = [record for record in manifest.records()
+                   if self.matches(record)]
+
+        if self.limit is not None: 
+            records = records[:self.limit] 
+
+        return [record.path for record in records]
