@@ -40,7 +40,7 @@ class Request:
     manifest: IDManifest
     paths: Iterable[Path]
     overwrite: bool = False
-    display_range: bool = False 
+    display_range: bool = True 
     
 @dataclass 
 class Summary: 

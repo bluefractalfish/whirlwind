@@ -53,7 +53,9 @@ class DamagepathStagingBridge:
 
                 f = RasterFile(p, georefs=True)
                 fid = f.mosaic_id 
-                branch = MosaicBranch.plant(request.tree.root, fid)
+
+                branch = request.tree.branchlook(request.manifest, p)
+
                 plan = PathPlan.from_browse(branch, crs_wkt = f.crs_wkt)
                 set_default = request.set_defaults 
                 overwrite = request.overwrite 

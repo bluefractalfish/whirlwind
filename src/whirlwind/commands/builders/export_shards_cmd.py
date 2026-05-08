@@ -31,7 +31,45 @@ class BuildExportShardRequest(RequestBuilder[Request]):
                 overwrite="-f" in tv.flags,
                 stop_on_error="-r" in tv.flags, 
                 )
+    def help(self) -> str:
+            return """
+    usage: build export shards [selector options] [options]
 
+    purpose:
+      Export tile shards back to GeoTIFF files for visual inspection or GIS use.
+      This operates from existing shard/tile artifacts, not from full-raster reads.
+
+    selector options:
+      --mosaic=ID
+          Select one mosaic id. Can be repeated.
+
+      --variant=NAME
+          Select mosaics by variant. Can be repeated.
+
+      --date=YYMMDD
+          Select mosaics by date. Can be repeated.
+
+      --metamosaic=ID
+          Select mosaics by metamosaic id. Can be repeated.
+
+      --limit=N
+          Limit the number of selected mosaics.
+
+    options:
+      --damage
+          Export from the damage shard subdirectory. Without this flag it will 
+          default to whatever directories exist under shards/
+
+      -c
+          Color output by centerline distance.
+
+      -f
+          Overwrite existing exported TIFFs.
+
+      -r
+          Stop on first export error.
+
+    """.strip()
 class BuildReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 
         return result.code 

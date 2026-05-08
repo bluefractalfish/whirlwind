@@ -7,9 +7,17 @@ def bootstrapp(config: Config) -> int:
     init_gdal()
 
     from whirlwind.commands import Test
+    from whirlwind.commands.fronts.operators import (
+            MosaicOperators, TileOperators, StagingOperators, DatabaseInitOperator, DiscoverOperators
+            )
 
     app = WhirlwindApp( cmds=[ 
-                              Test()
+                              Test(), 
+                              DiscoverOperators, 
+                              MosaicOperators, 
+                              TileOperators, 
+                              StagingOperators, 
+                              DatabaseInitOperator
                               ],
         config=config )
 

@@ -32,15 +32,15 @@ holds information about this runs files, manifest, and mosaicbranches
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
 from pathlib import Path
-from typing import List
 import shutil 
 
 from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
+from whirlwind.domain.filesystem.metamosaictree import MetamosaicTree
 from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
+from whirlwind.domain.filesystem.files import RasterFile 
+
 from whirlwind.domain.config import Config 
-#from whirlwind.manifests.idmanifest import IDManifest
 
 @dataclass
 class RunTree:
@@ -79,6 +79,38 @@ class RunTree:
     # the path holding any manifests, 
     manifest_dir: Path 
     layout: TreeLayout 
+
+    def branchlook(
+        self, 
+        manifest,
+        path: str | Path,
+    ) -> MosaicBranch:
+        """ given an instance of runtree, a manifest, and a path target 
+            
+            find a mosaicbranch under a metamosaic, if available 
+            usage: 
+            -------- 
+            replace: 
+
+            f = RasterFile(path)
+            fid = f.mosaic_id
+            branch = MosaicBranch.plant(request.tree.root, fid).ensure()
+
+            with: 
+            
+            branch = request.tree.branchlook(request.manifest, path)
+
+            """
+
+        target = Path(path).expanduser().resolve()
+
+        for record in manifest.records():
+            if record.path.expanduser().resolve() == target:
+                return self.branch_for(record).ensure()
+
+        # Fallback for old manifests without metamosaic_id.
+        raster = RasterFile(target)
+        return MosaicBranch.plant(self.root, raster.mosaic_id).ensure() 
 
     @classmethod
     def plant(cls, root: str | Path, layout: TreeLayout | None=None) -> "RunTree":

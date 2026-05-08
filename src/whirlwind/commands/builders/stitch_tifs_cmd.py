@@ -26,12 +26,48 @@ class BuildStitchRequest(RequestBuilder[Request]):
                 run_tree = ctx.run_tree, 
                 paths=paths, 
                 overwrite = force, 
-                )
+                ) 
+    def help(self) -> str:
+        return """
+usage: build stitch [selector options] [options]
+
+purpose:
+  Stitch exported tile GeoTIFFs into per-group mosaic TIFFs.
+  Internally builds VRTs and translates them to GeoTIFF outputs.
+
+selector options:
+  --mosaic=ID
+      Select one mosaic id. Can be repeated.
+
+  --variant=NAME
+      Select mosaics by variant. Can be repeated.
+
+  --date=YYMMDD
+      Select mosaics by date. Can be repeated.
+
+  --metamosaic=ID
+      Select mosaics by metamosaic id. Can be repeated.
+
+  --limit=N
+      Limit the number of selected mosaics.
+
+options:
+  -f, --force
+      Overwrite existing stitched TIFF outputs.
+
+bridge defaults:
+  out_dir_name: stitched
+  pattern: **/*.tif
+  bigtiff: IF_SAFER
+  tiled: true
+  compress: DEFLATE
+
+""".strip()
 
 
 class BuildStitchReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 
-        
+       return result.code
         
 
 StitchCommand = BridgeCommand(

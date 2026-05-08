@@ -14,6 +14,32 @@ from whirlwind.face import face
 
 MetadataMode = Literal["core", "extended", "full"]
 
+CORE_METADATA_COLUMNS = [
+    "mosaic_id",
+    "uri",
+    "driver",
+    "driver_long_name",
+    "width",
+    "height",
+    "count",
+    "dtype",
+    "dtypes",
+    "nodata",
+    "crs_wkt",
+    "srid",
+    "transform",
+    "footprint_status",
+    "footprint_wgs84",
+    "minx_wgs84",
+    "miny_wgs84",
+    "maxx_wgs84",
+    "maxy_wgs84",
+    "block_shapes",
+    "overview_counts",
+    "dataset_tags",
+    "image_structure",
+    "subdatasets",
+]
 
 @dataclass(frozen=True)
 class Request:
@@ -127,7 +153,8 @@ class DiscoverMetadataBridge:
         if request.file_format != "csv":
             raise ValueError(f"unsupported metadata format: {request.file_format}")
 
-        write_dict_csv(aggregate_path, rows)
+        fieldnames = CORE_METADATA_COLUMNS if mode == "core" else None
+        write_dict_csv(aggregate_path, rows, fieldnames=fieldnames)
 
         return Summary(
             mode=mode,

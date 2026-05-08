@@ -34,6 +34,39 @@ class BuildTileStagingRequest(RequestBuilder[Request]):
                 )
 
     
+    def help(self) -> str:
+        return """
+    usage: build tiling [selector options] [options]
+
+    purpose:
+      Stage deterministic tile plans for selected mosaics.
+      This writes tile metadata/plans without reading full rasters into memory.
+
+    selector options:
+      --mosaic=ID
+          Select one mosaic id. Can be repeated.
+
+      --variant=NAME
+          Select mosaics by variant. Can be repeated.
+
+      --date=YYMMDD
+          Select mosaics by date. Can be repeated.
+
+      --metamosaic=ID
+          Select mosaics by metamosaic id. Can be repeated.
+
+      --limit=N
+          Limit the number of selected mosaics.
+
+    options:
+      -f, --force
+          Overwrite existing tile plans.
+
+    config:
+      TSpec is read from the active config.
+
+    """.strip() 
+
 class PlanTilingReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:
         if result.code == 2:

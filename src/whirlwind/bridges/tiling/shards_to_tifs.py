@@ -107,10 +107,7 @@ class ExportShardsBridge:
                 for p in request.paths:
                     pr.advance(t1,1)
                     pr.update(t2,description=f"translating tiles from {p}")
-                    f = RasterFile(p)
-                    fid = f.mosaic_id 
-                    # find mosaic branch for this path 
-                    branch = MosaicBranch.plant(request.run_tree.root, fid).ensure()
+                    branch = request.run_tree.branchlook(request.manifest, p)
                     #find shard_dir if exists. expects somethind like shards/"damage" 
                     if request.shard_sub_dir: 
                         shard_dir = branch.shards_dir / request.shard_sub_dir 

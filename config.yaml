@@ -1,9 +1,9 @@
 global:
-  version: "testing"
-  run_id: r12
+  version: "V5"
+  run_id: 13
   io:
     in_dir: /home/rhea/B/
-    dest_dir: /home/rhea/B/run_artifacts/
+    dest_dir: /home/rhea/B/artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -14,6 +14,10 @@ manifest:
   meta:
     file_name: metadata.csv
   validate:
+
+metamosaic: 
+  build: 
+    manifest_name: metamosaics.csv
 
 operations: 
   downsample:
@@ -41,8 +45,8 @@ operations:
 
 plan: 
   tiles:
-    tile_size: 128
-    stride: 128
+    tile_size: 220
+    stride: 220
     drop_partial: true
 
 

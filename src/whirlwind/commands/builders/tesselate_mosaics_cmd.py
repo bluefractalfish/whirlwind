@@ -44,7 +44,56 @@ class BuildTesselationRequest(RequestBuilder[Request]):
                 manifest_kind="parquet" if "-p" in tv.flags or "--parquet" in tv.flags 
                                  else shard_cfg["manifest_kind"] 
                 )
+    def help(self) -> str:
+            return """
+    usage: build tesselate [selector options] [options]
 
+    purpose:
+      Execute tiled raster cutting for selected mosaics using the staged tile plan.
+      Writes shard outputs and a tile manifest without full-raster reads.
+
+    selector options:
+      --mosaic=ID
+          Select one mosaic id. Can be repeated.
+
+      --variant=NAME
+          Select mosaics by variant. Can be repeated.
+
+      --date=YYMMDD
+          Select mosaics by date. Can be repeated.
+
+      --metamosaic=ID
+          Select mosaics by metamosaic id. Can be repeated.
+
+      --limit=N
+          Limit the number of selected mosaics.
+
+    options:
+      -f, --overwrite
+          Overwrite existing shard/tile outputs.
+    
+      -l, --label
+          Attach labels during tesselation.
+
+      -d, --dry
+          Dry run. Build request and walk plan without writing heavy outputs.
+
+      -p, --parquet
+          Write tile manifest as parquet.
+
+    config:
+      operations.tesselate.shard_prefix
+          Shard filename prefix.
+
+      operations.tesselate.shard_size
+          Number of samples per shard.
+
+      operations.tesselate.manifest_kind
+          Default manifest format if -p/--parquet is not used.
+
+      TSpec is read from the active config.
+
+    """.strip()
 class BuildTesselationReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 
         face.info(f"rasters seen: {result.n_rasters_seen}")

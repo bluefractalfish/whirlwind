@@ -73,6 +73,53 @@ class BuildMetadataRequest(RequestBuilder[Request]):
 
         return modes  # type: ignore[return-value]
 
+    def help(self) -> str: 
+       return  """
+        usage: build discover metadata [selector options] [mode options] [options]
+
+        purpose:
+          Discover raster metadata for mosaics selected from the active ID manifest.
+
+        selector options:
+          --mosaic=ID
+              Select one mosaic id. Can be repeated.
+
+          --variant=NAME
+              Select mosaics by variant. Can be repeated.
+
+          --date=YYMMDD
+              Select mosaics by date. Can be repeated.
+
+          --metamosaic=ID
+              Select mosaics by metamosaic id. Can be repeated.
+
+          --limit=N
+              Limit the number of selected mosaics.
+
+        mode options:
+          -c, --core
+              Write core metadata only.
+
+          -e, --extended
+              Write extended metadata only.
+
+          -fll, --full
+              Write full metadata only.
+
+          -a, --all
+              Write core, extended, and full metadata.
+
+        options:
+          -f, --force
+              Overwrite existing metadata outputs.
+
+        config:
+          catalog.metadata.modes
+          manifest.meta.modes
+              Default metadata modes if no mode flag is passed.
+
+        """.strip()
+
 class BuildMetadataReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:
         face.info(f"manifest used: {result.manifest_path}")

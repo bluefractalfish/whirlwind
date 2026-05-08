@@ -109,6 +109,7 @@ class GeoMetadataExtractor:
             nodata.append(band.GetNoDataValue())
             block_shapes.append(list(band.GetBlockSize()))
             overviews.append(band.GetOverviewCount())
+        footprint = self._footprint_wgs84()
 
         return {
             "driver": d.GetDriver().ShortName if d.GetDriver() else "",
@@ -129,6 +130,11 @@ class GeoMetadataExtractor:
             "subdatasets": d.GetMetadata("SUBDATASETS") or {},
             "uri": self.f.uri,
             "mosaic_id": self.f.mosaic_id,
+            "footprint_wgs84": footprint["footprint_wgs84"],
+            "minx_wgs84": footprint["minx_wgs84"],
+            "miny_wgs84": footprint["miny_wgs84"],
+            "maxx_wgs84": footprint["maxx_wgs84"],
+            "maxy_wgs84": footprint["maxy_wgs84"],
         }     
 
     def _extract_extended(self) -> dict[str, Any]:
@@ -245,6 +251,64 @@ class GeoMetadataExtractor:
                 }
                 for g in gcps
             ],
+        } 
+
+    def _footprint_wgs84(self) -> dict[str, object]:
+        gt = self.ds.GetGeoTransform(can_return_null=True)
+        src_wkt = self.ds.GetProjection() or ""
+
+        if gt is None or not src_wkt:
+            return {
+                "footprint_wgs84": "",
+                "minx_wgs84": "",
+                "miny_wgs84": "",
+                "maxx_wgs84": "",
+                "maxy_wgs84": "",
+            }
+
+        width = self.ds.RasterXSize
+        height = self.ds.RasterYSize
+
+        def pix_to_geo(px: float, py: float) -> tuple[float, float]:
+            x = gt[0] + px * gt[1] + py * gt[2]
+            y = gt[3] + px * gt[4] + py * gt[5]
+            return x, y
+
+        corners = [
+            pix_to_geo(0, 0),
+            pix_to_geo(width, 0),
+            pix_to_geo(width, height),
+            pix_to_geo(0, height),
+            pix_to_geo(0, 0),
+        ]
+
+        src = osr.SpatialReference()
+        src.ImportFromWkt(src_wkt)
+
+        dst = osr.SpatialReference()
+        dst.ImportFromEPSG(4326)
+
+        src.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        dst.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+        tx = osr.CoordinateTransformation(src, dst)
+
+        points: list[tuple[float, float]] = []
+        for x, y in corners:
+            lon, lat, _ = tx.TransformPoint(x, y)
+            points.append((float(lon), float(lat)))
+
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+
+        coords = ",".join(f"{x:.8f} {y:.8f}" for x, y in points)
+
+        return {
+            "footprint_wgs84": f"SRID=4326;POLYGON(({coords}))",
+            "minx_wgs84": min(xs),
+            "miny_wgs84": min(ys),
+            "maxx_wgs84": max(xs),
+            "maxy_wgs84": max(ys),
         }
 
 def _import_osgeo():

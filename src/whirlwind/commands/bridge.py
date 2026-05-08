@@ -11,7 +11,15 @@ tokens + config
 from whirlwind.domain.config.schema import Config 
 
 from dataclasses import dataclass 
-from typing import Generic, Protocol, TypeVar 
+from typing import Generic, Protocol, TypeVar, runtime_checkable 
+
+
+HELP_FLAGS = {"-h","--help","help"} 
+
+@runtime_checkable 
+class Helpable(Protocol):
+    def help(self) -> str: 
+        ...
 
 
 # accepts and returns T -> invariant 
@@ -118,6 +126,9 @@ class RequestBuilder(Protocol[RequestType_co]):
     def from_tokens(self, tokens: list[str], config: Config) -> RequestType_co: 
         ...
 
+    def help(self) -> str: 
+        ...
+
 class Bridge(Protocol[RequestType_contra, ResultType_co]):
     """
         intermediate layer recieving typed requests, 
@@ -150,8 +161,18 @@ class BridgeCommand(Generic[RequestType, ResultType]):
     builder: RequestBuilder[RequestType]
     bridge: Bridge[RequestType, ResultType]
     reporter: ResultReporter[ResultType]
+    
+    def help(self) -> str: 
+        if isinstance(self.builder, Helpable): 
+            return self.builder.help()
+        return f"usage: {self.name} [options]"
 
     def run(self, tokens: list[str], config: Config) -> int: 
+        if tokens and tokens[0] in HELP_FLAGS: 
+            from whirlwind.face import face 
+            face.info(self.help())
+            return 0 
+
         request = self.builder.from_tokens(tokens, config)
         result = self.bridge.run(request)
         return self.reporter.report(result)

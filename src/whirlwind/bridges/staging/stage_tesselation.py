@@ -55,9 +55,8 @@ class StageTesselationBridge:
 
                 skipped = False 
                 
-                f = RasterFile(p)
-                fid = f.mosaic_id
-                branch = MosaicBranch.plant(request.tree.root, fid).ensure()
+                branch = request.tree.branchlook(request.manifest,p)
+
                 out_path = branch.staging_dir/request.plan_name
 
                 planner = WindowPlanner(p, request.spec) 

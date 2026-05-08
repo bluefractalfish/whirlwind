@@ -26,8 +26,40 @@ class BuildDamagePathStageRequest(RequestBuilder[Request]):
                 manifest = manifest, 
                 paths = paths, 
                 overwrite=overwrite,
-                set_defaults=set_defaults)
+                set_defaults=set_defaults ) 
 
+   def help(self) -> str:
+            return """
+    usage: build stage damage paths [selector options] [options]
+
+    purpose:
+      Create empty damage path GeoPackage layers for selected mosaics.
+      These are intended to be opened in QGIS and manually edited.
+
+    selector options:
+      --mosaic=ID
+          Select one mosaic id. Can be repeated.
+
+      --variant=NAME
+          Select mosaics by variant. Can be repeated.
+
+      --date=YYMMDD
+          Select mosaics by date. Can be repeated.
+
+      --metamosaic=ID
+          Select mosaics by metamosaic id. Can be repeated.
+
+      --limit=N
+          Limit the number of selected mosaics.
+
+    options:
+      -f, --overwrite
+          Overwrite existing damage path staging files.
+
+      -nd, --no-default
+          Do not populate default fields/values.
+
+    """.strip()
 
 class BuildDamagePathStageReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 

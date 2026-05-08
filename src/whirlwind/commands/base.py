@@ -23,8 +23,6 @@ class Command(ABC):
     def run(self, tokens: list[str], config: Config) -> int:
         raise NotImplementedError
     
-    def help(self) -> dict[str,str]:
-        ...
 
 class ShellCommand(ABC):
     """ base interface for all shell commands. includes multiple names"""

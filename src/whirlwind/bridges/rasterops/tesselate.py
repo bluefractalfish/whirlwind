@@ -123,10 +123,11 @@ class RasterTiler:
         self.request = request 
         self.code = 0 
         f = RasterFile(p)
-        fid = f.mosaic_id 
         self.encoder = TileEncoder(src=f)
-        branch = MosaicBranch.plant(request.tree.root, fid).ensure()
+
+        branch = request.tree.branchlook(request.manifest,p)
         self.shard_dir = branch.shards_dir
+
         #find the path for the gpkg and tile_plan if they exist 
         #can only label with gpkg present and manually configured 
         self.gpkg_path = branch.browse_dir/ request.dpath_name    
