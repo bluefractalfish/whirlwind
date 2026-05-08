@@ -1,5 +1,36 @@
 
-from whirlwind.adapters.io.idmanifest import IDManifest
+STAGE_TILING_HELP= """
+    usage: build tiling [selector options] [options]
+
+    purpose:
+      Stage deterministic tile plans for selected mosaics.
+      This writes tile metadata/plans without reading full rasters into memory.
+
+    selector options:
+      --mosaic=ID
+          Select one mosaic id. Can be repeated.
+
+      --variant=NAME
+          Select mosaics by variant. Can be repeated.
+
+      --date=YYMMDD
+          Select mosaics by date. Can be repeated.
+
+      --metamosaic=ID
+          Select mosaics by metamosaic id. Can be repeated.
+
+      --limit=N
+          Limit the number of selected mosaics.
+
+    options:
+      -f, --force
+          Overwrite existing tile plans.
+
+    config:
+      TSpec is read from the active config.
+
+    """.strip() 
+
 from whirlwind.bridges.staging.stage_tesselation import Result, Request, StageTesselationBridge 
 from whirlwind.bridges.specs.tiling import TSpec
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
@@ -35,37 +66,7 @@ class BuildTileStagingRequest(RequestBuilder[Request]):
 
     
     def help(self) -> str:
-        return """
-    usage: build tiling [selector options] [options]
-
-    purpose:
-      Stage deterministic tile plans for selected mosaics.
-      This writes tile metadata/plans without reading full rasters into memory.
-
-    selector options:
-      --mosaic=ID
-          Select one mosaic id. Can be repeated.
-
-      --variant=NAME
-          Select mosaics by variant. Can be repeated.
-
-      --date=YYMMDD
-          Select mosaics by date. Can be repeated.
-
-      --metamosaic=ID
-          Select mosaics by metamosaic id. Can be repeated.
-
-      --limit=N
-          Limit the number of selected mosaics.
-
-    options:
-      -f, --force
-          Overwrite existing tile plans.
-
-    config:
-      TSpec is read from the active config.
-
-    """.strip() 
+        return STAGE_TILING_HELP
 
 class PlanTilingReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:

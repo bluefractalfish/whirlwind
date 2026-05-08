@@ -1,8 +1,22 @@
 
-from __future__ import annotations
+INIT_DB_HELP = """
+usage: database init [options]
 
-from dataclasses import dataclass
-from typing import Any
+purpose:
+  Initialize a WHIRLWIND database run by chaining the standard setup commands.
+
+options:
+  -f, --force
+      Forward force/overwrite behavior to steps that support it.
+
+  -h, --help
+      Show this help.
+
+examples:
+  database init
+  database init -f
+""".strip()
+
 
 from whirlwind.commands.bridge import (
     BridgeCommand,
@@ -29,24 +43,7 @@ class DatabaseInitRequestBuilder(RequestBuilder[Request]):
         self.steps = steps
 
     def help(self) -> str:
-        return """
-usage: database init [options]
-
-purpose:
-  Initialize a WHIRLWIND database run by chaining the standard setup commands.
-
-options:
-  -f, --force
-      Forward force/overwrite behavior to steps that support it.
-
-  -h, --help
-      Show this help.
-
-examples:
-  database init
-  database init -f
-""".strip()
-
+        return INIT_DB_HELP
     def from_tokens(
         self,
         tokens: list[str],

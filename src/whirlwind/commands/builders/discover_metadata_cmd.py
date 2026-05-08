@@ -1,7 +1,52 @@
+DISCOVER_META_HELP = """
+        usage: build discover metadata [selector options] [mode options] [options]
+
+        purpose:
+          Discover raster metadata for mosaics selected from the active ID manifest.
+
+        selector options:
+          --mosaic=ID
+              Select one mosaic id. Can be repeated.
+
+          --variant=NAME
+              Select mosaics by variant. Can be repeated.
+
+          --date=YYMMDD
+              Select mosaics by date. Can be repeated.
+
+          --metamosaic=ID
+              Select mosaics by metamosaic id. Can be repeated.
+
+          --limit=N
+              Limit the number of selected mosaics.
+
+        mode options:
+          -c, --core
+              Write core metadata only.
+
+          -e, --extended
+              Write extended metadata only.
+
+          -fll, --full
+              Write full metadata only.
+
+          -a, --all
+              Write core, extended, and full metadata.
+
+        options:
+          -f, --force
+              Overwrite existing metadata outputs.
+
+        config:
+          catalog.metadata.modes
+          manifest.meta.modes
+              Default metadata modes if no mode flag is passed.
+
+        """
+
 from typing import Literal 
 from whirlwind.commands.selector import pathset 
 from whirlwind.face import face 
-from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.bridges.catalogs.discovermetadata import Request, Result, DiscoverMetadataBridge
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
@@ -74,51 +119,7 @@ class BuildMetadataRequest(RequestBuilder[Request]):
         return modes  # type: ignore[return-value]
 
     def help(self) -> str: 
-       return  """
-        usage: build discover metadata [selector options] [mode options] [options]
-
-        purpose:
-          Discover raster metadata for mosaics selected from the active ID manifest.
-
-        selector options:
-          --mosaic=ID
-              Select one mosaic id. Can be repeated.
-
-          --variant=NAME
-              Select mosaics by variant. Can be repeated.
-
-          --date=YYMMDD
-              Select mosaics by date. Can be repeated.
-
-          --metamosaic=ID
-              Select mosaics by metamosaic id. Can be repeated.
-
-          --limit=N
-              Limit the number of selected mosaics.
-
-        mode options:
-          -c, --core
-              Write core metadata only.
-
-          -e, --extended
-              Write extended metadata only.
-
-          -fll, --full
-              Write full metadata only.
-
-          -a, --all
-              Write core, extended, and full metadata.
-
-        options:
-          -f, --force
-              Overwrite existing metadata outputs.
-
-        config:
-          catalog.metadata.modes
-          manifest.meta.modes
-              Default metadata modes if no mode flag is passed.
-
-        """.strip()
+       return  DISCOVER_META_HELP.strip()
 
 class BuildMetadataReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:

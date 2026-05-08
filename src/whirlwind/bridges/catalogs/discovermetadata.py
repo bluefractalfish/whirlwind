@@ -7,7 +7,6 @@ from typing import Literal, Iterable
 from whirlwind.adapters.geo.metadata_extractor import GeoMetadataExtractor
 from whirlwind.adapters.io.csv_rows import read_csv_one_row, write_dict_csv
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.domain.filesystem.files import RasterFile
 from whirlwind.domain.filesystem.runtree import RunTree
 from whirlwind.face import face 
 
@@ -118,8 +117,7 @@ class DiscoverMetadataBridge:
                 rasters_seen += 1
 
                 try:
-                    raster = RasterFile(raster_path)
-                    branch = request.run_tree.plant_mosaic_branch(raster.mosaic_id)
+                    branch = request.run_tree.branchlook(request.manifest, p)
 
                     per_mosaic_path = branch.metadata_dir / f"{mode}-metadata.csv"
 

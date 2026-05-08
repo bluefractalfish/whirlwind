@@ -1,3 +1,36 @@
+DOWNSAMPLE_HELP = """
+    usage: build downsample [selector options] [options]
+
+    purpose:
+      Create downsampled browse rasters for mosaics selected from the active ID manifest.
+
+    selector options:
+      --mosaic=ID
+          Select one mosaic id. Can be repeated.
+
+      --variant=NAME
+          Select mosaics by variant. Can be repeated.
+
+      --date=YYMMDD
+          Select mosaics by date. Can be repeated.
+
+      --metamosaic=ID
+          Select mosaics by metamosaic id. Can be repeated.
+
+      --limit=N
+          Limit the number of selected mosaics.
+
+    options:
+      -f, --force
+          Overwrite existing downsampled outputs.
+
+      -d, --display-range
+          Include display range behavior during downsample output.
+
+    config:
+      DSSpec is read from the active config.
+
+    """
 from whirlwind.face import face 
 from whirlwind.bridges.specs.downsample import DSSpec 
 
@@ -31,39 +64,7 @@ class BuildDownsampleRequest(RequestBuilder[Request]):
                 )
 
     def help(self) -> str:
-            return """
-    usage: build downsample [selector options] [options]
-
-    purpose:
-      Create downsampled browse rasters for mosaics selected from the active ID manifest.
-
-    selector options:
-      --mosaic=ID
-          Select one mosaic id. Can be repeated.
-
-      --variant=NAME
-          Select mosaics by variant. Can be repeated.
-
-      --date=YYMMDD
-          Select mosaics by date. Can be repeated.
-
-      --metamosaic=ID
-          Select mosaics by metamosaic id. Can be repeated.
-
-      --limit=N
-          Limit the number of selected mosaics.
-
-    options:
-      -f, --force
-          Overwrite existing downsampled outputs.
-
-      -d, --display-range
-          Include display range behavior during downsample output.
-
-    config:
-      DSSpec is read from the active config.
-
-    """.strip()
+            return DOWNSAMPLE_HELP.strip()
 
 
 class BuildDownsampleReporter(ResultReporter[Result]):

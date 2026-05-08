@@ -8,7 +8,7 @@ def bootstrapp(config: Config) -> int:
 
     from whirlwind.commands import Test
     from whirlwind.commands.fronts.operators import (
-            MosaicOperators, TileOperators, StagingOperators, DatabaseInitOperator, DiscoverOperators
+            MosaicOperators, TileOperators, StagingOperators, DatabaseInitOperator, DiscoverOperators, MetamosaicOperators
             )
 
     app = WhirlwindApp( cmds=[ 
@@ -17,7 +17,9 @@ def bootstrapp(config: Config) -> int:
                               MosaicOperators, 
                               TileOperators, 
                               StagingOperators, 
-                              DatabaseInitOperator
+                              DatabaseInitOperator, 
+                              MetamosaicOperators
+                               
                               ],
         config=config )
 

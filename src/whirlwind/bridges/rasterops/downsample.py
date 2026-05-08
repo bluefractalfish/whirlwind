@@ -88,9 +88,9 @@ class DownsampleBridge:
 
                     f = RasterFile(p)
                     mosaic_id = f.mosaic_id
-                    branch = MosaicBranch.plant(
-                                        request.run_tree.root, 
-                                        mosaic_id)
+
+                    branch = request.run_tree.branchlook(request.manifest, p)
+
                     out = branch.browse_dir / f"b{mosaic_id}"
                     
                     downsampler = Downsampler.from_paths(

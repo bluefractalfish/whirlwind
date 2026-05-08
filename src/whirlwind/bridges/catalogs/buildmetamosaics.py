@@ -44,6 +44,16 @@ class Request:
     root_manifest_name: str = "manifest.csv"
     force: bool = False
 
+@dataclass(frozen=True)
+class Summary:
+    metamosaic_id: str
+    n_mosaics: int
+    site_guess: str
+    minx_wgs84: float
+    miny_wgs84: float
+    maxx_wgs84: float
+    maxy_wgs84: float
+    members: tuple[str, ...]
 
 @dataclass(frozen=True)
 class Result:
@@ -52,6 +62,7 @@ class Result:
     metamosaics_written: int
     mosaics_seen: int
     intersections: int
+    summaries: tuple[Summary,...]
     code: int = 0
 
 
@@ -95,6 +106,8 @@ class BuildMetamosaicBridge:
                 for mid in member_ids:
                     mm_by_mid[mid] = mmid
 
+        summaries = self._summary_rows(geo_rows, mm_by_mid)
+
         with face.phase(4, 4, "writing metamosaic tree and manifests..."):
             enriched_manifest_rows = self._enrich_manifest_rows(
                 manifest_rows,
@@ -133,6 +146,7 @@ class BuildMetamosaicBridge:
             metamosaic_manifest_path=metamosaic_manifest_path,
             root_manifest_path=root_manifest_path,
             metamosaics_written=len(set(mm_by_mid.values())),
+            summaries=summaries,
             mosaics_seen=len(geo_rows),
             intersections=len(pairs),
             code=0,
@@ -220,6 +234,63 @@ class BuildMetamosaicBridge:
             for row in rows
             if row.get("metamosaic_id")
         ]
+
+    def _summary_rows(
+        self,
+        geo_rows: list[GeoRow],
+        mm_by_mid: dict[str, str],
+    ) -> tuple[Summary, ...]:
+        grouped: dict[str, list[GeoRow]] = {}
+
+        for row in geo_rows:
+            mmid = mm_by_mid.get(row.mosaic_id, "")
+            if not mmid:
+                continue
+
+            grouped.setdefault(mmid, []).append(row)
+
+        summaries: list[Summary] = []
+
+        for mmid, members in sorted(grouped.items()):
+            minx = min(m.bbox.minx for m in members)
+            miny = min(m.bbox.miny for m in members)
+            maxx = max(m.bbox.maxx for m in members)
+            maxy = max(m.bbox.maxy for m in members)
+
+            summaries.append(
+                Summary(
+                    metamosaic_id=mmid,
+                    n_mosaics=len(members),
+                    site_guess=self._site_guess(members),
+                    minx_wgs84=minx,
+                    miny_wgs84=miny,
+                    maxx_wgs84=maxx,
+                    maxy_wgs84=maxy,
+                    members=tuple(m.mosaic_id for m in members),
+                )
+            )
+
+        return tuple(summaries)
+
+
+    def _site_guess(self, members: list[GeoRow]) -> str:
+        """
+        Best-effort human label for the table.
+
+        This does not affect IDs or grouping. It is only display text.
+        """
+        text = " ".join(
+            str(m.row.get("path") or m.row.get("source_uri") or m.row.get("uri") or "")
+            for m in members
+        ).lower()
+
+        if "clearlake" in text or "clear_lake" in text or "clear lake" in text:
+            return "ClearLake"
+
+        if "norman" in text:
+            return "Norman"
+
+        return "unknown"
 
     def _plant_trees(
         self,

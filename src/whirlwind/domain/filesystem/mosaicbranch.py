@@ -146,6 +146,9 @@ class MosaicBranch:
                 p.mkdir(parents=True, exist_ok=True)
         return self
 
+    def exists(self) -> bool: 
+        return self.mosaic_dir.exists() and self.mosaic_dir.is_dir()
+
 
 
 

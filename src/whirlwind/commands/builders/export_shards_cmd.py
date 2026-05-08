@@ -1,38 +1,4 @@
-
-from whirlwind.bridges.catalogs.writeidmanifest import IDManifest
-from whirlwind.commands.context import CommandContext 
-from whirlwind.commands.selector import pathset 
-from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
-from whirlwind.domain.config import Config
-
-from whirlwind.bridges.tiling.shards_to_tifs import Request, Result, ExportShardsBridge
-
-
-
-class BuildExportShardRequest(RequestBuilder[Request]):
-    def from_tokens(
-            self, 
-            tokens: list[str], 
-            config: Config, 
-            ) -> Request: 
-        tv = TokenView.parse(tokens)
-        ctx = CommandContext(config)
-
-        run_tree = ctx.run_tree 
-        paths, manifest = pathset(tv, ctx) 
-
-        return Request(
-                run_tree=run_tree, 
-                manifest=manifest, 
-                paths=paths, 
-                shard_sub_dir="damage" if "--damage" in tv.flags else None, 
-                display_bands=(0,1,2), 
-                color_by = "centerline_distance" if "-c" in tv.flags else None, 
-                overwrite="-f" in tv.flags,
-                stop_on_error="-r" in tv.flags, 
-                )
-    def help(self) -> str:
-            return """
+EXPORT_SHARDS_HELP = """
     usage: build export shards [selector options] [options]
 
     purpose:
@@ -69,7 +35,41 @@ class BuildExportShardRequest(RequestBuilder[Request]):
       -r
           Stop on first export error.
 
-    """.strip()
+    """
+
+from whirlwind.commands.context import CommandContext 
+from whirlwind.commands.selector import pathset 
+from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
+from whirlwind.domain.config import Config
+
+from whirlwind.bridges.tiling.shards_to_tifs import Request, Result, ExportShardsBridge
+
+
+
+class BuildExportShardRequest(RequestBuilder[Request]):
+    def from_tokens(
+            self, 
+            tokens: list[str], 
+            config: Config, 
+            ) -> Request: 
+        tv = TokenView.parse(tokens)
+        ctx = CommandContext(config)
+
+        run_tree = ctx.run_tree 
+        paths, manifest = pathset(tv, ctx) 
+
+        return Request(
+                run_tree=run_tree, 
+                manifest=manifest, 
+                paths=paths, 
+                shard_sub_dir="damage" if "--damage" in tv.flags else None, 
+                display_bands=(0,1,2), 
+                color_by = "centerline_distance" if "-c" in tv.flags else None, 
+                overwrite="-f" in tv.flags,
+                stop_on_error="-r" in tv.flags, 
+                )
+    def help(self) -> str:
+            return EXPORT_SHARDS_HELP.strip()
 class BuildReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 
         return result.code 

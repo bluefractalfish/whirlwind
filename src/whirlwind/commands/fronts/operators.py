@@ -8,6 +8,8 @@ from whirlwind.commands.builders.tesselate_mosaics_cmd import TesselationCommand
 from whirlwind.commands.builders.export_shards_cmd import ExportShardsCommand
 from whirlwind.commands.builders.stitch_tifs_cmd import StitchCommand
 from whirlwind.commands.builders.init_database_cmd import DatabaseInitCommand
+from whirlwind.commands.builders.build_metamosaics_cmd import BuildMetamosaicCommand
+
 #from whirlwind.commands.fronts.database import DatabaseBuildCommand 
 
 DiscoverOperators = CommandRouter(
@@ -15,6 +17,13 @@ DiscoverOperators = CommandRouter(
         routes={
             ("","mosaics"): WriteIDManifestCommand, 
             ("meta","metadata"): DiscoverMetadataCommand, 
+            }
+        )
+
+MetamosaicOperators = CommandRouter(
+        name = "metamosaic", 
+        routes = {
+            ("build", "b"): BuildMetamosaicCommand
             }
         )
 
@@ -41,6 +50,7 @@ StagingOperators = CommandRouter(
             ("paths","p"): StagePathsCommand
             }
         )
+
 
 DatabaseInitOperator = CommandRouter(
         name="database", 

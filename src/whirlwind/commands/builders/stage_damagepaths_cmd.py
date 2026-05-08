@@ -1,35 +1,5 @@
 
-from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.bridges.staging.stage_damagepaths import DamagepathStagingBridge, Request, Result
-from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
-from whirlwind.commands.context import CommandContext
-from whirlwind.commands.selector import pathset 
-from whirlwind.domain.config import Config 
-from whirlwind.face import face 
-
-class BuildDamagePathStageRequest(RequestBuilder[Request]):
-   def from_tokens(
-            self, 
-            tokens: list[str],
-            config: Config, 
-            ) -> Request: 
-        tv = TokenView.parse(tokens)
-        ctx = CommandContext(config) 
-
-        paths, manifest = pathset(tv, ctx)
-
-        overwrite = "-f" in tv.flags or "--overwrite" in tv.flags 
-        set_defaults = False if "--no-default" in tv.flags or "-nd" in tv.flags else True
-
-        return Request(
-                tree=ctx.run_tree,
-                manifest = manifest, 
-                paths = paths, 
-                overwrite=overwrite,
-                set_defaults=set_defaults ) 
-
-   def help(self) -> str:
-            return """
+STAGE_PATHS_HELP =  """
     usage: build stage damage paths [selector options] [options]
 
     purpose:
@@ -60,6 +30,38 @@ class BuildDamagePathStageRequest(RequestBuilder[Request]):
           Do not populate default fields/values.
 
     """.strip()
+
+from whirlwind.adapters.io.idmanifest import IDManifest
+from whirlwind.bridges.staging.stage_damagepaths import DamagepathStagingBridge, Request, Result
+from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
+from whirlwind.commands.context import CommandContext
+from whirlwind.commands.selector import pathset 
+from whirlwind.domain.config import Config 
+from whirlwind.face import face 
+
+class BuildDamagePathStageRequest(RequestBuilder[Request]):
+   def from_tokens(
+            self, 
+            tokens: list[str],
+            config: Config, 
+            ) -> Request: 
+        tv = TokenView.parse(tokens)
+        ctx = CommandContext(config) 
+
+        paths, manifest = pathset(tv, ctx)
+
+        overwrite = "-f" in tv.flags or "--overwrite" in tv.flags 
+        set_defaults = False if "--no-default" in tv.flags or "-nd" in tv.flags else True
+
+        return Request(
+                tree=ctx.run_tree,
+                manifest = manifest, 
+                paths = paths, 
+                overwrite=overwrite,
+                set_defaults=set_defaults ) 
+
+   def help(self) -> str: 
+       return STAGE_PATHS_HELP
 
 class BuildDamagePathStageReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int: 

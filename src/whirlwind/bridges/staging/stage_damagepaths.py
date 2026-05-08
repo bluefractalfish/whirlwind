@@ -52,7 +52,6 @@ class DamagepathStagingBridge:
                 pr.advance(t,1)
 
                 f = RasterFile(p, georefs=True)
-                fid = f.mosaic_id 
 
                 branch = request.tree.branchlook(request.manifest, p)
 
