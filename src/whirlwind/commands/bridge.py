@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar, runtime_checkable 
 
 
-HELP_FLAGS = {"-h","--help","help"} 
+HELP_FLAGS = {"--h","-help"} 
 
 @runtime_checkable 
 class Helpable(Protocol):

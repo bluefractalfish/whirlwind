@@ -12,12 +12,14 @@ from whirlwind.adapters.geo.tif_stitcher import TifStitcher
 from whirlwind.domain.filesystem.runtree import RunTree
 from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
 from whirlwind.domain.filesystem.files import RasterFile
+from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.face import face 
 
 @dataclass(frozen=True)
 class Request:
     run_tree: RunTree 
     paths: Iterable[Path]
+    manifest: IDManifest 
     out_dir_name: str = "stitched"
     pattern: str = "**/*.tif"
     overwrite: bool = True
@@ -49,9 +51,8 @@ class StitchTifsBridge:
 
                 for p in branch_paths:
                     pr.advance(task, 1)
-                    f = RasterFile(p)
-                    mid = f.mosaic_id 
-                    branch = MosaicBranch.plant(request.run_tree.root, mid)
+
+                    branch = request.run_tree.branchlook(request.manifest, p)
                     
                     stitcher = TifStitcher(branch, request)
 

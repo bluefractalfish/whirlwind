@@ -22,6 +22,9 @@ STAGE_TILING_HELP= """
       --limit=N
           Limit the number of selected mosaics.
 
+      --size=int
+          Tile size to create pln for. will only work for factors of 16 and stride=size
+
     options:
       -f, --force
           Overwrite existing tile plans.
@@ -53,8 +56,18 @@ class BuildTileStagingRequest(RequestBuilder[Request]):
         run_tree = ctx.run_tree 
         
         paths, manifest = pathset(tv, ctx)
-
-
+        
+        size = tv.values("--size")
+        
+        if size:  
+            size = int(size[0])
+            if size%16 == 0:
+                spec = TSpec(tile_size=size, 
+                             stride=size, 
+                             drop_partial=spec.drop_partial)
+            else: 
+                face.warning("tile_size request: must be a multiple of 16. using configuration default")
+            
         force = "-f" in tv.flags or "--force" in tv.flags
         return Request(
                 spec = spec, 

@@ -59,6 +59,7 @@ class BuildStitchRequest(RequestBuilder[Request]):
         force = tv.has("-f", "--force")
         return Request(
                 run_tree = ctx.run_tree, 
+                manifest=manifest,
                 paths=paths, 
                 overwrite = force, 
                 ) 

@@ -117,7 +117,7 @@ class DiscoverMetadataBridge:
                 rasters_seen += 1
 
                 try:
-                    branch = request.run_tree.branchlook(request.manifest, p)
+                    branch = request.run_tree.branchlook(request.manifest, raster_path)
 
                     per_mosaic_path = branch.metadata_dir / f"{mode}-metadata.csv"
 

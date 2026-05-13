@@ -75,7 +75,7 @@ class DownsampleBridge:
 
         with face.phase(2,4, "finding manifest, looking for raster paths..."): pass 
         
-        with face.phase(3,4,"downsampling manifest..."):
+        with face.phase(3,4,"downsampling requested rasters..."):
             with face.progress() as pr: 
                 length = request.manifest.length
                 t1 = pr.add_task("iterating mosaics",total=length)
@@ -99,7 +99,7 @@ class DownsampleBridge:
                         spec=request.spec,
                     )
                    
-                    pr.update(t2,description=f"downsampling {p.name}")
+                    pr.update(t2,description=f"downsampling {mosaic_id}")
                     try:
                         code, cmd = downsampler.run(overwrite=request.overwrite, disp_range=request.display_range)
                     except FileExistsError:

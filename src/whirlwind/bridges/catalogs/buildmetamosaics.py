@@ -275,7 +275,7 @@ class BuildMetamosaicBridge:
 
     def _site_guess(self, members: list[GeoRow]) -> str:
         """
-        Best-effort human label for the table.
+        Best-effort, hard coded human label for the table.
 
         This does not affect IDs or grouping. It is only display text.
         """

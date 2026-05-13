@@ -19,6 +19,7 @@ class Request:
     manifest_name: str = "manifest.csv"
     file_types: tuple[str,...] = (".tif",".tiff")
     verbose: bool = False 
+    exempt: str = "artifacts"
     force: bool = False 
     
 
@@ -55,7 +56,7 @@ class IDManifestBridge:
         
         # get manifest data as list of columns and rows for printing, null of quiet 
         if request.verbose: 
-            cols, rows = manifest.show_dont_write(request.src_dir)
+            cols, rows = manifest.show_dont_write(request.src_dir, request.exempt)
         else:
             cols, rows = [], []
             
@@ -73,7 +74,7 @@ class IDManifestBridge:
                             )
         
         with face.phase(2,3,"writing manifest..."):
-            code = manifest.write_from(request.src_dir) # 0, no error. 1, error 
+            code = manifest.write_from(request.src_dir, request.exempt) # 0, no error. 1, error 
             if code != 0: 
                 with face.phase(3,3,"something went wrong with writing manifest"):
                     return Result(

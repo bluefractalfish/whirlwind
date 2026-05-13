@@ -60,7 +60,7 @@ class BuildDownsampleRequest(RequestBuilder[Request]):
                 manifest = manifest, 
                 paths = paths, 
                 overwrite="-f" in tv.flags or "--force" in tv.flags, 
-                display_range="-d" in tv.flags or "--display-range" in tv.flags
+                display_range= not "-nd" in tv.flags or not "--no-display-range" in tv.flags
                 )
 
     def help(self) -> str:

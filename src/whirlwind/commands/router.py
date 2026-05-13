@@ -99,7 +99,6 @@ class CommandRouter(Command):
     def show_help(self) -> None: 
         face.div()
         face.info(f"usage: {self.name} <subcommand> [options]")
-        face.error(f"usage: {self.name} <subcommand>")
         face.div()
 
     def show_subcommand_help(self, subcommand: str) -> int: 

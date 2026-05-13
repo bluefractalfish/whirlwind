@@ -13,8 +13,8 @@ MANIFEST_HELP =  """
       -f, --force
           Overwrite an existing manifest.
 
-      -v, --verbose
-          Print the manifest table after writing.
+      -q, --quiet
+          do not Print the manifest table after writing.
 
     config:
       manifest.build.file_name
@@ -51,7 +51,7 @@ class IDManifestRequestBuilder(RequestBuilder[Request]):
         file_types = tuple(str(x) for x in file_types_raw)
         
         force = tv.has("-f","--force")
-        verbose = tv.has("-v", "--verbose")
+        quiet = tv.has("-q", "--quiet")
 
 
         return Request(
@@ -59,8 +59,9 @@ class IDManifestRequestBuilder(RequestBuilder[Request]):
                 run_tree = ctx.run_tree, 
                 manifest_name=str(manifest_cfg.get("file_name", "manifest.csv")),
                 file_types=file_types,
-                verbose = verbose, 
-                force=force,
+                verbose = not quiet, 
+                exempt = str(manifest_cfg.get("exempt", "artifacts")),
+                force=force, 
                 )
     def help(self) -> str: 
         return MANIFEST_HELP

@@ -29,6 +29,7 @@ from whirlwind.face import face
 
 from whirlwind.commands.builders.write_id_manifest_cmd import WriteIDManifestCommand
 from whirlwind.commands.builders.discover_metadata_cmd import DiscoverMetadataCommand
+from whirlwind.commands.builders.build_metamosaics_cmd import BuildMetamosaicCommand
 from whirlwind.commands.builders.downsample_cmd import DownsampleCommand
 from whirlwind.commands.builders.stage_tesselation_cmd import StageTesselationCommand
 from whirlwind.commands.builders.stage_damagepaths_cmd import StagePathsCommand
@@ -81,6 +82,10 @@ DATABASE_INIT_STEPS = (
         name="metadata",
         command=DiscoverMetadataCommand,
         tokens=("--core",),
+    ), 
+    InitStep(
+        name="metamosaics", 
+        command=BuildMetamosaicCommand, 
     ),
     InitStep(
         name="downsample",

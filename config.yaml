@@ -1,6 +1,6 @@
 global:
   version: "V5"
-  run_id: 13
+  run_id: 15
   io:
     in_dir: /home/rhea/B/
     dest_dir: /home/rhea/B/artifacts/
@@ -11,6 +11,7 @@ manifest:
     in_dir: ./mnt
   build:
     file_name: manifest.csv
+    exempt: artifacts
   meta:
     file_name: metadata.csv
   validate:
@@ -45,8 +46,8 @@ operations:
 
 plan: 
   tiles:
-    tile_size: 220
-    stride: 220
+    tile_size: 240
+    stride: 240
     drop_partial: true
 
 

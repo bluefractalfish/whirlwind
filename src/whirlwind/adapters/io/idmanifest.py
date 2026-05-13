@@ -40,11 +40,11 @@ class IDManifest:
         for row in self.rows():
             yield MosaicRecord.from_row(row)
 
-    def show_dont_write(self, src: str | Path) -> tuple[list[str], list[list[str]]]: 
+    def show_dont_write(self, src: str | Path, exempt: str) -> tuple[list[str], list[list[str]]]: 
         discovery = DiscoverFiles(src) 
         
-        records = [f.record() for f in discovery.discover(self.file_types)] 
-        
+        records = [f.record() for f in discovery.discover(self.file_types, exempt)] 
+          
         if not records: 
             return [],[]
                                    
@@ -54,7 +54,7 @@ class IDManifest:
         return cols, rows 
 
 
-    def write_from(self, src: str | Path) -> int:
+    def write_from(self, src: str | Path, exempt: str) -> int:
         discovery = DiscoverFiles(src)
 
         if discovery.is_empty(self.file_types):

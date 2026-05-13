@@ -108,7 +108,8 @@ class GeoMetadataExtractor:
             dtypes.append(gdal.GetDataTypeName(band.DataType) or "")
             nodata.append(band.GetNoDataValue())
             block_shapes.append(list(band.GetBlockSize()))
-            overviews.append(band.GetOverviewCount())
+            overviews.append(band.GetOverviewCount()) 
+
         footprint = self._footprint_wgs84()
 
         return {

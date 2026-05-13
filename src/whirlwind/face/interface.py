@@ -31,7 +31,7 @@ class Theme:
     muted: str = "grey62"
     rule: str = "white"
     panel_border: str = "white"
-    width: int = 60
+    width: int = 600
 
 @dataclass
 class Interface:
@@ -79,7 +79,7 @@ class Interface:
     def rule(self, title: str = "", *, style: str | None = None) -> None:
         self._console.print(Rule(title=title, style=style or self.theme.rule))
     def div(self) -> None:
-        div = "-" * self.theme.width 
+        div = "-" * 10 
         self._console.print(div)
     def process(self, in_name: str, process_name: str, out_name: str) -> None:
         self._console.print(f"[{self.theme.info}]{in_name}[/] > [{self.theme.warn}]{process_name}[/] > [{self.theme.info}]{out_name}[/]")
