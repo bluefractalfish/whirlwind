@@ -91,7 +91,7 @@ class TesselationBridge:
                 # only run labeling if --label or -l flag present. 
                 # uses SplitShardWriter to write to damage/nodamage bins 
                 if request.label: 
-                    summary = tiler.tile_with_labels()
+                    summary = tiler.tile_with_damage_labels()
 
                 # if no labeling request present, shard normally without referencing labeler 
                 # or this tiles label metadata 
@@ -179,7 +179,7 @@ class RasterTiler:
                        plan_path=self.tile_plan_path, 
                        n_tiles=n_tiles)
 
-    def tile_with_labels(self) -> Summary: 
+    def tile_with_damage_labels(self) -> Summary: 
         planned_windows = self.plan_sink.read() 
         with DamageSplitShardWriter(self.req) as writer:
             with RasterioWindowReader(self.p) as reader: 
