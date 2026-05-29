@@ -11,7 +11,7 @@ from typing import Any
 from whirlwind.domain.config import Config 
 from whirlwind.filesystem.runtree import RunTree, TreeLayout
 from whirlwind.filesystem.pathfinder import find_home_
-
+from whirlwind.entrypoint.session import ShellSession, ShellScope
 
 
 FALLBACKS: dict[str, str] = {
@@ -43,7 +43,24 @@ class CommandContext:
     """
 
     config: Config 
+
+    @property 
+    def session(self) -> ShellSession: 
+        return self.config.session 
     
+    
+    @property 
+    def scope(self) -> ShellScope:
+        return self.config.session.scope 
+
+    @property 
+    def dry_run(self) -> bool:
+        return bool(self.config.session.settings.dry_run)
+
+    @property 
+    def quiet(self) -> bool:
+        return bool(self.session.settings.quiet)
+
     @property 
     def projectroot(self) -> Path:
         return find_home_()

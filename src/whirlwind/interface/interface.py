@@ -31,7 +31,7 @@ class Theme:
     muted: str = "grey62"
     rule: str = "white"
     panel_border: str = "white"
-    width: int = 600
+    #width: int = 600
 
 @dataclass
 class Interface:
@@ -237,7 +237,7 @@ class Interface:
 
 class AsciiBar(ProgressColumn):
 
-        def __init__(self, width: int=40, done_char: str = "#", empty_char: str = "-") -> None:
+        def __init__(self, width: int=400, done_char: str = "#", empty_char: str = "-") -> None:
             super().__init__()
             self.width=width 
             self.done_char=done_char

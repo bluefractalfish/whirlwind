@@ -22,6 +22,8 @@ from pathlib import Path
 from whirlwind.filesystem.pathfinder import find_home_
 from typing import Any, Dict
 from .loader import normalize, load_yaml, DEF_CON, deep_merge
+from whirlwind.entrypoint.session import ShellSession
+
 
 @dataclass 
 class Config:
@@ -33,7 +35,8 @@ class Config:
         config_path = str(find_home_() / config_doc)
         self.raw = load_yaml(config_path)
         self.default = DEF_CON
-        self.merged = self.build()
+        self.merged = self.build() 
+        self.session = ShellSession.new()
     
     def build(self) -> Dict[str, Any]:
         if not isinstance(self.raw,dict):

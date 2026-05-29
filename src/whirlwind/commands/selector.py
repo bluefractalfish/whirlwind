@@ -10,15 +10,26 @@ from whirlwind.domain.mosaic import MosaicRecord
 
 
 
-def selector(tv: TokenView) -> MosaicSelector:
+def selector(tv: TokenView, context: CommandContext) -> MosaicSelector:
     limit_values = tv.values("--limit")
     limit = int(limit_values[-1]) if limit_values else None
+    
+
+    mosaic_ids=tv.values("--mosaic", "--mosaic-id","--mid")
+    metamosaic_ids = tv.values("--metamosaic","--metamosaic_id","--mmid")
+    
+    if context is not None and not mosaic_ids and not metamosaic_ids: 
+        scope = context.scope 
+        if scope.kind == "mosaic" and scope.mosaic_id: 
+            mosaic_ids = [scope.mosaic_id]
+        elif scope.kind == "metamosaic" and scope.metamosaic_id: 
+            metamosaic_ids = [scope.metamosaic_id]
 
     return MosaicSelector(
-        mosaic_ids=tv.values("--mosaic", "--mosaic-id"),
-        variants=tv.values("--variant"),
-        dates=tv.values("--date"),
-        metamosaic_ids=tv.values("--metamosaic", "--metamosaic-id"),
+        mosaic_ids=tuple(mosaic_ids),
+        variants=tuple(tv.values("--variant")),
+        dates=tuple(tv.values("--date")),
+        metamosaic_ids=tuple(metamosaic_ids),
         limit=limit,
     )
 
@@ -30,7 +41,7 @@ def pathset(tv: TokenView, context: CommandContext) -> tuple[Iterable[Path], IDM
         3) return paths, manifest for paths selected from that manifest 
 
         """
-    select = selector(tv)
+    select = selector(tv, context)
     manifest_p = context.run_tree.get_manifest_path_csv() 
     manifest = IDManifest(manifest_p)  
     return select.paths_from(manifest), manifest 
