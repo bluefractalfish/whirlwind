@@ -31,10 +31,9 @@ DOWNSAMPLE_HELP = """
       DSSpec is read from the active config.
 
     """
-from whirlwind.face import face 
+from whirlwind.interface import face 
 from whirlwind.bridges.specs.downsample import DSSpec 
 
-from whirlwind.bridges.catalogs.writeidmanifest import IDManifest
 from whirlwind.bridges.rasterops.downsample import Request, Result, DownsampleBridge
 from whirlwind.commands.context import CommandContext 
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand

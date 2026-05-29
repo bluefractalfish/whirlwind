@@ -25,7 +25,7 @@ from whirlwind.commands.bridge import (
     TokenView,
 )
 from whirlwind.domain.config.schema import Config
-from whirlwind.face import face
+from whirlwind.interface import face
 
 from whirlwind.commands.builders.write_id_manifest_cmd import WriteIDManifestCommand
 from whirlwind.commands.builders.discover_metadata_cmd import DiscoverMetadataCommand

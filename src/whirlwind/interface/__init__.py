@@ -6,7 +6,7 @@
 """
 
 from __future__ import annotations 
-from whirlwind.face.interface import Interface 
+from whirlwind.interface.interface import Interface 
 
 face = Interface()
 

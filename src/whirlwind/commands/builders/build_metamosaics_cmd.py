@@ -107,7 +107,7 @@ from whirlwind.commands.bridge import (
 )
 from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config
-from whirlwind.face import face
+from whirlwind.interface import face
 
 
 class BuildMetamosaicRequest(RequestBuilder[Request]):

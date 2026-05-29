@@ -53,7 +53,7 @@ from whirlwind.commands.selector import pathset
 from whirlwind.bridges.specs.tiling import TSpec 
 from whirlwind.bridges.rasterops.tesselate import TesselationBridge, Request, Result 
 from whirlwind.domain.config.schema import Config 
-from whirlwind.face import face 
+from whirlwind.interface import face 
 
 from whirlwind.commands.bridge import (
         RequestBuilder, ResultReporter, BridgeCommand, TokenView )

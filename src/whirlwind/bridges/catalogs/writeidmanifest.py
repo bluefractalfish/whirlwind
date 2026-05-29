@@ -6,7 +6,7 @@
 
 from whirlwind.adapters.io.idmanifest import IDManifest 
 from whirlwind.domain.filesystem.runtree import RunTree 
-from whirlwind.face import face
+from whirlwind.interface import face
 
 
 from dataclasses import dataclass 

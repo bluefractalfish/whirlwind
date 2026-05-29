@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from whirlwind.commands.base import Command
 from whirlwind.commands.bridge import BridgeCommand
 from whirlwind.domain.config.schema import Config
-from whirlwind.face import face
+from whirlwind.interface import face
 
 HELP_FLAGS = {"-h", "--help", "help"}
 

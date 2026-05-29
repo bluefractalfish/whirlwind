@@ -31,7 +31,7 @@ from whirlwind.domain.filesystem.files import RasterFile
 from whirlwind.bridges.specs.downsample import DSSpec
 from whirlwind.adapters.geo.downsampler import Downsampler
 
-from whirlwind.face import face 
+from whirlwind.interface import face 
 
 @dataclass(frozen=True)
 class Request:

@@ -34,10 +34,6 @@ bridge defaults:
 
 """.strip()
 
-from whirlwind.face import face 
-from whirlwind.bridges.specs.downsample import DSSpec 
-
-from whirlwind.bridges.catalogs.writeidmanifest import IDManifest
 from whirlwind.bridges.tiling.stitch_tifs import Request, Result, StitchTifsBridge
 from whirlwind.commands.context import CommandContext 
 from whirlwind.commands.selector import pathset

@@ -8,9 +8,7 @@ from whirlwind.adapters.io.windowplanio import WindowPlanCSV
 from whirlwind.adapters.geo.windowplan import WindowPlanner
 from whirlwind.bridges.specs.tiling import TSpec 
 from whirlwind.domain.filesystem.runtree import RunTree 
-from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
-from whirlwind.domain.filesystem.files import RasterFile
-from whirlwind.face import face 
+from whirlwind.interface import face 
 
 @dataclass(frozen=True)
 class Request: 

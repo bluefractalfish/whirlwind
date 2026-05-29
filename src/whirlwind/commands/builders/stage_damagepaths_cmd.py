@@ -37,7 +37,7 @@ from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView,
 from whirlwind.commands.context import CommandContext
 from whirlwind.commands.selector import pathset 
 from whirlwind.domain.config import Config 
-from whirlwind.face import face 
+from whirlwind.interface import face 
 
 class BuildDamagePathStageRequest(RequestBuilder[Request]):
    def from_tokens(

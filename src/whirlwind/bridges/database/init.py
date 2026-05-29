@@ -1,6 +1,6 @@
 from typing import Any 
 from dataclasses import dataclass 
-from whirlwind.face import face 
+from whirlwind.interface import face 
 from whirlwind.domain.config.schema import Config 
 from whirlwind.commands.bridge import BridgeCommand
 

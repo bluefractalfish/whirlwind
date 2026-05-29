@@ -46,7 +46,7 @@ DISCOVER_META_HELP = """
 
 from typing import Literal 
 from whirlwind.commands.selector import pathset 
-from whirlwind.face import face 
+from whirlwind.interface import face 
 from whirlwind.bridges.catalogs.discovermetadata import Request, Result, DiscoverMetadataBridge
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext

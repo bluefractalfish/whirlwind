@@ -10,14 +10,12 @@ from dataclasses import dataclass
 from whirlwind.commands.base import Command 
 from whirlwind.commands.bridge import BridgeCommand
 from whirlwind.domain.config.schema import Config 
-from whirlwind.face import face
 from dataclasses import dataclass, field
-from collections.abc import Iterable
 
 from whirlwind.commands.base import Command
 from whirlwind.commands.bridge import BridgeCommand
 from whirlwind.domain.config.schema import Config
-from whirlwind.face import face
+from whirlwind.interface import face
 
 
 RouteKey = str | tuple[str, ...]

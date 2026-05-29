@@ -27,7 +27,7 @@ MANIFEST_HELP =  """
 
     """.strip()
 
-from whirlwind.face import face 
+from whirlwind.interface import face 
 from whirlwind.commands.bridge import RequestBuilder, TokenView, ResultReporter, BridgeCommand
 from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config 
