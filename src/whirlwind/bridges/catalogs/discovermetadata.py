@@ -7,7 +7,7 @@ from typing import Literal, Iterable
 from whirlwind.adapters.geo.metadata_extractor import GeoMetadataExtractor
 from whirlwind.adapters.io.csv_rows import read_csv_one_row, write_dict_csv
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.filesystem.runtree import RunTree
 from whirlwind.interface import face
 
 

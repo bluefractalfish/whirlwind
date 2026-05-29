@@ -28,7 +28,10 @@ MANIFEST_HELP =  """
     """.strip()
 
 from whirlwind.interface import face 
-from whirlwind.commands.bridge import RequestBuilder, TokenView, ResultReporter, BridgeCommand
+from whirlwind.commands.bridge import ( 
+                                       RequestBuilder, TokenView, 
+                                       ResultReporter, BridgeCommand
+                                       )
 from whirlwind.commands.context import CommandContext
 from whirlwind.domain.config import Config 
 
@@ -52,15 +55,18 @@ class IDManifestRequestBuilder(RequestBuilder[Request]):
         
         force = tv.has("-f","--force")
         quiet = tv.has("-q", "--quiet")
+        
+        exempt = manifest_cfg.get("exempt") or ["artifacts"]
+        exempt = exempt + (tv.values("--exempt"))
 
-
+        print(exempt) 
         return Request(
                 src_dir=src_dir, 
                 run_tree = ctx.run_tree, 
                 manifest_name=str(manifest_cfg.get("file_name", "manifest.csv")),
                 file_types=file_types,
                 verbose = not quiet, 
-                exempt = str(manifest_cfg.get("exempt", "artifacts")),
+                exempt = exempt,
                 force=force, 
                 )
     def help(self) -> str: 

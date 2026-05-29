@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from whirlwind.domain.geometry.tiles.plannedwindow import PlannedWindow
+from whirlwind.domain.plannedwindow import PlannedWindow
 
 
 FIELDNAMES = [

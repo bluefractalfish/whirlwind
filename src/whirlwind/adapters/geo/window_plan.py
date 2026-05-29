@@ -5,7 +5,7 @@ from typing import Iterator
 from osgeo import gdal 
 
 #whirlwind imports 
-from whirlwind.domain.geometry.tiles.plannedwindow import PlannedWindow 
+from whirlwind.domain.plannedwindow import PlannedWindow 
 from whirlwind.bridges.specs.tiling import TSpec 
 
 

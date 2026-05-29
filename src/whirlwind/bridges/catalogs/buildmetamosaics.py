@@ -6,14 +6,14 @@ from typing import Iterable
 from whirlwind.adapters.io.csv_rows import write_dict_csv
 from whirlwind.adapters.io.idmanifest import IDManifest
 
-from whirlwind.domain.geometry.space.geogroup import GeoRow, GeoGroup, read_georows
+from whirlwind.geography.geogroup import GeoRow, GeoGroup, read_georows
 
-from whirlwind.domain.geometry.space.location import (
+from whirlwind.geography.location import (
         FolderHintLocationResolver, LocationResolver
         )
-from whirlwind.domain.filesystem.files import FileID
-from whirlwind.domain.filesystem.runtree import RunTree
-from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
+from whirlwind.filesystem.files import FileID
+from whirlwind.filesystem.runtree import RunTree
+from whirlwind.domain.mosaic import MosaicRecord
 from whirlwind.interface import face
 
 

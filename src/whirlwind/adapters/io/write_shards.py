@@ -41,14 +41,8 @@ from rasterio import Affine
 
 
 
-from whirlwind.domain.config import Config 
-from whirlwind.domain.geometry.tiles.tile import Tile, EncodedTile
-from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
+from whirlwind.domain.tile import  EncodedTile
 
-
-
-########################################
-##### SHARD WRITING ####################
 
 @dataclass
 class WriteShardRequest: 

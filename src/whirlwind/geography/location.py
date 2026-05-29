@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Iterable, Protocol 
 from urllib.parse import unquote, urlparse
 
-from whirlwind.domain.geometry.space.bbox import BBox 
+from whirlwind.geography.bbox import BBox 
 
 
 def _uri_to_path_text(uri: str) -> str:

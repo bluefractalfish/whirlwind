@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Iterable
 
 from whirlwind.adapters.geo.tif_stitcher import TifStitcher 
-from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.filesystem.runtree import RunTree
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.interface import face 
 

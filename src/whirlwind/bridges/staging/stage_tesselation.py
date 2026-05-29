@@ -4,10 +4,10 @@ from pathlib import Path
 from dataclasses import dataclass 
 
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.adapters.io.windowplanio import WindowPlanCSV
-from whirlwind.adapters.geo.windowplan import WindowPlanner
+from whirlwind.adapters.io.windowplan_io import WindowPlanCSV
+from whirlwind.adapters.geo.window_plan import WindowPlanner
 from whirlwind.bridges.specs.tiling import TSpec 
-from whirlwind.domain.filesystem.runtree import RunTree 
+from whirlwind.filesystem.runtree import RunTree 
 from whirlwind.interface import face 
 
 @dataclass(frozen=True)

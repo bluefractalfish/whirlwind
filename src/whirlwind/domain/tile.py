@@ -39,8 +39,8 @@ import numpy as np
 from rasterio import Affine 
 from pathlib import Path 
 
-from whirlwind.domain.filesystem.files import RasterFile, FileID
-from whirlwind.domain.geometry.tiles.plannedwindow import PlannedWindow
+from whirlwind.filesystem.files import RasterFile, FileID
+from whirlwind.domain.plannedwindow import PlannedWindow
 
 @dataclass(frozen=True)
 class TileRead: 

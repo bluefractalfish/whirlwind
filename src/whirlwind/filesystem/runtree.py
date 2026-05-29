@@ -35,10 +35,10 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil 
 
-from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
-from whirlwind.domain.filesystem.metamosaictree import MetamosaicTree
-from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
-from whirlwind.domain.filesystem.files import RasterFile 
+from whirlwind.filesystem.mosaicbranch import MosaicBranch
+from whirlwind.filesystem.metamosaictree import MetamosaicTree
+from whirlwind.domain.mosaic import MosaicRecord
+from whirlwind.filesystem.files import RasterFile 
 
 from whirlwind.domain.config import Config 
 

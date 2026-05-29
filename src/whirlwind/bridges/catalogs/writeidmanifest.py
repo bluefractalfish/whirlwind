@@ -5,11 +5,11 @@
 """
 
 from whirlwind.adapters.io.idmanifest import IDManifest 
-from whirlwind.domain.filesystem.runtree import RunTree 
+from whirlwind.filesystem.runtree import RunTree 
 from whirlwind.interface import face
 
 
-from dataclasses import dataclass 
+from dataclasses import dataclass, field 
 from pathlib import Path 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class Request:
     manifest_name: str = "manifest.csv"
     file_types: tuple[str,...] = (".tif",".tiff")
     verbose: bool = False 
-    exempt: str = "artifacts"
+    exempt: str | list[str] = field(default_factory=lambda: ["artifacts", "junk"]) 
     force: bool = False 
     
 
@@ -62,7 +62,6 @@ class IDManifestBridge:
             
         if manifest_path.exists() and not request.force:
             with face.phase(2,3, "notice: manifest exists for this path, request force to overwrite"):
-                existing = IDManifest(manifest_path,file_types=request.file_types)
                 with face.phase(3,3,"returning without writing"):
                     return Result(
                             manifest_path=manifest_path,

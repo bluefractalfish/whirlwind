@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.adapters.geo.damagepath import PathPlan, DamagePathPlanner
-from whirlwind.domain.filesystem.runtree import RunTree 
-from whirlwind.domain.filesystem.files import RasterFile
+from whirlwind.adapters.geo.damage_path import PathPlan, DamagePathPlanner
+from whirlwind.filesystem.runtree import RunTree 
+from whirlwind.filesystem.files import RasterFile
 from whirlwind.interface import face 
 
 @dataclass 

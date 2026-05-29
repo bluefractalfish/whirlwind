@@ -42,17 +42,14 @@ conceptually:
 
 """
 
-import io 
 import json 
 import tarfile 
 import numpy as np 
 import rasterio 
-from rasterio import Affine
 from typing import Literal, Any, Iterator
 from pathlib import Path
-from dataclasses import dataclass 
 
-from whirlwind.domain.geometry.tiles.tile import EncodedPair 
+from whirlwind.domain.tile import EncodedPair 
 from whirlwind.adapters.display.colorcontrols import to_rgb, to_rgba, interpret_colors, blend_rgb_overlay
 
 ExportMode = Literal["display", "raw"] 

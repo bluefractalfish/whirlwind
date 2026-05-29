@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any 
 from osgeo import gdal, osr 
 
-from whirlwind.domain.filesystem.files import RasterFile
+from whirlwind.filesystem.files import RasterFile
 
 @dataclass 
 class GeoMetadataExtractor: 

@@ -1,9 +1,9 @@
 global:
   version: "V5"
-  run_id: 17
+  run_id: r18
   io:
-    in_dir: /home/rhea/B
-    dest_dir: /home/rhea/W/artifacts/
+    in_dir: /home/rhea/C/
+    dest_dir: /home/rhea/B/artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -11,7 +11,9 @@ manifest:
     in_dir: ./mnt
   build:
     file_name: manifest.csv
-    exempt: artifacts
+    exempt: 
+        - artifacts
+        - run_test
   meta:
     file_name: metadata.csv
   validate:

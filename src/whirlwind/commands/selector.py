@@ -5,7 +5,7 @@ from pathlib import Path
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.commands.bridge import TokenView
 from whirlwind.commands.context import CommandContext
-from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
+from whirlwind.domain.mosaic import MosaicRecord
 
 
 

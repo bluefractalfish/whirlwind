@@ -13,9 +13,9 @@ from rasterio.windows import Window
 from rasterio.windows import bounds as window_bounds
 from rasterio.windows import transform as window_transform
 
-from whirlwind.domain.filesystem.files import RasterFile
-from whirlwind.domain.geometry.tiles.tile import TileGeoData, Tile, TileRead
-from whirlwind.domain.geometry.tiles.plannedwindow import PlannedWindow
+from whirlwind.filesystem.files import RasterFile
+from whirlwind.domain.tile import TileGeoData, Tile, TileRead
+from whirlwind.domain.plannedwindow import PlannedWindow
 
 
 class RasterioWindowReader:

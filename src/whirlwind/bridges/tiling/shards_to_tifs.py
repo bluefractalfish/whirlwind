@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import  Literal, Iterable 
 
-from whirlwind.adapters.io.convertshards import convert_to_tif, ColorBy 
-from whirlwind.domain.filesystem.runtree import RunTree
+from whirlwind.adapters.io.convert_shards import convert_to_tif, ColorBy 
+from whirlwind.filesystem.runtree import RunTree
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.interface import face 
 

@@ -6,7 +6,7 @@ import geopandas as gpd
 from shapely.geometry import box, Point
 from shapely.strtree import STRtree
 
-from whirlwind.domain.geometry.tiles.tile import Tile
+from whirlwind.domain.tile import Tile
 
 class DamageLabeler:
     """ 

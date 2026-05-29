@@ -4,9 +4,9 @@ import csv
 from pathlib import Path
 from typing import Iterator
 
-from whirlwind.adapters.filesystem.discoverfiles import DiscoverFiles
-from whirlwind.domain.filesystem.runtree import RunTree 
-from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord 
+from whirlwind.filesystem.discoverfiles import DiscoverFiles
+from whirlwind.filesystem.runtree import RunTree 
+from whirlwind.domain.mosaic import MosaicRecord 
 
 class IDManifest:
     def __init__(
@@ -40,7 +40,7 @@ class IDManifest:
         for row in self.rows():
             yield MosaicRecord.from_row(row)
 
-    def show_dont_write(self, src: str | Path, exempt: str) -> tuple[list[str], list[list[str]]]: 
+    def show_dont_write(self, src: str | Path, exempt: str | list[str]) -> tuple[list[str], list[list[str]]]: 
         discovery = DiscoverFiles(src) 
         
         records = [f.record() for f in discovery.discover(self.file_types, exempt)] 
@@ -54,13 +54,13 @@ class IDManifest:
         return cols, rows 
 
 
-    def write_from(self, src: str | Path, exempt: str) -> int:
+    def write_from(self, src: str | Path, exempt: str | list[str]) -> int:
         discovery = DiscoverFiles(src)
 
         if discovery.is_empty(self.file_types):
             return 1
 
-        rows = [file.record() for file in discovery.discover(self.file_types)]
+        rows = [file.record() for file in discovery.discover(self.file_types, exempt)]
         if not rows:
             return 1
 

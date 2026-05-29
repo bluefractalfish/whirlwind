@@ -1,12 +1,12 @@
 
 import json 
-from dataclasses import dataclass, field, asdict 
+from dataclasses import dataclass, asdict 
 from pathlib import Path
-from typing import Optional, Sequence
-from osgeo import gdal, ogr, osr 
+from typing import Optional
+from osgeo import  ogr, osr 
 from datetime import datetime, timezone 
 from whirlwind.bridges.specs.path import PathSpec 
-from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
+from whirlwind.filesystem.mosaicbranch import MosaicBranch
 
 @dataclass(frozen=True)
 class PathPlan: 

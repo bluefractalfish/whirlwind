@@ -25,9 +25,8 @@ from pathlib import Path
 from typing import Iterable
 
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.domain.filesystem.runtree import RunTree
-from whirlwind.domain.filesystem.mosaicbranch import MosaicBranch
-from whirlwind.domain.filesystem.files import RasterFile
+from whirlwind.filesystem.runtree import RunTree
+from whirlwind.filesystem.files import RasterFile
 from whirlwind.bridges.specs.downsample import DSSpec
 from whirlwind.adapters.geo.downsampler import Downsampler
 

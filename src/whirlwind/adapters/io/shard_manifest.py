@@ -1,8 +1,8 @@
 import csv 
 from typing import Any, Protocol, Dict, List 
-from dataclasses import dataclass, asdict  
+from dataclasses import asdict  
 from pathlib import Path 
-from whirlwind.domain.geometry.tiles.tile import ManifestRow
+from whirlwind.domain.tile import ManifestRow
 
 class ManifestSink(Protocol):
     def write(self, row: ManifestRow) -> None: ...

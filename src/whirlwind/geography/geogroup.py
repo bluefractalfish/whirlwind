@@ -2,10 +2,9 @@ import csv
 from pathlib import Path 
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
-from urllib.parse import unquote, urlparse
 
-from whirlwind.domain.geometry.space.bbox import BBox 
-from whirlwind.domain.geometry.space.location import * 
+from whirlwind.geography.bbox import BBox 
+from whirlwind.geography.location import * 
 
 
 def read_georows(path: Path) -> list[GeoRow]:

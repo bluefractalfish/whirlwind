@@ -93,11 +93,12 @@ class TokenView:
     def has(self, *names: str) -> bool:
         return any(name in self.flags for name in names)
 
-    def values(self, *names: str) -> tuple[str, ...]:
+    def values(self, *names: str) -> list[str]:
         out: list[str] = []
         for name in names:
-            out.extend(self.options.get(name, []))
-        return tuple(out)
+            for value in self.options.get(name, []):
+                out.extend(self._csv_values(value))
+        return out
 
     def value(self, name: str, default: str | None = None) -> str | None:
         values = self.options.get(name, [])
@@ -115,7 +116,15 @@ class TokenView:
         if value is None:
             raise ValueError(f"missing required argument: {name}")
         return value 
-
+    
+    @staticmethod
+    def _csv_values(value: str) -> list[str]:
+        return [
+                part.strip()
+                for part in value.split(",")
+                if part.strip()
+            ]
+      
 
 class RequestBuilder(Protocol[RequestType_co]):
     """
