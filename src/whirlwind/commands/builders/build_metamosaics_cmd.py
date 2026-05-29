@@ -129,6 +129,8 @@ class BuildMetamosaicRequest(RequestBuilder[Request]):
             cfg.get("manifest_name", "metamosaic.csv")
         )
 
+        summary_name = cfg.get("summary_name", "metamosaic_summary.csv")
+
         manifest = IDManifest(
             ctx.run_tree.get_manifest_path_csv(root_manifest_name)
         )
@@ -139,6 +141,7 @@ class BuildMetamosaicRequest(RequestBuilder[Request]):
             metadata_path=ctx.run_tree.manifest_dir / metadata_name ,
             stem=stem,
             metamosaic_manifest_name=metamosaic_manifest_name,
+            metamosaic_summary_name=summary_name, 
             root_manifest_name=root_manifest_name,
             force=tv.has("-f", "--force"),
         )
@@ -162,9 +165,7 @@ class BuildMetamosaicReporter(ResultReporter[Result]):
         columns = [
             "metamosaic_id",
             "n",
-            "site",
-            "lon range",
-            "lat range",
+            "patch",
             "members",
         ]
 
@@ -172,9 +173,11 @@ class BuildMetamosaicReporter(ResultReporter[Result]):
             [
                 s.metamosaic_id,
                 s.n_mosaics,
-                s.site_guess,
-                f"{s.minx_wgs84:.6f} → {s.maxx_wgs84:.6f}",
-                f"{s.miny_wgs84:.6f} → {s.maxy_wgs84:.6f}",
+                f"""
+{s.minx_wgs84:.6f} ------ {s.maxx_wgs84:.6f}
+        |          |
+{s.miny_wgs84:.6f} ------ {s.maxy_wgs84:.6f}
+                """,
                 self._members_preview(s.members),
             ]
             for s in result.summaries
@@ -187,7 +190,7 @@ class BuildMetamosaicReporter(ResultReporter[Result]):
 
         return result.code
 
-    def _members_preview(self, members: tuple[str, ...], limit: int = 3) -> str:
+    def _members_preview(self, members: tuple[str, ...], limit: int = 10) -> str:
         if len(members) <= limit:
             return ", ".join(members)
 

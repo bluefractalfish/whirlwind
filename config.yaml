@@ -1,9 +1,9 @@
 global:
   version: "V5"
-  run_id: 15
+  run_id: 17
   io:
-    in_dir: /home/rhea/B/
-    dest_dir: /home/rhea/B/artifacts/
+    in_dir: /home/rhea/B
+    dest_dir: /home/rhea/W/artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -19,6 +19,7 @@ manifest:
 metamosaic: 
   build: 
     manifest_name: metamosaics.csv
+    summary_name: metamosaic_summary.csv
 
 operations: 
   downsample:
@@ -51,12 +52,36 @@ plan:
     drop_partial: true
 
 
-tile:
-  quantize:
-    dtype: float32
-    scale: none
-    p_low: 5.0
-    p_high: 95.0
-    per_band: true
-    stats: sample
-    num_samples: 1048
+
+segmentation:
+  params:
+    # for when masks miss small/skinny objects
+    # higher = denser sampling, more time 
+    points_per_side: 32
+    
+    # change for when too many bad masks
+    # higher = keep only masks SAM thinks are better 
+    # lower = more masks, more false positives
+    pred_iou_thresh: 0.86
+    
+    # change when masks are too jagged 
+    # higher = cleaner more stable masks 
+    # lower = more permissive 
+    stability_score_thresh: 0.92
+
+    # change when small objects are missed 
+    # 1 or 2 reruns prediction on image crops, often better for small objects. 
+    crop_n_layers: 1
+
+    # change when crops are too slow 
+    crop_n_points_downscale_factor: 2 
+
+    # change when spekles, holes, small junk masks
+    # higher removes small disconeccted regions, holes
+    min_mask_region_area: 64
+
+
+    
+heuristics: 
+  soil:
+  veg:

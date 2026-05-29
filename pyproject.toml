@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-W = "whirlwind.cli:main"
+W = "whirlwind.entrypoint.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

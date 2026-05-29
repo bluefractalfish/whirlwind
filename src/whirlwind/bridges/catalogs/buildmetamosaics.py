@@ -5,33 +5,16 @@ from typing import Iterable
 
 from whirlwind.adapters.io.csv_rows import write_dict_csv
 from whirlwind.adapters.io.idmanifest import IDManifest
+
+from whirlwind.domain.geometry.space.geogroup import GeoRow, GeoGroup, read_georows
+
+from whirlwind.domain.geometry.space.location import (
+        FolderHintLocationResolver, LocationResolver
+        )
 from whirlwind.domain.filesystem.files import FileID
 from whirlwind.domain.filesystem.runtree import RunTree
 from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
 from whirlwind.face import face
-
-
-@dataclass(frozen=True)
-class BBox:
-    minx: float
-    miny: float
-    maxx: float
-    maxy: float
-
-    def intersects(self, other: "BBox") -> bool:
-        return (
-            self.minx <= other.maxx
-            and self.maxx >= other.minx
-            and self.miny <= other.maxy
-            and self.maxy >= other.miny
-        )
-
-
-@dataclass(frozen=True)
-class GeoRow:
-    mosaic_id: str
-    bbox: BBox
-    row: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -41,14 +24,16 @@ class Request:
     metadata_path: Path
     stem: str = "locale"
     metamosaic_manifest_name: str = "metamosaic.csv"
+    metamosaic_summary_name: str = "metamosaic_summary.csv"
     root_manifest_name: str = "manifest.csv"
     force: bool = False
+    location_resolver: LocationResolver | None = None 
 
 @dataclass(frozen=True)
 class Summary:
     metamosaic_id: str
     n_mosaics: int
-    site_guess: str
+    site_guess: str 
     minx_wgs84: float
     miny_wgs84: float
     maxx_wgs84: float
@@ -92,7 +77,7 @@ class UnionFind:
 class BuildMetamosaicBridge:
     def run(self, request: Request) -> Result:
         with face.phase(1, 4, "loading metadata and manifest from request..."):
-            geo_rows = self._read_geo_rows(request.metadata_path)
+            geo_rows = read_georows(request.metadata_path)
             manifest_rows = self._read_manifest_rows(request.manifest.path)
 
         with face.phase(2, 4, "building footprint intersection graph..."):
@@ -100,13 +85,37 @@ class BuildMetamosaicBridge:
 
         with face.phase(3, 4, "assigning metamosaic ids..."):
             mm_by_mid: dict[str, str] = {}
+            geo_groups: list[GeoGroup] = []
+            
+            resolver = request.location_resolver or FolderHintLocationResolver()
+            geo_by_mid = {row.mosaic_id: row for row in geo_rows}
 
             for member_ids in groups:
-                mmid = FileID.metamosaic(member_ids, stem=request.stem)
+                members = [
+                        geo_by_mid[mid] 
+                        for mid in member_ids 
+                        if mid in geo_by_mid 
+                    ]
+                stem = self._metamosaic_stem(
+                        members = members, 
+                        requested_stem=request.stem, 
+                        resolver=resolver
+                        )
+
+                mmid = FileID.metamosaic(member_ids, stem=stem)
+
                 for mid in member_ids:
                     mm_by_mid[mid] = mmid
+                
+                geo_groups.append(
+                        GeoGroup.from_members(
+                            group_id=mmid, 
+                            members=members, 
+                            resolver=resolver,
+                            )
+                        )
 
-        summaries = self._summary_rows(geo_rows, mm_by_mid)
+        summaries = self._summary_rows_from_groups(geo_groups)
 
         with face.phase(4, 4, "writing metamosaic tree and manifests..."):
             enriched_manifest_rows = self._enrich_manifest_rows(
@@ -140,6 +149,15 @@ class BuildMetamosaicBridge:
                 ],
             )
 
+            metamosaic_summary_path = (
+            request.run_tree.manifest_dir / request.metamosaic_summary_name
+            )
+
+            write_dict_csv(
+            metamosaic_summary_path,
+            [group.to_metamosaic_record() for group in geo_groups],
+            )
+
             self._plant_trees(request.run_tree, enriched_manifest_rows)
 
         return Result(
@@ -151,31 +169,6 @@ class BuildMetamosaicBridge:
             intersections=len(pairs),
             code=0,
         )
-
-    def _read_geo_rows(self, path: Path) -> list[GeoRow]:
-        rows: list[GeoRow] = []
-
-        with path.open("r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-
-            for row in reader:
-                mid = (row.get("mosaic_id") or "").strip()
-                if not mid:
-                    continue
-
-                try:
-                    bbox = BBox(
-                        minx=float(row["minx_wgs84"]),
-                        miny=float(row["miny_wgs84"]),
-                        maxx=float(row["maxx_wgs84"]),
-                        maxy=float(row["maxy_wgs84"]),
-                    )
-                except Exception:
-                    continue
-
-                rows.append(GeoRow(mosaic_id=mid, bbox=bbox, row=row))
-
-        return rows
 
     def _read_manifest_rows(self, path: Path) -> list[dict[str, str]]:
         with path.open("r", newline="", encoding="utf-8") as f:
@@ -235,62 +228,29 @@ class BuildMetamosaicBridge:
             if row.get("metamosaic_id")
         ]
 
-    def _summary_rows(
-        self,
-        geo_rows: list[GeoRow],
-        mm_by_mid: dict[str, str],
+    def _summary_rows_from_groups(
+    self,
+    groups: list[GeoGroup],
     ) -> tuple[Summary, ...]:
-        grouped: dict[str, list[GeoRow]] = {}
-
-        for row in geo_rows:
-            mmid = mm_by_mid.get(row.mosaic_id, "")
-            if not mmid:
-                continue
-
-            grouped.setdefault(mmid, []).append(row)
-
         summaries: list[Summary] = []
 
-        for mmid, members in sorted(grouped.items()):
-            minx = min(m.bbox.minx for m in members)
-            miny = min(m.bbox.miny for m in members)
-            maxx = max(m.bbox.maxx for m in members)
-            maxy = max(m.bbox.maxy for m in members)
-
+        for group in groups:
             summaries.append(
                 Summary(
-                    metamosaic_id=mmid,
-                    n_mosaics=len(members),
-                    site_guess=self._site_guess(members),
-                    minx_wgs84=minx,
-                    miny_wgs84=miny,
-                    maxx_wgs84=maxx,
-                    maxy_wgs84=maxy,
-                    members=tuple(m.mosaic_id for m in members),
+                    metamosaic_id=group.group_id,
+                    n_mosaics=group.n_members,
+                    site_guess=group.site_guess,
+                    minx_wgs84=group.bbox.minx,
+                    miny_wgs84=group.bbox.miny,
+                    maxx_wgs84=group.bbox.maxx,
+                    maxy_wgs84=group.bbox.maxy,
+                    members=group.member_ids,
                 )
             )
 
         return tuple(summaries)
 
 
-    def _site_guess(self, members: list[GeoRow]) -> str:
-        """
-        Best-effort, hard coded human label for the table.
-
-        This does not affect IDs or grouping. It is only display text.
-        """
-        text = " ".join(
-            str(m.row.get("path") or m.row.get("source_uri") or m.row.get("uri") or "")
-            for m in members
-        ).lower()
-
-        if "clearlake" in text or "clear_lake" in text or "clear lake" in text:
-            return "ClearLake"
-
-        if "norman" in text:
-            return "Norman"
-
-        return "unknown"
 
     def _plant_trees(
         self,
@@ -311,3 +271,41 @@ class BuildMetamosaicBridge:
         for row in rows:
             record = MosaicRecord.from_row(row)
             tree.branch_for(record).ensure()
+
+
+
+    def _metamosaic_stem(
+        self,
+        *,
+        members: list[GeoRow],
+        requested_stem: str,
+        resolver: LocationResolver,
+    ) -> str:
+        """
+        Returns the readable stem used in:
+
+            MM-<stem>-<hash>
+
+        Explicit user stem wins unless it is the generic default.
+        """
+
+        explicit = requested_stem.strip()
+
+        if explicit and explicit.lower() not in {"locale", "unknown", "auto"}:
+            return explicit
+
+        if not members:
+            return "locale"
+
+        provisional = GeoGroup.from_members(
+            group_id="",
+            members=members,
+            resolver=resolver,
+        )
+
+        site = provisional.site_guess.strip()
+
+        if site and site.lower() != "unknown":
+            return site
+
+        return "locale"

@@ -155,7 +155,8 @@ VARIANT_ALIASES: dict[str, RasterVariant] = {
     "BLUE": RasterVariant("BLUE", "spectral_band", "blue"),
     "SWIR1": RasterVariant("SWIR1", "spectral_band", "swir1"),
     "SWIR2": RasterVariant("SWIR2", "spectral_band", "swir2"),
-    "ERIC": RasterVariant("ERIC", "custom"),
+    "ERIK": RasterVariant("ERIK", "custom"),
+    "ERIK2": RasterVariant("ERIK2", "custom"),
 }
 
 

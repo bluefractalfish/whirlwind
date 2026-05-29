@@ -21,9 +21,9 @@ DiscoverOperators = CommandRouter(
         )
 
 MetamosaicOperators = CommandRouter(
-        name = "metamosaic", 
+        name = "build", 
         routes = {
-            ("build", "b"): BuildMetamosaicCommand
+            ("metamosaic", "mm"): BuildMetamosaicCommand
             }
         )
 
