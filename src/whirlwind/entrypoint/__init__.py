@@ -13,14 +13,14 @@ def bootstrapp(config: Config) -> int:
     from whirlwind.commands.shell.shell_nav_cmds import (
             CdCommand, 
             LsCommand, 
-            SetCommand, 
+            EnvCommand, 
             ViewCommand
             )
 
     app = WhirlwindApp( cmds=[ 
                               CdCommand(), 
                               LsCommand(),
-                              SetCommand(),
+                              EnvCommand(),
                               ViewCommand(), 
 
                               Test(), 

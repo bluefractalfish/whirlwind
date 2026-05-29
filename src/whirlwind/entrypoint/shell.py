@@ -5,10 +5,14 @@ import shlex
 
 import cmd2
 
+from collections.abc import Iterable 
+from whirlwind.commands.context import CommandContext
+from whirlwind.commands.shell.shell_nav_cmds import _records 
+from whirlwind.commands.shell.autocomplete import CompletionMixin
 from whirlwind.entrypoint.app import WhirlwindApp
 
 
-class WShell(cmd2.Cmd):
+class WShell(CompletionMixin, cmd2.Cmd):
 
     def __init__(self, app: WhirlwindApp) -> None:
         super().__init__(
@@ -39,7 +43,7 @@ class WShell(cmd2.Cmd):
             scope = self.app.config.session.scope.working_dir()
         except Exception: 
             scope = "/"
-        self.prompt = f"{scope}> "
+        self.prompt = f"[{scope}] "
 
     def _run_app(self, tokens: list[str]) -> None: 
         try: 
@@ -73,7 +77,6 @@ class WShell(cmd2.Cmd):
             return 
 
         self._run_app([head, *args])
-
 
     def default(self, statement: cmd2.Statement) -> None:
 
@@ -140,24 +143,24 @@ examples:
         )
 
     @cmd2.with_category("Whirlwind navigation")
-    def do_set(self, statement: cmd2.Statement) -> None:
+    def do_env(self, statement: cmd2.Statement) -> None:
         """Show or update shell session settings."""
-        self._dispatch("set", statement)
+        self._dispatch("env", statement)
 
-    def help_set(self) -> None:
+    def help_env(self) -> None:
         self.poutput(
             """
 usage:
-  set
-  set run_id <id>
-  set dry on|off
-  set quiet on|off
+ env 
+ env  run_id <id>
+ env  dry on|off
+ env  quiet on|off
 
 examples:
-  set
-  set run_id tornado-test
-  set dry on
-  set quiet off
+  env
+  env run_id tornado-test
+  env dry on
+  env quiet off
 """
         )
 

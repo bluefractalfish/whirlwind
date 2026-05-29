@@ -1,6 +1,9 @@
 import csv 
 import os 
+from re import L
 import subprocess 
+from pathlib import Path 
+
 
 from whirlwind.adapters.io.idmanifest import IDManifest 
 from whirlwind.commands.base import Command 
@@ -44,6 +47,69 @@ def _scoped_records(ctx: CommandContext):
 
     return records
 
+def _scope_dir(ctx: CommandContext) -> Path:
+    """
+    Resolve the current shell scope to a directory in the active run tree.
+
+    root:
+        <run_root>/
+
+    metamosaic:
+        <run_root>/metamosaics/<metamosaic_id>/
+
+    mosaic:
+        <run_root>/metamosaics/<metamosaic_id>/branches/<mosaic_id>/
+        or
+        <run_root>/mosaics/<mosaic_id>/
+    """
+    scope = ctx.scope
+    tree = ctx.run_tree
+    layout = tree.layout
+
+    if scope.kind == "root":
+        return tree.root
+
+    if scope.kind == "metamosaic":
+        if not scope.metamosaic_id:
+            return tree.root
+        return layout.metamosaic_dir(tree.root, scope.metamosaic_id)
+
+    if scope.kind == "mosaic":
+        if not scope.mosaic_id:
+            return tree.root
+
+        if scope.metamosaic_id:
+            return layout.metamosaic_branch_dir(
+                tree.root,
+                scope.metamosaic_id,
+                scope.mosaic_id,
+            )
+
+        return layout.mosaic_branch_dir(tree.root, scope.mosaic_id)
+
+    return tree.root
+
+
+def _list_scope_dirs(ctx: CommandContext) -> int:
+    path = _scope_dir(ctx)
+
+    if not path.exists():
+        face.warning(f"scope directory does not exist: {path}")
+        return 1
+
+    rows = []
+
+    for child in sorted(path.iterdir(), key=lambda p: p.name):
+        if child.is_dir():
+            rows.append([child.name + "/", "dir"])
+
+    face.table(
+        ["name", "kind"],
+        rows,
+        title="",
+    )
+
+    return 0
 
 class CdCommand(Command):
     name = "cd"
@@ -103,8 +169,8 @@ class CdCommand(Command):
         return 3
 
 
-class SetCommand(Command):
-    name = "set"
+class EnvCommand(Command):
+    name = "env"
 
     def run(self, tokens: list[str], config: Config) -> int:
         ctx = CommandContext(config)
@@ -124,7 +190,7 @@ class SetCommand(Command):
             return 0
 
         if value is None:
-            face.error("usage: set <key> <value>")
+            face.error("usage: env <key> <value>")
             return 3
 
         match key:
@@ -166,8 +232,11 @@ class LsCommand(Command):
         ctx = CommandContext(config)
         tv = TokenView.parse(tokens)
         what = tv.arg(0, "scope")
+        
+        if what in (".","dirs","dir","scope"):
+            return _list_scope_dirs(ctx)
 
-        if what in ("scope", "."):
+        if what in ("status","state"):
             face.info(f"run: {ctx.run_tree.root}")
             face.info(f"scope: {ctx.scope.working_dir()}")
             face.info(f"dry: {ctx.session.settings.dry_run}")

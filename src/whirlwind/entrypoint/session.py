@@ -30,8 +30,8 @@ class ShellScope:
         if self.kind == "root":
             return "/"
         if self.kind == "metamosaic":
-            return f"mm: {self.metamosaic_id}"
-        return f"mosaic: {self.mosaic_id}"
+            return f"{self.metamosaic_id}"
+        return f"{self.mosaic_id}"
 
 
 @dataclass 
