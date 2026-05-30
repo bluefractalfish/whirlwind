@@ -22,14 +22,17 @@ DiscoverOperators = CommandRouter(
 
 
 MetamosaicOperators = CommandRouter(
-        name = "mm", 
+        name = "metamosaic", 
+        aliases=("mm",),
         routes = {
             ("build", "b"): BuildMetamosaicCommand
             }
         )
 
+
 MosaicOperators = CommandRouter(
         name="mosaic", 
+        aliases=("m",),
         routes={
             ("tile","tesselate","t"): TesselationCommand, 
             ("downsample","ds"): DownsampleCommand, 
@@ -38,6 +41,7 @@ MosaicOperators = CommandRouter(
 
 TileOperators = CommandRouter(
         name="tiles", 
+        aliases=("t",),
         routes={
             ("export","e"): ExportShardsCommand, 
             ("stitch", "s"): StitchCommand
@@ -46,6 +50,7 @@ TileOperators = CommandRouter(
 
 StagingOperators = CommandRouter(
         name="stage", 
+        aliases=("s",),
         routes = {
             ("tiles","tiling","t"): StageTesselationCommand, 
             ("paths","p"): StagePathsCommand
@@ -55,6 +60,7 @@ StagingOperators = CommandRouter(
 
 DatabaseInitOperator = CommandRouter(
         name="database", 
+        aliases=("db",),
         routes = {"init": DatabaseInitCommand}
         )
 

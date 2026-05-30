@@ -1,5 +1,7 @@
 # rich (UI / logging)
 from __future__ import annotations 
+import os 
+import shutil
 import time 
 from dataclasses import dataclass, field 
 from typing import Any, Iterable, Iterator 
@@ -19,6 +21,18 @@ from rich.progress import (
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
+
+def make_console() -> Console:
+    width = get_width()
+    return Console(width=width)
+
+def get_width() -> int: 
+    return int(
+            os.environ.get(
+                "WW_WIDTH",
+                shutil.get_terminal_size(fallback=(140,24)).columns,
+            )
+         )
 
 @dataclass 
 class Theme: 
@@ -40,12 +54,13 @@ class Interface:
     this class initiates a Console object then prints to the terminal using console.print() 
 
     """
-    _console: Console = field(default_factory=Console) 
+    _console: Console = field(default_factory=make_console) 
     theme: Theme = field(default_factory=Theme)
+    
 
     def print(self, message: Any ) -> None:
         self._console.print(f"[{self.theme.text}]{message}[/]")
-    
+     
     def info(self, message: Any ) -> None:
         self._console.print(f"[{self.theme.info}]{message}[/]")
     def debug(self, message: Any ) -> None:
@@ -135,17 +150,32 @@ class Interface:
         self._console.print(f"[{self.theme.error}]{msg}[/]")
         self._console.print_exception(show_locals=True)
 
-    def table(self,columns: list[str], rows: list[list],title: str = "" ) -> None:
-        """ generic print table for rich """
-        table = Table(title=title,box=None)
+    def table(
+        self,
+        columns: list[str],
+        rows: list[list],
+        title: str = "",
+        *,
+        expand: bool = True,
+    ) -> None:
+        """Generic Rich table."""
+        table = Table(
+            title=title,
+            box=None,
+            expand=expand,
+        )
 
         for col in columns:
-            table.add_column(col)
+            table.add_column(
+                col,
+                overflow="fold",
+            )
 
-        for r in rows:
-            table.add_row(*[str(v) for v in r])
+        for row in rows:
+            table.add_row(*[str(value) for value in row])
 
         self._console.print(table)
+        
 
     def print_dictionary(
         self,
@@ -178,6 +208,92 @@ class Interface:
             table.add_row(key_path, self._format_value(value))
 
         self._console.print(table)
+    def print_bbox(
+        self,
+        minx: float,
+        miny: float,
+        maxx: float,
+        maxy: float,
+        title: str = "WGS84 BOUNDS",
+        width: int = 55,
+        height: int = 10,
+        precision: int = 6,
+    ) -> str:
+        width = max(width, int(get_width()/10))
+        height = max(height, 5)
+
+        TL = "┏"
+        TR = "┓"
+        BL = "┗"
+        BR = "┛"
+        H = "━"
+        V = "┃"
+
+        inner = width - 2
+
+        nw = f"({minx:.{precision}f}, {maxy:.{precision}f})"
+        ne = f"({maxx:.{precision}f}, {maxy:.{precision}f})"
+        sw = f"({minx:.{precision}f}, {miny:.{precision}f})"
+        se = f"({maxx:.{precision}f}, {miny:.{precision}f})"
+
+        def corner_line(left: str, right: str) -> str:
+            available = inner - len(left) - len(right)
+
+            if available > 1:
+                text = f"{left}     {right}"[:inner]
+                return V + text.ljust(inner) + V
+
+            return V + left + (" " * available) + right + V
+
+        def centered(text: str) -> str:
+            return V + text[:inner].center(inner) + V
+
+        blank = V + (" " * inner) + V
+
+        middle_rows = height - 5
+        top_pad = middle_rows // 2
+        bottom_pad = middle_rows - top_pad
+
+        lines = [
+            TL + (H * inner) + TR,
+            corner_line(nw, ne),
+            *([blank] * top_pad),
+            centered(title),
+            *([blank] * bottom_pad),
+            corner_line(sw, se),
+            BL + (H * inner) + BR,
+        ]
+
+        return "\n".join(lines) 
+
+    def member_ids_block(
+        self,
+        member_ids: list[str] | tuple[str, ...],
+        *,
+        width: int = 20,
+        title: str = "members",
+    ) -> str:
+        width = max(width, int(get_width()))
+        inner = width - 2
+
+        V = "┃"
+        H = "━"
+
+        def line(text: str = "") -> str:
+            return V + text[:inner].ljust(inner) + V
+
+        lines = [
+            "┏" + (H * inner) + "┓",
+            line(title),
+            "┃" + ("─" * inner) + "┃",
+        ]
+
+        for member_id in member_ids:
+            lines.append(line(f"• {member_id}"))
+
+        lines.append("┗" + (H * inner) + "┛")
+
+        return "\n".join(lines)
 
     def _flatten_mapping(
         self,

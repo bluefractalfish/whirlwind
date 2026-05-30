@@ -171,13 +171,15 @@ class BuildMetamosaicReporter(ResultReporter[Result]):
 
         rows = [
             [
-                s.metamosaic_id,
                 s.n_mosaics,
-                f"""
-{s.minx_wgs84:.6f} ------ {s.maxx_wgs84:.6f}
-        |          |
-{s.miny_wgs84:.6f} ------ {s.maxy_wgs84:.6f}
-                """,
+                face.print_bbox(
+                    minx=s.minx_wgs84,
+                    miny=s.miny_wgs84,
+                    maxx=s.maxx_wgs84,
+                    maxy=s.maxy_wgs84,
+                    title=s.metamosaic_id,
+                ),
+
                 self._members_preview(s.members),
             ]
             for s in result.summaries

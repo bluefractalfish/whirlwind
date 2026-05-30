@@ -5,9 +5,6 @@ import shlex
 
 import cmd2
 
-from collections.abc import Iterable 
-from whirlwind.commands.context import CommandContext
-from whirlwind.commands.shell.shell_nav_cmds import _records 
 from whirlwind.commands.shell.autocomplete import CompletionMixin
 from whirlwind.entrypoint.app import WhirlwindApp
 
@@ -214,6 +211,7 @@ examples:
         """Run mosaic operators."""
         self._dispatch("mosaic", statement)
 
+
     def help_mosaic(self) -> None:
         self.poutput(
             """
@@ -230,6 +228,14 @@ examples:
   mosaic tile
 """
         )
+
+    @cmd2.with_category("Whirlwind operators")
+    def do_m(self, statement: cmd2.Statement) -> None:
+        """Run mosaic operators."""
+        self._dispatch("m", statement)
+
+    def help_m(self) -> None: 
+        self.help_mosaic()
 
     @cmd2.with_category("Whirlwind operators")
     def do_tiles(self, statement: cmd2.Statement) -> None:
@@ -333,7 +339,7 @@ examples:
     @cmd2.with_category("Shell")
     def do_q(self, statement: cmd2.Statement) -> bool:
         """Alias for quit."""
-        return self.do_quit(statement)
+        return self.do_quit(statement) or True
 
     @cmd2.with_category("Shell")
     def do_restart(self, _: cmd2.Statement) -> bool:
@@ -344,4 +350,4 @@ examples:
     @cmd2.with_category("Shell")
     def do_r(self, statement: cmd2.Statement) -> bool:
         """Alias for restart."""
-        return self.do_restart(statement)
+        return self.do_restart(statement) or True

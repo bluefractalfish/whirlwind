@@ -51,8 +51,9 @@ class CommandRouter(Command):
 
     """
 
-    name: str
+    name: str 
     routes: dict[RouteKey, BridgeCommand]
+    aliases: tuple[str,...] = ()
 
     _flat_routes: dict[str, BridgeCommand ] = field(init=False, repr=False)
 

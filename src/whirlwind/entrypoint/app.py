@@ -22,7 +22,17 @@ from whirlwind.domain.config import Config
 class WhirlwindApp:
 
     def __init__(self, cmds: Iterable[Command], config: Config) -> None:
-        self._commands: Dict[str, Command] = {c.name: c for c in cmds}
+        self._commands: Dict[str, Command] = {}
+        
+        for command in cmds: 
+            names = (command.name, *getattr(command, "aliases", ())) 
+
+            for name in names: 
+                if name in self._commands:
+                    raise ValueError(f"duplicate alias: {name}")
+
+                self._commands[name] = command
+
         self.run_id = config.run_id()
         self.config = config 
 
