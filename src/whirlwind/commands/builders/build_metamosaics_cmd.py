@@ -151,8 +151,6 @@ class BuildMetamosaicRequest(RequestBuilder[Request]):
 
 
 
-
-
 class BuildMetamosaicReporter(ResultReporter[Result]):
     def report(self, result: Result) -> int:
 
@@ -162,33 +160,36 @@ class BuildMetamosaicReporter(ResultReporter[Result]):
         face.info(f"intersections: {result.intersections}")
         face.info(f"metamosaics written: {result.metamosaics_written}")
 
-        columns = [
-            "metamosaic_id",
-            "n",
-            "patch",
-            "members",
-        ]
+        if not result.summaries:
+            face.warning("no metamosaic groups written")
+            return result.code
 
         rows = [
             [
-                s.n_mosaics,
+                s.metamosaic_id,
+                str(s.n_mosaics),
+            ]
+            for s in result.summaries
+        ]
+
+        face.table(
+            ["metamosaic_id", "n"],
+            rows,
+            title="metamosaics",
+            expand=False,
+        )
+
+        for s in result.summaries:
+            face.info(
                 face.print_bbox(
                     minx=s.minx_wgs84,
                     miny=s.miny_wgs84,
                     maxx=s.maxx_wgs84,
                     maxy=s.maxy_wgs84,
                     title=s.metamosaic_id,
-                ),
-
-                self._members_preview(s.members),
-            ]
-            for s in result.summaries
-        ]
-
-        if rows:
-            face.table(columns, rows, title="metamosaics")
-        else:
-            face.warning("no metamosaic groups written")
+                    member_ids=s.members,
+                )
+            )
 
         return result.code
 

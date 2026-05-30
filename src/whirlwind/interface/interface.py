@@ -3,6 +3,7 @@ from __future__ import annotations
 import os 
 import shutil
 import time 
+import textwrap 
 from dataclasses import dataclass, field 
 from typing import Any, Iterable, Iterator 
 
@@ -208,6 +209,8 @@ class Interface:
             table.add_row(key_path, self._format_value(value))
 
         self._console.print(table)
+
+
     def print_bbox(
         self,
         minx: float,
@@ -215,56 +218,124 @@ class Interface:
         maxx: float,
         maxy: float,
         title: str = "WGS84 BOUNDS",
-        width: int = 55,
-        height: int = 10,
-        precision: int = 6,
+        member_ids: list[str] | tuple[str, ...] = (),
+        width: int | None = None,
     ) -> str:
-        width = max(width, int(get_width()/10))
-        height = max(height, 5)
 
-        TL = "┏"
-        TR = "┓"
-        BL = "┗"
-        BR = "┛"
-        H = "━"
-        V = "┃"
+        width = width or min(self._console.width, 100)
+
+        if width < 32:
+            lines = [
+                title,
+                f"NW {minx:.4f} {maxy:.4f}",
+                f"NE {maxx:.4f} {maxy:.4f}",
+                f"SW {minx:.4f} {miny:.4f}",
+                f"SE {maxx:.4f} {miny:.4f}",
+            ]
+
+            if member_ids:
+                lines.append("members:")
+                lines.extend(f"  {member_id}" for member_id in member_ids)
+
+            return "\n".join(lines)
 
         inner = width - 2
 
-        nw = f"({minx:.{precision}f}, {maxy:.{precision}f})"
-        ne = f"({maxx:.{precision}f}, {maxy:.{precision}f})"
-        sw = f"({minx:.{precision}f}, {miny:.{precision}f})"
-        se = f"({maxx:.{precision}f}, {miny:.{precision}f})"
+        TL, TR, BL, BR = "┏", "┓", "┗", "┛"
+        H, V = "━", "┃"
 
-        def corner_line(left: str, right: str) -> str:
-            available = inner - len(left) - len(right)
+        def clamp(text: str) -> str:
+            if len(text) <= inner:
+                return text
+            if inner <= 1:
+                return text[:inner]
+            return text[: inner - 1] + "…"
 
-            if available > 1:
-                text = f"{left}     {right}"[:inner]
-                return V + text.ljust(inner) + V
+        def line(text: str = "") -> str:
+            return V + clamp(text).ljust(inner) + V
 
-            return V + left + (" " * available) + right + V
+        def center(text: str = "") -> str:
+            return V + clamp(text).center(inner) + V
 
-        def centered(text: str) -> str:
-            return V + text[:inner].center(inner) + V
+        def divider() -> str:
+            return V + ("─" * inner) + V
 
-        blank = V + (" " * inner) + V
+        def pair_line(left: str, right: str) -> str:
+            space = inner - len(left) - len(right)
 
-        middle_rows = height - 5
-        top_pad = middle_rows // 2
-        bottom_pad = middle_rows - top_pad
+            if space < 2:
+                raise ValueError("too narrow for paired bbox layout")
 
-        lines = [
+            return V + left + (" " * space) + right + V
+
+        def fmt_corner(name: str, lon: float, lat: float, precision: int) -> str:
+            return f"{name} {lon:.{precision}f} {lat:.{precision}f}"
+
+        if width >= 80:
+            precision = 6
+        elif width >= 56:
+            precision = 5
+        else:
+            precision = 4
+
+        nw = fmt_corner("NW", minx, maxy, precision)
+        ne = fmt_corner("NE", maxx, maxy, precision)
+        sw = fmt_corner("SW", minx, miny, precision)
+        se = fmt_corner("SE", maxx, miny, precision)
+
+        x_range = f"lon {minx:.{precision}f} -> {maxx:.{precision}f}"
+        y_range = f"lat {miny:.{precision}f} -> {maxy:.{precision}f}"
+
+        lines: list[str] = [
             TL + (H * inner) + TR,
-            corner_line(nw, ne),
-            *([blank] * top_pad),
-            centered(title),
-            *([blank] * bottom_pad),
-            corner_line(sw, se),
-            BL + (H * inner) + BR,
         ]
 
-        return "\n".join(lines) 
+        try:
+            lines.extend(
+                [
+                    pair_line(nw, ne),
+                    line(),
+                    center(title),
+                    center(x_range),
+                    center(y_range),
+                    line(),
+                    pair_line(sw, se),
+                ]
+            )
+        except ValueError:
+            lines.extend(
+                [
+                    center(title),
+                    line(),
+                    line(nw),
+                    line(ne),
+                    line(sw),
+                    line(se),
+                    line(),
+                    line(x_range),
+                    line(y_range),
+                ]
+            )
+
+        if member_ids:
+            lines.append(divider())
+            lines.append(line("member mosaics"))
+
+            wrapped_members = textwrap.wrap(
+                ", ".join(str(member_id) for member_id in member_ids),
+                width=inner,
+                subsequent_indent="  ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+
+            for row in wrapped_members:
+                lines.append(line(row))
+
+        lines.append(BL + (H * inner) + BR)
+
+        return "\n".join(lines)
+
 
     def member_ids_block(
         self,
