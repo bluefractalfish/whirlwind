@@ -36,6 +36,8 @@ class Request:
     distance_max: float | None=None 
     overwrite: bool = False
     stop_on_error: bool = False 
+    alpha: float = 0.23
+    debug: bool = False
 
     
 @dataclass 
@@ -114,8 +116,6 @@ class ExportShardsBridge:
                         shard_dir = branch.shards_dir
                         out_dir = branch.tiles_dir 
                     n_shards = sum(1 for p in shard_dir.rglob(request.pattern) if p.is_file())
-                    #find tiles_dir 
-
                     for shard_path in sorted(shard_dir.rglob(request.pattern)): 
                         if not shard_path.is_file():
                             continue 
@@ -133,7 +133,9 @@ class ExportShardsBridge:
                                     compress=request.compress, 
                                     stop_on_error=request.stop_on_error, 
                                     color_by=request.color_by, 
-                                    distance_max=request.distance_max 
+                                    distance_max=request.distance_max, 
+                                    alpha = request.alpha,
+                                    debug=request.debug
                                 )
 
                         tifs_written += written

@@ -1,7 +1,9 @@
 
-from typing import Iterable
-from dataclasses import dataclass 
+from typing import Iterable, Any 
+from dataclasses import dataclass, replace  
 from pathlib import Path 
+
+import numpy as np  
 
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
 from whirlwind.adapters.io.idmanifest import IDManifest 
@@ -34,6 +36,12 @@ class Request:
     plan_name: str 
     manifest_name: str 
     manifest_kind: str 
+    masked: bool = False 
+    fill_value: float = 0.0 
+    min_content_fraction: float = 0.02 
+    zero_is_empty: bool = True 
+
+
 
 @dataclass(frozen=True)
 class Summary:
@@ -50,6 +58,103 @@ class Result:
     summaries: tuple[Summary,...]
     rasters_skipped: int 
     code: int 
+
+@dataclass(frozen=True)
+class TileContentStats:
+    valid_fraction: float
+    nonzero_fraction: float
+    content_fraction: float
+    mostly_empty: bool
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "valid_fraction": self.valid_fraction,
+            "nonzero_fraction": self.nonzero_fraction,
+            "content_fraction": self.content_fraction,
+            "mostly_empty": self.mostly_empty,
+        }
+
+
+def tile_content_stats(
+    tile,
+    *,
+    min_content_fraction: float,
+    zero_is_empty: bool = True,
+    eps: float = 0.0,
+) -> TileContentStats:
+    """
+    Decide whether a tile has enough real image content to keep.
+
+    For RGB orthos where nodata/background is 0, use zero_is_empty=True.
+    """
+
+    if tile.read is None:
+        return TileContentStats(
+            valid_fraction=0.0,
+            nonzero_fraction=0.0,
+            content_fraction=0.0,
+            mostly_empty=True,
+        )
+
+    arr = tile.read.array
+
+    if arr.ndim == 2:
+        arr = arr[np.newaxis, :, :]
+
+    if arr.ndim != 3:
+        raise ValueError(f"expected tile array shape (bands, height, width), got {arr.shape}")
+
+    if np.ma.isMaskedArray(arr):
+        mask = np.ma.getmaskarray(arr)
+        valid_by_band = ~mask
+        data = np.ma.filled(arr, 0)
+    else:
+        data = np.asarray(arr)
+        valid_by_band = np.isfinite(data)
+
+    # Pixel is valid if any band is valid.
+    valid_pixel = np.any(valid_by_band, axis=0)
+
+    if zero_is_empty:
+        safe = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
+        nonzero_pixel = np.any(np.abs(safe) > eps, axis=0)
+    else:
+        nonzero_pixel = valid_pixel
+
+    content_pixel = valid_pixel & nonzero_pixel
+
+    total_pixels = int(content_pixel.size)
+
+    if total_pixels == 0:
+        return TileContentStats(
+            valid_fraction=0.0,
+            nonzero_fraction=0.0,
+            content_fraction=0.0,
+            mostly_empty=True,
+        )
+
+    valid_fraction = float(valid_pixel.sum() / total_pixels)
+    nonzero_fraction = float(nonzero_pixel.sum() / total_pixels)
+    content_fraction = float(content_pixel.sum() / total_pixels)
+
+    return TileContentStats(
+        valid_fraction=valid_fraction,
+        nonzero_fraction=nonzero_fraction,
+        content_fraction=content_fraction,
+        mostly_empty=content_fraction < min_content_fraction,
+    )
+
+
+def attach_content_stats(tile, stats: TileContentStats):
+    """
+    Store content stats in tile metadata.
+
+    TileEncoder currently writes tile.label into metadata["labels"], so this
+    merges content stats into that label dict without destroying damage labels.
+    """
+    label = dict(tile.label or {})
+    label["content"] = stats.record()
+    return replace(tile, label=label) 
 
 class TesselationBridge:
 
@@ -77,7 +182,8 @@ class TesselationBridge:
                 # confirm tile plan exists 
                 try: 
                     tiler = RasterTiler(p,request)
-                except FileNotFoundError: 
+                except FileNotFoundError:
+                    with face.phase(4,5,"no tiling plan found"): pass 
                     summaries.append(Summary(error=1,code=3))
                     continue
                 # get sink code (sc): 1 -> ok, else error 
@@ -161,16 +267,28 @@ class RasterTiler:
     def tile(self) -> Summary:
         planned_windows = self.plan_sink.read() 
         with ShardWriter(self.req) as writer:
-            with RasterioWindowReader(self.p) as reader: 
+            with RasterioWindowReader(
+                    self.p, self.request.masked, self.request.fill_value
+                    ) as reader: 
                 n_tiles = 0 
-                for tile in reader.tiles_from_rows(planned_windows): 
+
+                for tile in reader.tiles_from_rows(planned_windows):
+                    stats = tile_content_stats(
+                        tile,
+                        min_content_fraction=self.request.min_content_fraction,
+                        zero_is_empty=self.request.zero_is_empty,
+                    )
+
+                    tile = attach_content_stats(tile, stats)
                     encoded = self.encoder.encode(tile)
+
                     if self.request.dry:
                         row = encoded.as_manifest_row(f"dry_run_{tile.tile_id}") 
                     else:
                         placement = writer.write(encoded)
                         n_tiles += 1 
                         row = encoded.as_manifest_row(placement.key)
+
                     self.manifest_sink.write(row)
         
         return Summary(error=0, 
@@ -182,7 +300,9 @@ class RasterTiler:
     def tile_with_damage_labels(self) -> Summary: 
         planned_windows = self.plan_sink.read() 
         with DamageSplitShardWriter(self.req) as writer:
-            with RasterioWindowReader(self.p) as reader: 
+            with RasterioWindowReader(
+                    self.p, masked=self.request.masked, fill=self.request.fill_value
+                    ) as reader: 
                 if not self.gpkg_path.exists():
                     return Summary(plan_path=self.tile_plan_path, 
                                              code=3, 
