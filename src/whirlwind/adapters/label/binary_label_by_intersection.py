@@ -70,9 +70,10 @@ class BinaryLabelByIntersection:
                 lines_geometry=line_geoms,
             )
 
-    def label(self, tile: Tile) -> Tile:
+    def label(self, tile: Tile, geometry_name) -> Tile:
         if tile.geo is None:
             return replace(tile, label={
+                f"{geometry_name}": False, 
                 f"intersects_{self.geometry_name}": False,
                 "label_reason": "missing_geodata",
                 f"distance_to_{self.geometry_name}_line": None,
@@ -95,6 +96,7 @@ class BinaryLabelByIntersection:
             line_dist = min(center.distance(line) for line in self.lines_geometry)
 
         label: dict[str, Any] = {
+            f"{geometry_name}": bool(area_hits),
             f"intersects_{self.geometry_name}": bool(area_hits),
             "area_intersects": bool(area_hits),
             f"distance_to_{self.geometry_name}_line": line_dist,

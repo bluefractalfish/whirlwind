@@ -135,7 +135,7 @@ class TileRasterFromPlan:
                             target_crs=reader.ds.crs )
                 n_tiles = 0  
                 for tile in reader.tiles_from_rows(planned_windows): 
-                    tile = labeler.label(tile)
+                    tile = labeler.label(tile, geometry_name)
                     encoded = self.encoder.encode(tile)
                     if self.dry:
                         row = encoded.as_manifest_row(f"dry_run_{tile.tile_id}")
