@@ -20,7 +20,7 @@ class PathSpec:
     layers: Sequence[LayerSpec] 
 
     @classmethod 
-    def default(cls) -> "PathSpec":
+    def default(cls, geom_name: str ="geom") -> "PathSpec":
         common_fields = [
                 LabelField("path_id", "str"),
                 LabelField("mosaic_id", "str"),
@@ -34,8 +34,8 @@ class PathSpec:
                 ]
         return cls(
                 layers=[
-                    LayerSpec("center_line", "LineString", common_fields), 
-                    LayerSpec("damage_area", "Polygon", common_fields)
+                    LayerSpec(f"{geom_name}_line", "LineString", common_fields), 
+                    LayerSpec(f"{geom_name}_area", "Polygon", common_fields)
                     ]
                 )
 

@@ -46,7 +46,7 @@ operations:
     shard_size: 2048
     shard_prefix: shard
     manifest_kind: csv 
-    gpkg_name: geom_path
+    gpkg_name: geom.gpkg
 
 plan: 
   tiles:

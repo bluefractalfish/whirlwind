@@ -131,7 +131,7 @@ class TileRasterFromPlan:
                 labeler = BinaryLabelByIntersection.from_gpkg(
                             gpkg_path=gpkg_path,
                             area_layer=f"{geometry_name}_area",
-                            line_layer=f"{geometry_name}_center_line",
+                            line_layer=f"{geometry_name}_line",
                             target_crs=reader.ds.crs )
                 n_tiles = 0  
                 for tile in reader.tiles_from_rows(planned_windows): 
