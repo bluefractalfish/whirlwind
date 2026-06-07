@@ -66,17 +66,15 @@ def to_rgb(
 ) -> np.ndarray:
     """
     Create a 3-band RGB display tile.
-
     This is the safest QGIS display output.
-
     Default:
         first three bands -> RGB
-
     Example display_bands:
         (0, 1, 2) = RGB
         (2, 1, 0) = BGR to RGB
         (3, 0, 1) = false color if band 4 is NIR
     """
+
     if arr.ndim == 2:
         arr = arr[np.newaxis, :, :]
 
@@ -170,8 +168,6 @@ def stretch_to_uint8(
 
     Notes:
         - any constant nonzero bands become 255.
-        - constant zero bands remain 0.
-        - invalid-only bands remain 0.
     """
 
     if arr.ndim == 2:

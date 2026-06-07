@@ -53,7 +53,9 @@ from whirlwind.domain.tile import EncodedPair
 from whirlwind.adapters.display.colorcontrols import to_rgb, to_rgba, interpret_colors, blend_rgb_overlay
 
 ExportMode = Literal["display", "raw"] 
-DisplayKind = Literal["rgb", "rgba"]
+DisplayKind = Literal["rgb", "rgba"] 
+
+
 ColorBy = Literal["centerline_distance"] 
  
 def convert_to_tif(
@@ -70,7 +72,8 @@ def convert_to_tif(
         stop_on_error: bool, 
         color_by: ColorBy | None=None, 
         distance_max: float | None=None, 
-        alpha: float = 0.35,
+        alpha: float,
+        debug: bool = False, 
         ) -> tuple[int, int, int]: 
 
     """
@@ -126,7 +129,8 @@ def convert_to_tif(
                     compress=compress, 
                     color_by=color_by, 
                     distance_max=distance_max,
-                    alpha=alpha
+                    alpha=alpha, 
+                    debug=debug
                 )
             tiles_written += 1 
 
@@ -273,11 +277,12 @@ def write_tile(
         alpha_band: int, 
         p_low: float, 
         p_high: float, 
+        debug: bool, 
         display_bands: tuple[int, int, int] | None=None, 
         compress: str | None=None, 
         color_by: ColorBy | None=None, 
         distance_max: float | None=None, 
-        alpha: float = 0.23
+        alpha: float, 
         ) -> None: 
     """ 
         write one EncodedPair as a Geotiff 
@@ -304,7 +309,10 @@ def write_tile(
                 examples: "deflate", "lzw" 
 
     """
-    arr = pair.load_npy_tile() 
+    arr = pair.load_npy_tile()  
+    if debug:
+        _debug_arr("loaded from shard", arr, pair.key)
+
     out_path = pair.tile_out_path(out_dir)  
 
     if arr.ndim == 2:
@@ -373,4 +381,21 @@ def write_tile(
         interpret_colors(dst, arr)
 
 
+def _debug_arr(label: str, arr: np.ndarray, key: str) -> None:
+    print(f"\n[{key}] {label}")
+    print("  shape:", arr.shape)
+    print("  dtype:", arr.dtype)
+    print("  min:", np.nanmin(arr))
+    print("  max:", np.nanmax(arr))
+    print("  nonzero:", np.count_nonzero(arr), "of", arr.size)
 
+    if arr.ndim == 3:
+        for b in range(arr.shape[0]):
+            band = arr[b]
+            print(
+                f"  band {b}:",
+                "min", np.nanmin(band),
+                "max", np.nanmax(band),
+                "mean", np.nanmean(band),
+                "nonzero", np.count_nonzero(band),
+            )

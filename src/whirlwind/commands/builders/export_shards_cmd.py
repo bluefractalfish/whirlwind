@@ -58,13 +58,16 @@ class BuildExportShardRequest(RequestBuilder[Request]):
         run_tree = ctx.run_tree 
         paths, manifest = pathset(tv, ctx) 
 
+        color_by = "centerline_distance" if "-c" in tv.flags else None 
+        
+        
         return Request(
                 run_tree=run_tree, 
                 manifest=manifest, 
-                paths=paths, 
+                paths=paths,
                 shard_sub_dir="damage" if "--damage" in tv.flags else None, 
                 display_bands=(0,1,2), 
-                color_by = "centerline_distance" if "-c" in tv.flags else None, 
+                color_by = color_by, 
                 overwrite="-f" in tv.flags,
                 stop_on_error="-r" in tv.flags, 
                 )

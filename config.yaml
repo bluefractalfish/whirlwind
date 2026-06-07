@@ -1,6 +1,6 @@
 global:
   version: "V5"
-  run_id: r18
+  run_id: r20
   io:
     in_dir: /home/rhea/C/
     dest_dir: /home/rhea/B/artifacts/
@@ -46,11 +46,12 @@ operations:
     shard_size: 2048
     shard_prefix: shard
     manifest_kind: csv 
+    gpkg_name: geom_path
 
 plan: 
   tiles:
-    tile_size: 240
-    stride: 240
+    tile_size: 512
+    stride: 512
     drop_partial: true
 
 

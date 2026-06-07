@@ -72,7 +72,9 @@ class BuildTesselationRequest(RequestBuilder[Request]):
         spec = TSpec.from_config(ctx.config)
         tree = ctx.run_tree
         shard_cfg = ctx.section("operations", "tesselate")
- 
+        gpkg_name = shard_cfg["gpkg_name"]
+        min_content_fraction = float(tv.value("--min-content", "0.02") or "0.02")
+        zero_is_empty = "--keep-zero" not in tv.flags
         paths, manifest = pathset(tv, ctx)
 
         return Request(
@@ -83,13 +85,17 @@ class BuildTesselationRequest(RequestBuilder[Request]):
                 prefix = f"{spec.tile_size}_{shard_cfg["shard_prefix"]}", 
                 shard_size = shard_cfg["shard_size"],
                 overwrite = "-f" in tv.flags or "--overwrite" in tv.flags, 
-                label = "-l" in tv.flags or "--label" in tv.flags, 
+                intersection_label = "-l" in tv.flags or "--label" in tv.flags, 
                 dry = "-d" in tv.flags or "--dry" in tv.flags, 
-                dpath_name = "damage_path.gpkg",
+                dpath_name = f"{gpkg_name}", 
+                intersection_geom_name="geom",
                 plan_name = "tile_plan.csv",
                 manifest_name="tile_manifest.csv",
                 manifest_kind="parquet" if "-p" in tv.flags or "--parquet" in tv.flags 
-                                 else shard_cfg["manifest_kind"] 
+                                 else shard_cfg["manifest_kind"], 
+                min_content_fraction=min_content_fraction, 
+                zero_is_empty = zero_is_empty 
+
                 )
     def help(self) -> str: 
         return TESSELATE_HELP

@@ -10,6 +10,7 @@ from typing import  Literal, Iterable
 
 from whirlwind.adapters.io.convert_shards import convert_to_tif, ColorBy 
 from whirlwind.filesystem.runtree import RunTree
+from whirlwind.filesystem.files import RasterFile
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.interface import face 
 
@@ -106,7 +107,7 @@ class ExportShardsBridge:
                 t2 = pr.add_task("translating",total=request.manifest.length)
                 for p in request.paths:
                     pr.advance(t1,1)
-                    pr.update(t2,description=f"translating tiles from {p}")
+                    pr.update(t2,description=f"translating tiles from {RasterFile(p).mosaic_id}")
                     branch = request.run_tree.branchlook(request.manifest, p)
                     #find shard_dir if exists. expects somethind like shards/"damage" 
                     if request.shard_sub_dir: 

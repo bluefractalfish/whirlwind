@@ -76,7 +76,7 @@ class DownsampleBridge:
         
         with face.phase(3,4,"downsampling requested rasters..."):
             with face.progress() as pr: 
-                length = request.manifest.length
+                length = sum(1 for _ in request.paths)
                 t1 = pr.add_task("iterating mosaics",total=length)
                 t2 = pr.add_task("downsampling", total=length)
                 for p in request.paths: 

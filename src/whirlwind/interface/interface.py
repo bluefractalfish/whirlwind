@@ -424,11 +424,12 @@ class Interface:
 
 class AsciiBar(ProgressColumn):
 
-        def __init__(self, width: int=400, done_char: str = "#", empty_char: str = "-") -> None:
+        def __init__(self, width: int=get_width(), done_char: str = "#", empty_char: str = "-") -> None:
             super().__init__()
             self.width=width 
             self.done_char=done_char
             self.empty_char=empty_char
+
         def render(self, task: Task) -> Text:
             if task.total is None:
                 return Text("["+"-"*self.width+"]")

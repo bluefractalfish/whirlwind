@@ -6,11 +6,12 @@ from typing import Iterable
 from whirlwind.adapters.io.csv_rows import write_dict_csv
 from whirlwind.adapters.io.idmanifest import IDManifest
 
-from whirlwind.geography.geogroup import GeoRow, GeoGroup, read_georows
-
+from whirlwind.geography.geogroup import (
+        GeoRow, GeoGroup, read_georows
+)
 from whirlwind.geography.location import (
         FolderHintLocationResolver, LocationResolver
-        )
+)
 from whirlwind.filesystem.files import FileID
 from whirlwind.filesystem.runtree import RunTree
 from whirlwind.domain.mosaic import MosaicRecord
@@ -22,7 +23,7 @@ class Request:
     run_tree: RunTree
     manifest: IDManifest
     metadata_path: Path
-    stem: str = "locale"
+    stem: str = "unknown"
     metamosaic_manifest_name: str = "metamosaic.csv"
     metamosaic_summary_name: str = "metamosaic_summary.csv"
     root_manifest_name: str = "manifest.csv"
@@ -159,6 +160,17 @@ class BuildMetamosaicBridge:
             )
 
             self._plant_trees(request.run_tree, enriched_manifest_rows)
+            
+            self._write_tree_metadata(
+                    tree=request.run_tree, 
+                    metadata_name=request.metadata_path.name, 
+                    root_manifest_name=request.root_manifest_name, 
+                    metamosaic_manifest_name=request.metamosaic_manifest_name, 
+                    metamosaic_summary_name=request.metamosaic_summary_name, 
+                    enriched_manifest_rows=enriched_manifest_rows, 
+                    geo_rows=geo_rows, 
+                    geo_groups=geo_groups
+                    )
 
         return Result(
             metamosaic_manifest_path=metamosaic_manifest_path,
@@ -295,7 +307,7 @@ class BuildMetamosaicBridge:
             return explicit
 
         if not members:
-            return "locale"
+            return "unknown"
 
         provisional = GeoGroup.from_members(
             group_id="",
@@ -308,4 +320,106 @@ class BuildMetamosaicBridge:
         if site and site.lower() != "unknown":
             return site
 
-        return "locale"
+        return "unknown"
+
+    def _write_tree_metadata(
+        self,
+        *,
+        tree: RunTree,
+        metadata_name: str,
+        root_manifest_name: str,
+        metamosaic_manifest_name: str,
+        metamosaic_summary_name: str,
+        enriched_manifest_rows: list[dict[str, str]],
+        geo_rows: list[GeoRow],
+        geo_groups: list[GeoGroup],
+    ) -> None:
+
+        metadata_by_mid: dict[str, dict[str, str]] = {
+                row.mosaic_id: dict(row.row)
+                for row in geo_rows
+                } 
+        summary_by_mmid: dict[str, dict[str, str]] = {
+                group.group_id: group.to_metamosaic_record()
+                for group in geo_groups 
+                }
+        manifest_rows_by_mmid: dict[str, list[dict[str,str]]] = {} 
+        
+        for row in enriched_manifest_rows: 
+            mmid = row.get("metamosaic_id","")
+            if mmid: 
+                manifest_rows_by_mmid.setdefault(mmid, []).append(row)
+
+        for manifest_row in enriched_manifest_rows: 
+            record = MosaicRecord.from_row(manifest_row)
+            branch = tree.branch_for(record).ensure() 
+
+            mid = record.mosaic_id 
+            mmid = record.metamosaic_id or ""
+
+            write_dict_csv(
+                    branch.metadata_dir / root_manifest_name, 
+                    [manifest_row],
+                ) 
+
+            metadata_row = metadata_by_mid.get(mid)
+            if metadata_row:
+                branch_metadata_row = {
+                    **metadata_row,
+                    "metamosaic_id": mmid,
+                    "branch_id": manifest_row.get("branch_id", ""),
+                }
+
+                write_dict_csv(
+                    branch.metadata_dir / metadata_name,
+                    [branch_metadata_row],
+                )
+
+        # Write metamosaic-level metadata.
+        for mmid, member_manifest_rows in manifest_rows_by_mmid.items():
+            mm_tree = tree.metamosaic_tree(mmid).ensure()
+
+            write_dict_csv(
+                mm_tree.metadata_dir / root_manifest_name,
+                member_manifest_rows,
+            )
+
+            write_dict_csv(
+                mm_tree.metadata_dir / metamosaic_manifest_name,
+                self._membership_rows(member_manifest_rows),
+            )
+
+            summary_row = summary_by_mmid.get(mmid)
+            if summary_row:
+                write_dict_csv(
+                    mm_tree.metadata_dir / metamosaic_summary_name,
+                    [summary_row],
+                )
+
+            member_metadata_rows: list[dict[str, str]] = []
+
+            for manifest_row in member_manifest_rows:
+                mid = (
+                    manifest_row.get("mosaic_id")
+                    or manifest_row.get("file_id")
+                    or manifest_row.get("id")
+                    or ""
+                )
+
+                metadata_row = metadata_by_mid.get(mid)
+                if not metadata_row:
+                    continue
+
+                member_metadata_rows.append(
+                    {
+                        **metadata_row,
+                        "metamosaic_id": mmid,
+                        "branch_id": manifest_row.get("branch_id", ""),
+                    }
+                )
+
+            if member_metadata_rows:
+                write_dict_csv(
+                    mm_tree.metadata_dir / metadata_name,
+                    member_metadata_rows,
+                )

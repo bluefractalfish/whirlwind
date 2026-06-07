@@ -42,9 +42,11 @@ class RasterioWindowReader:
 
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, masked: bool, fill: float) -> None:
         self.path = Path(path).expanduser().resolve()
         self.source = RasterFile(self.path,georefs=True)
+        self.masked = masked 
+        self.fill = fill 
         self._ds: DatasetReader | None = None
 
     def __enter__(self) -> "RasterioWindowReader":
@@ -101,7 +103,7 @@ class RasterioWindowReader:
         self,
         row: PlannedWindow,
         *,
-        masked: bool = True,
+        masked: bool,
         fill_value: float | None = None,
         out_dtype: str | np.dtype | None = None,
         bands: Iterable[int] | None = None,
@@ -136,8 +138,8 @@ class RasterioWindowReader:
         self,
         row: PlannedWindow,
         *,
-        masked: bool = True,
-        fill_value: float | None = 0.0,
+        masked: bool,
+        fill_value: float ,
         out_dtype: str | np.dtype | None = None,
         bands: Iterable[int] | None = None,
     ) -> Tile:
@@ -157,6 +159,6 @@ class RasterioWindowReader:
     def tiles_from_rows(self, rows: Iterable[PlannedWindow]) -> Iterator[Tile]:
         for row in rows:
             try: 
-                yield self.tile_from_row(row)
+                yield self.tile_from_row(row, masked = self.masked, fill_value = self.fill)
             except ValueError:
                 continue 

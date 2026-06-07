@@ -8,13 +8,16 @@ from shapely.strtree import STRtree
 
 from whirlwind.domain.tile import Tile
 
-class DamageLabeler:
+class BinaryLabelByIntersection:
     """ 
+    used to calculate a tile's binary intersection with some geometry, e.g. like damage_path 
+
     usage 
     ------ 
-    labeler = DamageLabeler(
-        damage_areas=damage_area_geoms,
-        center_lines=damage_line_geoms,
+    labeler = BinaryLabelByIntersection(
+        geometry_name="trees" 
+        geometry_areas=some_area_geoms,
+        geometry_lines=some_line_geoms,
         )
 
     with WindowReader(raster_path) as reader:
@@ -22,12 +25,13 @@ class DamageLabeler:
             tile = labeler.label(tile)
             encoded = encoder.encode(tile)
     """
-    def __init__(self, damage_areas, center_lines) -> None:
-        self.damage_areas = list(damage_areas)
-        self.center_lines = list(center_lines)
+    def __init__(self, geometry_name, areas_geometry, lines_geometry) -> None:
+        self.areas_geometry = list(areas_geometry)
+        self.lines_geometry = list(lines_geometry) 
+        self.geometry_name = geometry_name
 
-        self.area_index = STRtree(self.damage_areas) if self.damage_areas else None
-        self.line_index = STRtree(self.center_lines) if self.center_lines else None
+        self.area_index = STRtree(self.areas_geometry) if self.areas_geometry else None
+        self.line_index = STRtree(self.lines_geometry) if self.lines_geometry else None
 
     @classmethod
     def from_gpkg(
@@ -37,10 +41,12 @@ class DamageLabeler:
             area_layer: str,
             line_layer: str,
             target_crs,
-        ) -> "DamageLabeler":
+        ) -> "BinaryLabelByIntersection":
 
             areas = gpd.read_file(gpkg_path, layer=area_layer)
             lines = gpd.read_file(gpkg_path, layer=line_layer)
+            
+            geo_name = Path(gpkg_path).name
 
             if areas.crs is not None and target_crs is not None:
                 areas = areas.to_crs(target_crs)
@@ -59,16 +65,17 @@ class DamageLabeler:
             ]
 
             return cls(
-                damage_areas=area_geoms,
-                center_lines=line_geoms,
+                geometry_name=geo_name,
+                areas_geometry=area_geoms,
+                lines_geometry=line_geoms,
             )
 
     def label(self, tile: Tile) -> Tile:
         if tile.geo is None:
             return replace(tile, label={
-                "damage": False,
+                f"intersects_{self.geometry_name}": False,
                 "label_reason": "missing_geodata",
-                "distance_to_center_line": None,
+                f"distance_to_{self.geometry_name}_line": None,
             })
 
         minx, miny, maxx, maxy = tile.geo.bounds
@@ -78,19 +85,19 @@ class DamageLabeler:
         area_hits = []
         if self.area_index is not None:
             for idx in self.area_index.query(footprint):
-                geom = self.damage_areas[int(idx)]
+                geom = self.areas_geometry[int(idx)]
                 if footprint.intersects(geom):
                     area_hits.append(geom)
 
 
         line_dist = None
-        if self.center_lines:
-            line_dist = min(center.distance(line) for line in self.center_lines)
+        if self.lines_geometry:
+            line_dist = min(center.distance(line) for line in self.lines_geometry)
 
         label: dict[str, Any] = {
-            "damage": bool(area_hits),
-            "damage_area_intersects": bool(area_hits),
-            "distance_to_center_line": line_dist,
+            f"intersects_{self.geometry_name}": bool(area_hits),
+            "area_intersects": bool(area_hits),
+            f"distance_to_{self.geometry_name}_line": line_dist,
         }
 
         return replace(tile, label=label)

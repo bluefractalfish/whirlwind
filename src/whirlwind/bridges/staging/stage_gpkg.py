@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.adapters.geo.damage_path import PathPlan, DamagePathPlanner
+from whirlwind.adapters.geo.stage_gpkg import PathPlan, GeomPathPlanner
 from whirlwind.filesystem.runtree import RunTree 
 from whirlwind.filesystem.files import RasterFile
 from whirlwind.interface import face 
@@ -16,6 +16,7 @@ class Request:
     paths: Iterable[Path]
     overwrite: bool 
     set_defaults: bool 
+    name: str = "geom"
 
 @dataclass 
 class Summary: 
@@ -34,17 +35,17 @@ class Result:
 
 
 
-class DamagepathStagingBridge:
+class GpkgStagingBridge:
     def run(self, request: Request) -> Result: 
         with face.phase(1,3,"building stage request..."): pass 
 
         summaries: list[Summary] = []
         rasters_seen = 0 
 
-        with face.phase(2,3,"creating geopackages for damagepaths..."): pass 
+        with face.phase(2,3,"creating staged geopackages..."): pass 
         with face.progress() as pr: 
             length = request.manifest.length
-            t = pr.add_task("planning damagepaths...",total=length)
+            t = pr.add_task("planning gpkg_paths...",total=length)
             t2 = pr.add_task("writing empty gpkg layers...",total=2*length)
             for p in request.paths: 
                 rasters_seen += 1
@@ -54,10 +55,10 @@ class DamagepathStagingBridge:
 
                 branch = request.tree.branchlook(request.manifest, p)
 
-                plan = PathPlan.from_browse(branch, crs_wkt = f.crs_wkt)
+                plan = PathPlan.from_browse(branch, crs_wkt = f.crs_wkt, name=request.name)
                 set_default = request.set_defaults 
                 overwrite = request.overwrite 
-                code = DamagePathPlanner.stage(plan, 
+                code = GeomPathPlanner.stage(plan, 
                                                overwrite=overwrite, 
                                                set_defaults=set_default) 
                 summaries.append(

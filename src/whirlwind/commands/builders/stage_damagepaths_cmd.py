@@ -32,14 +32,14 @@ STAGE_PATHS_HELP =  """
     """.strip()
 
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.bridges.staging.stage_damagepaths import DamagepathStagingBridge, Request, Result
+from whirlwind.bridges.staging.stage_gpkg import GpkgStagingBridge, Request, Result
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
 from whirlwind.commands.selector import pathset 
 from whirlwind.domain.config import Config 
 from whirlwind.interface import face 
 
-class BuildDamagePathStageRequest(RequestBuilder[Request]):
+class BuildGpkgStageRequest(RequestBuilder[Request]):
    def from_tokens(
             self, 
             tokens: list[str],
@@ -79,8 +79,8 @@ class BuildDamagePathStageReporter(ResultReporter[Result]):
         return result.code 
 
 StagePathsCommand = BridgeCommand(
-        name = "stage damage paths",
-        builder = BuildDamagePathStageRequest(), 
-        bridge = DamagepathStagingBridge(), 
+        name = "stage gpkgs",
+        builder = BuildGpkgStageRequest(), 
+        bridge = GpkgStagingBridge(),
         reporter=BuildDamagePathStageReporter()
         )

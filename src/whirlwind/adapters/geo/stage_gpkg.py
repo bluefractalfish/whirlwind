@@ -21,12 +21,13 @@ class PathPlan:
             cls, 
             branch: MosaicBranch, 
             crs_wkt: str, 
+            name: str,
             spec: Optional[PathSpec] = None 
             ) -> "PathPlan":
 
         # create empty gpkg 
-        gpkg_path = branch.browse_dir / "damage_path.gpkg"
-        meta_path = branch.staging_dir / "path_plan.json"
+        gpkg_path = branch.browse_dir / f"{name}.gpkg"
+        meta_path = branch.staging_dir / f"{name}.json"
         
         return cls(
                 branch=branch, 
@@ -95,9 +96,9 @@ class PathPlan:
                 "notes": "",
             }
 
-class DamagePathPlanner: 
+class GeomPathPlanner: 
     """ 
-        sets up empty gpkg files for damage path and polygon to be added from QGIS, etc 
+        sets up empty gpkg files for geom path and polygon to be added from QGIS, etc 
         
         uses ogr.CreateField to instantiate field containers from PathPlan 
         
@@ -117,7 +118,7 @@ class DamagePathPlanner:
             crs_wkt=crs_wkt,
         )
 
-        DamagePathPlanner.stage(plan)
+        geomPathPlanner.stage(plan)
     """
 
     @staticmethod 
@@ -190,7 +191,7 @@ class DamagePathPlanner:
                 srs.ImportFromWkt(plan.crs_wkt)
             else:
                 srs = None  
-            # center_line, damage_area, etc
+            # center_line, geom_area, etc
             for layer_spec in plan.spec.layers: 
                 layer = ds.CreateLayer(
                         layer_spec.name, 

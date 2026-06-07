@@ -71,7 +71,7 @@ class WriteShardRequest:
         return cls(out_dir=Path(out_path), prefix=prefix, shard_size=size, start_index=start_index )
 
     @classmethod
-    def from_path(cls, out_path: Path | str, prefix: str, size: int = 2048 ) -> "WriteShardRequest": 
+    def from_path(cls, out_path: Path | str, prefix: str, size: int) -> "WriteShardRequest": 
         return cls(prefix=prefix, shard_size=size, out_dir=Path(out_path))
     
 
@@ -189,40 +189,46 @@ class ShardWriter:
             self.tar_path = None
 
 @dataclass 
-class DamageSplitShardWriter: 
+class BinSplitShardWriter: 
     """ 
-        router for ShardWriter to direct encoded tiles into damage/nodamage subdirectories 
+        router for ShardWriter to direct encoded tiles into split_on and notsplit_on subdirectories 
 
         input 
         ------ 
-        takes a shard request with config, tokens and instantiates two new SplitWriteShardRequests  
+        takes a shard request with config, split_on,  tokens and instantiates two new SplitWriteShardRequests  
+
+        output 
+        ------ 
+        shards in one of two split bins 
+
     """
 
-    def __init__(self, request: WriteShardRequest): 
-        self.dmg_dir = request.out_dir / "damage"
-        self.ndmg_dir = request.out_dir / "nodamage"
+    def __init__(self, request: WriteShardRequest, split_on: str): 
+        self.split = split_on
+        self.dmg_dir = request.out_dir / f"{split_on}"
+        self.ndmg_dir = request.out_dir / f"not{split_on}"
         
-        self.dmg_req = WriteShardRequest(prefix=f"damage_{request.prefix}", 
+        self.dmg_req = WriteShardRequest(prefix=f"{split_on}_{request.prefix}", 
                                     shard_size = request.shard_size, 
                                     out_dir=self.dmg_dir)
 
-        self.ndmg_req = WriteShardRequest(prefix=f"nodamage_{request.prefix}", 
+        self.ndmg_req = WriteShardRequest(prefix=f"not{split_on}_{request.prefix}", 
                                      shard_size = request.shard_size, 
                                      out_dir=self.ndmg_dir)
 
         self.dmg_writer = ShardWriter(self.dmg_req)
         self.ndmg_writer = ShardWriter(self.ndmg_req)
 
-    def __enter__(self) -> "DamageSplitShardWriter":
+    def __enter__(self) -> "BinSplitShardWriter":
         return self 
 
     def __exit__(self, exc_type, exc, tb) -> None: 
         self.close()
 
-    def write(self, tile: EncodedTile, split: str="damage") -> ShardPlacement:
+    def write(self, tile: EncodedTile) -> ShardPlacement:
         """ write encoded tile to writer depending on split, defaults to damage """
         metadata = tile.metadata
-        damage = metadata["labels"][split]
+        damage = metadata["labels"][self.split]
         
         if damage: 
             return self.dmg_writer.write(tile)
@@ -366,8 +372,8 @@ def shard_dir_to_tifs(
 
     Handles normal shards and split shards if pointed at:
         shards/
-        shards/damage/
-        shards/nodamage/
+        shards/inside/
+        shards/outside/
     """
     shard_dir = Path(shard_dir)
     out_dir = Path(out_dir)

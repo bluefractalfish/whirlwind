@@ -26,7 +26,6 @@ def _uri_to_path_text(uri: str) -> str:
     return uri
 
 
-
 @dataclass(frozen=True)
 class LocationHint:
     """
@@ -165,12 +164,6 @@ class LocationRecord:
 class LocationResolver(Protocol):
     """
     Anything that can resolve a location from a bbox.
-
-    Later implementations can use:
-      - Census place polygons
-      - Census county polygons
-      - GNIS populated-place points
-      - Nominatim/debug reverse geocoding
     """
 
     def resolve_bbox(
