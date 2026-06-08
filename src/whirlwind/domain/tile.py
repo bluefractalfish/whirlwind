@@ -39,14 +39,16 @@ import numpy as np
 from rasterio import Affine 
 from pathlib import Path 
 
+from whirlwind.adapters.label.simple_label import SimpleLabel
 from whirlwind.filesystem.files import RasterFile, FileID
 from whirlwind.domain.plannedwindow import PlannedWindow
+from whirlwind.adapters.label.label_protocol import Label 
 
 @dataclass(frozen=True)
 class TileRead: 
  
     """ stores the result of reading one PlannedWindow, planned tile window """
-
+    
     row: PlannedWindow 
     array: np.ndarray # shape: (bands, h, w)
     masked: bool 
@@ -79,7 +81,6 @@ class Tile:
     source: RasterFile  | None = None 
     read: TileRead | None = None 
     geo: TileGeoData | None = None 
-    label: dict[str, Any] | None=None
 
 @dataclass(frozen=True)
 class EncodedTile: 
@@ -171,7 +172,7 @@ class TileEncoder:
         np.save(bio, arr, allow_pickle=False)
         return bio.getvalue()
     
-    def to_metadata(self, tile: Tile, tile_id: str) -> dict[str, Any]:
+    def to_metadata(self, tile: Tile, tile_id: str, label: Label | None=None) -> dict[str, Any]:
         if tile.read is None or tile.geo is None:
             return {}
 
@@ -209,8 +210,8 @@ class TileEncoder:
             ],
         }
 
-        if tile.label is not None:
-            meta["labels"] = dict(tile.label)
+        if label is not None:
+            meta["label"] = dict(label.metadata())
 
         if tile.tile_id is not None:
             meta["tile_ref_id"] = tile.tile_id
@@ -224,10 +225,10 @@ class TileEncoder:
             separators=(",", ":"),
         ).encode("utf-8")
 
-    def encode(self, tile: Tile) -> EncodedTile: 
+    def encode(self, tile: Tile, label: Label | None=None) -> EncodedTile: 
         tile_id = self.gen_tile_id(tile)
         key = self.gen_key(tile)
-        metadata = self.to_metadata(tile, tile_id)
+        metadata = self.to_metadata(tile, tile_id, label)
         npy = self.to_npy_bytes(tile)
         js = self.to_json_bytes(metadata)
 
@@ -432,7 +433,5 @@ def attach_content_stats(tile, stats: TileContentStats):
     TileEncoder currently writes tile.label into metadata["labels"], so this
     merges content stats into that label dict without destroying damage labels.
     """
-    label = dict(tile.label or {})
-    label["content"] = stats.record()
-    return replace(tile, label=label)  
+    ...
 

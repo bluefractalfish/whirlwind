@@ -5,16 +5,18 @@ import geopandas as gpd
 
 from shapely.geometry import box, Point
 from shapely.strtree import STRtree
-
+from whirlwind.adapters.label.simple_label import SimpleLabel
 from whirlwind.domain.tile import Tile
 
-class BinaryLabelByIntersection:
+
+
+class LabelByIntersection:
     """ 
     used to calculate a tile's binary intersection with some geometry, e.g. like damage_path 
 
     usage 
     ------ 
-    labeler = BinaryLabelByIntersection(
+    labeler = LabelByIntersection(
         geometry_name="trees" 
         geometry_areas=some_area_geoms,
         geometry_lines=some_line_geoms,
@@ -41,7 +43,7 @@ class BinaryLabelByIntersection:
             area_layer: str,
             line_layer: str,
             target_crs,
-        ) -> "BinaryLabelByIntersection":
+        ) -> "LabelByIntersection":
 
             areas = gpd.read_file(gpkg_path, layer=area_layer)
             lines = gpd.read_file(gpkg_path, layer=line_layer)
@@ -70,14 +72,13 @@ class BinaryLabelByIntersection:
                 lines_geometry=line_geoms,
             )
 
-    def label(self, tile: Tile, geometry_name) -> Tile:
+    def label(self, tile: Tile) -> SimpleLabel:
         if tile.geo is None:
-            return replace(tile, label={
-                f"{geometry_name}": False, 
-                f"intersects_{self.geometry_name}": False,
-                "label_reason": "missing_geodata",
-                f"distance_to_{self.geometry_name}_line": None,
-            })
+            return SimpleLabel(
+                bucket="nointersects", 
+                dominant=f"{self.geometry_name}", 
+                positive=False,
+                )
 
         minx, miny, maxx, maxy = tile.geo.bounds
         footprint = box(minx, miny, maxx, maxy)
@@ -94,12 +95,15 @@ class BinaryLabelByIntersection:
         line_dist = None
         if self.lines_geometry:
             line_dist = min(center.distance(line) for line in self.lines_geometry)
+        
+        bucket = "intersects" if bool(area_hits) else "nointersects"
+        dominant = f"{self.geometry_name}"
+        label = SimpleLabel(
+                bucket=bucket, 
+                dominant=dominant, 
+                positive = bool(area_hits),
+                extra = {f"distance_to_{self.geometry_name}_line": line_dist}
+                )
 
-        label: dict[str, Any] = {
-            f"{geometry_name}": bool(area_hits),
-            f"intersects_{self.geometry_name}": bool(area_hits),
-            "area_intersects": bool(area_hits),
-            f"distance_to_{self.geometry_name}_line": line_dist,
-        }
 
-        return replace(tile, label=label)
+        return label

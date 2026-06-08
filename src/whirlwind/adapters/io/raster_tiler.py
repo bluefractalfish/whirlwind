@@ -1,8 +1,6 @@
 
-import numpy as np 
 from pathlib import Path 
 from dataclasses import dataclass, replace 
-from typing import Any 
 
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
 from whirlwind.adapters.io.windowplan_io import WindowPlanCSV 
@@ -11,13 +9,17 @@ from whirlwind.adapters.io.shard_manifest import make_sink
 from whirlwind.adapters.io.write_shards import ( 
                 ShardWriter, WriteShardRequest, BinSplitShardWriter
             )
-from whirlwind.adapters.label.binary_label_by_intersection import BinaryLabelByIntersection
+from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
+from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
 from whirlwind.domain.tile import ( 
             TileEncoder, tile_content_stats, attach_content_stats
-                    )
+                    ) 
+from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile 
 from whirlwind.filesystem.runtree import RunTree
+
+
 
 
 
@@ -40,7 +42,9 @@ class TileRasterFromPlan:
                  masked: bool, 
                  fill_value: float, 
                  dry: bool, 
-                 keep_empty: bool
+                 keep_empty: bool,  
+                 min_content_fraction: float, 
+                 zero_is_empty: bool, 
                  ) -> None: 
         self.p = p 
         self.code = 0 
@@ -50,6 +54,8 @@ class TileRasterFromPlan:
         branch = tree.branchlook(manifest,p)
         self.dry = dry 
         self.keep_empty=keep_empty
+        self.min_content_fraction = min_content_fraction 
+        self.zero_is_empty=zero_is_empty
         self.shard_dir = branch.shards_dir
         self.shard_prefix = shard_prefix 
         self.shard_size = shard_size 
@@ -86,27 +92,31 @@ class TileRasterFromPlan:
                         prefix=self.shard_prefix, 
                         size=self.shard_size,) 
 
-    def tile(self, min_content_fraction: float, zero_is_empty: bool) -> TileSummary:
+
+
+    def tile(self) -> TileSummary:
         planned_windows = self.plan_sink.read() 
         with ShardWriter(self.req) as writer:
             with RasterioWindowReader(
                     self.p, self.masked, self.fill_value
-                    ) as reader: 
+                    ) as reader:  
+
+                labeler = UnaryLabeler()
                 n_tiles = 0 
 
                 for tile in reader.tiles_from_rows(planned_windows):
                     # get tile stats to determine content amounts 
                     stats = tile_content_stats(
                         tile,
-                        min_content_fraction=min_content_fraction,
-                        zero_is_empty=zero_is_empty,
+                        min_content_fraction=self.min_content_fraction,
+                        zero_is_empty=self.zero_is_empty,
                         )
 
                     if stats.mostly_empty and not self.keep_empty: 
                         continue
-                     
-                    tile = attach_content_stats(tile, stats)
-                    encoded = self.encoder.encode(tile)
+                    
+                    label = labeler.label(tile)
+                    encoded = self.encoder.encode(tile, label)
 
                     if self.dry:
                         row = encoded.as_manifest_row(f"dry_run_{tile.tile_id}") 
@@ -120,23 +130,28 @@ class TileRasterFromPlan:
         return TileSummary(code=0,n_tiles=n_tiles)
     
     def tile_by_intersection(self, geometry_name, gpkg_path) -> TileSummary: 
+
         planned_windows = self.plan_sink.read() 
+        #
         gpkg_path = self.branch.browse_dir / gpkg_path
+        
         with BinSplitShardWriter(self.req, split_on=geometry_name) as writer:
             with RasterioWindowReader(
                     self.p, masked=self.masked, fill=self.fill_value
                     ) as reader: 
+        
                 if not gpkg_path.exists():
                     return TileSummary(code=3)
-                labeler = BinaryLabelByIntersection.from_gpkg(
+
+                labeler = LabelByIntersection.from_gpkg(
                             gpkg_path=gpkg_path,
                             area_layer=f"{geometry_name}_area",
                             line_layer=f"{geometry_name}_line",
                             target_crs=reader.ds.crs )
                 n_tiles = 0  
                 for tile in reader.tiles_from_rows(planned_windows): 
-                    tile = labeler.label(tile, geometry_name)
-                    encoded = self.encoder.encode(tile)
+                    label = labeler.label(tile)
+                    encoded = self.encoder.encode(tile, label)
                     if self.dry:
                         row = encoded.as_manifest_row(f"dry_run_{tile.tile_id}")
                     else:
@@ -146,4 +161,6 @@ class TileRasterFromPlan:
                     self.manifest_sink.write(row)
 
         return TileSummary(code=0,n_tiles=n_tiles)
-
+    
+    def tile_by_bucket(self, spec: SCSpec) -> TileSummary:
+        ...

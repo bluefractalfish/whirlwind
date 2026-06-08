@@ -199,7 +199,7 @@ class BinSplitShardWriter:
 
         output 
         ------ 
-        shards in one of two split bins 
+        shards in two split bins 
 
     """
 
@@ -227,9 +227,7 @@ class BinSplitShardWriter:
 
     def write(self, tile: EncodedTile) -> ShardPlacement:
         """ write encoded tile to writer depending on split, defaults to damage """
-        print("in?")
         metadata = tile.metadata
-        print(metadata["labels"])
         damage = metadata["labels"][self.split]
         
         if damage: 

@@ -22,13 +22,13 @@ class Request:
     prefix: str
     shard_size: int 
     overwrite: bool 
-    intersection_label: bool 
     dry: bool 
     dpath_name: str 
     plan_name: str 
     manifest_name: str 
     manifest_kind: str 
-    intersection_geom_name: str
+    intersection_label: bool 
+    intersection_geom_name: str | None=None
     masked: bool = False 
     fill_value: float = 0.0 
     min_content_fraction: float = 0.5 
@@ -78,8 +78,10 @@ class TesselationBridge:
                 pr.advance(t1,1)
                 pr.update(t2, description=f"tiling {RasterFile(p).mosaic_id}")
                 
+                labeler = 
                 # confirm tile plan exists 
                 try: 
+
                     tiler = TileRasterFromPlan(
                             p,
                             tree=request.tree, 
@@ -92,7 +94,9 @@ class TesselationBridge:
                             masked=request.masked, 
                             fill_value=request.fill_value, 
                             dry=request.dry, 
-                            keep_empty=request.keep_empty
+                            keep_empty=request.keep_empty,
+                            min_content_fraction=request.min_content_fraction, 
+                            zero_is_empty=request.zero_is_empty, 
                             ) 
 
                 except FileNotFoundError:
@@ -106,19 +110,21 @@ class TesselationBridge:
                     continue 
 
                 tiler.make_shard_request()
-                # only run labeling if --label or -l flag present. 
+                # only run intersectrion_labeling if --label or -l flag present. 
                 # uses SplitShardWriter to write to damage/nodamage bins 
                 if request.intersection_label: 
                     tilesummary = tiler.tile_by_intersection(
                             geometry_name=request.intersection_geom_name,
                             gpkg_path=request.dpath_name)
+                
+                # only run classification if --classification or -l flag present 
+                # uses BucketShardWriter to write to different classes subdirectories 
+                
 
                 # if no labeling request present, shard normally without referencing labeler 
                 # or this tiles label metadata 
                 else:
-                    tilesummary = tiler.tile(
-                            request.min_content_fraction, 
-                            request.zero_is_empty)
+                    tilesummary = tiler.tile()
 
                 n_rasters += 1
                 n_tiles += tilesummary.n_tiles
