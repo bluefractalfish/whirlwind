@@ -29,12 +29,13 @@
 """
 from __future__ import annotations
 import io
+import re
 import tarfile
 import time
 import json
 import numpy as np
 import rasterio
-from dataclasses import dataclass, field 
+from dataclasses import dataclass, field, replace 
 from pathlib import Path
 from typing import Optional, Any, Iterator 
 from rasterio import Affine
@@ -187,6 +188,61 @@ class ShardWriter:
             self.tar.close()
             self.tar = None
             self.tar_path = None
+
+
+class RoutedShardWriter:
+
+    """
+    used to wrap ShardWriter 
+
+    one child writer is created per label bucket 
+
+    """
+
+    def __init__(self, request: WriteShardRequest) -> None:
+        self.request = request
+        self.writers: dict[str, ShardWriter] = {}
+
+    def __enter__(self) -> "RoutedShardWriter":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
+    def write(self, tile: EncodedTile) -> ShardPlacement:
+        bucket = tile.metadata.get("bucket", "shards")
+        bucket = self._safe_bucket(bucket)
+
+        writer = self._writer_for(bucket)
+        placement = writer.write(tile)
+
+        return replace(
+            placement,
+            shard_path=str(Path(bucket) / placement.shard_path),
+        )
+
+    def _writer_for(self, bucket: str) -> ShardWriter:
+        if bucket not in self.writers:
+            child_request = replace(
+                self.request,
+                out_dir=self.request.out_dir / bucket,
+                prefix=f"{bucket}_{self.request.prefix}",
+            )
+
+            self.writers[bucket] = ShardWriter(child_request)
+
+        return self.writers[bucket]
+
+    def close(self) -> None:
+        for writer in self.writers.values():
+            writer.close()
+
+    @staticmethod
+    def _safe_bucket(bucket: str) -> str:
+        bucket = str(bucket).strip().lower()
+        bucket = re.sub(r"[^a-z0-9_.-]+", "_", bucket)
+        return bucket or "unknown"
+
 
 @dataclass 
 class BinSplitShardWriter: 

@@ -4,7 +4,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path 
 
 from whirlwind.adapters.io.idmanifest import IDManifest 
-from whirlwind.adapters.io.raster_tiler import TileRasterFromPlan 
+from whirlwind.adapters.io.raster_tiler import TileRasterFromPlan  
+from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
+from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.bridges.specs.tiling import TSpec 
 from whirlwind.filesystem.files import RasterFile
 from whirlwind.filesystem.runtree import RunTree 
@@ -78,9 +80,18 @@ class TesselationBridge:
                 pr.advance(t1,1)
                 pr.update(t2, description=f"tiling {RasterFile(p).mosaic_id}")
                 
-                labeler = 
                 # confirm tile plan exists 
-                try: 
+                try:  
+                    if request.intersection_label:
+                            labeler = LabelByIntersection.from_gpkg(
+                                gpkg_path=request.tree.branchlook(request.manifest, p).browse_dir / request.dpath_name,
+                                geometry_name=request.intersection_geom_name or "geom",
+                                area_layer=f"{request.intersection_geom_name}_area",
+                                line_layer=f"{request.intersection_geom_name}_line",
+                                target_crs=None,  # temporary problem: you currently need reader.ds.crs for this
+                            )
+                    else:
+                            labeler = UnaryLabeler()
 
                     tiler = TileRasterFromPlan(
                             p,
@@ -97,6 +108,7 @@ class TesselationBridge:
                             keep_empty=request.keep_empty,
                             min_content_fraction=request.min_content_fraction, 
                             zero_is_empty=request.zero_is_empty, 
+                            labeler=labeler
                             ) 
 
                 except FileNotFoundError:
@@ -110,21 +122,7 @@ class TesselationBridge:
                     continue 
 
                 tiler.make_shard_request()
-                # only run intersectrion_labeling if --label or -l flag present. 
-                # uses SplitShardWriter to write to damage/nodamage bins 
-                if request.intersection_label: 
-                    tilesummary = tiler.tile_by_intersection(
-                            geometry_name=request.intersection_geom_name,
-                            gpkg_path=request.dpath_name)
-                
-                # only run classification if --classification or -l flag present 
-                # uses BucketShardWriter to write to different classes subdirectories 
-                
-
-                # if no labeling request present, shard normally without referencing labeler 
-                # or this tiles label metadata 
-                else:
-                    tilesummary = tiler.tile()
+                tilesummary = tiler.run() 
 
                 n_rasters += 1
                 n_tiles += tilesummary.n_tiles

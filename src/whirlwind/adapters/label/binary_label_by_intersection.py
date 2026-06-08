@@ -39,7 +39,8 @@ class LabelByIntersection:
     def from_gpkg(
             cls,
             gpkg_path: str | Path,
-            *,
+            *, 
+            geometry_name: str,
             area_layer: str,
             line_layer: str,
             target_crs,
@@ -48,7 +49,6 @@ class LabelByIntersection:
             areas = gpd.read_file(gpkg_path, layer=area_layer)
             lines = gpd.read_file(gpkg_path, layer=line_layer)
             
-            geo_name = Path(gpkg_path).name
 
             if areas.crs is not None and target_crs is not None:
                 areas = areas.to_crs(target_crs)
@@ -67,7 +67,7 @@ class LabelByIntersection:
             ]
 
             return cls(
-                geometry_name=geo_name,
+                geometry_name=geometry_name,
                 areas_geometry=area_geoms,
                 lines_geometry=line_geoms,
             )

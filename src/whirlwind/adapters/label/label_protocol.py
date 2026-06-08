@@ -1,6 +1,8 @@
 
-from typing import Protocol, Any, runtime_checkable
-from whirlwind.domain.tile import Tile 
+from typing import Protocol, Any, runtime_checkable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from whirlwind.domain.tile import Tile 
 
 
 class Label(Protocol): 
@@ -14,5 +16,5 @@ class Label(Protocol):
 
 @runtime_checkable
 class Labeler(Protocol): 
-    def label(self, tile: Tile) -> Label:
+    def label(self, tile: "Tile") -> Label:
         ...

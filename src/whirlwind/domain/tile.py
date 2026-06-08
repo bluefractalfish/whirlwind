@@ -91,11 +91,14 @@ class EncodedTile:
     json_bytes: bytes 
     metadata: dict[str, Any]
 
-    def as_manifest_row(self, shard: str) -> ManifestRow: 
-        meta: dict[str, Any] = self.metadata 
+    def as_manifest_row(self, shard: str) -> ManifestRow:
+        meta: dict[str, Any] = self.metadata
 
         window = meta["window"]
         bounds = meta["bounds"]
+
+        label_meta = meta.get("label", {})
+        bucket = meta.get("bucket", label_meta.get("bucket", "shards"))
 
         return ManifestRow(
             tile_id=self.tile_id,
@@ -113,6 +116,18 @@ class EncodedTile:
             maxy=float(bounds["maxy"]),
             bands=int(meta["bands"]),
             dtype=str(meta["dtype"]),
+
+            row_i=meta.get("row_i"),
+            col_i=meta.get("col_i"),
+            bucket=str(bucket),
+            branch_id=meta.get("branch_id"),
+            mosaic_id=meta.get("mosaic_id"),
+
+            label_json=json.dumps(
+                label_meta,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
         )
 
 @dataclass(frozen=True)
@@ -132,6 +147,14 @@ class ManifestRow:
     maxy: float
     bands: int
     dtype: str
+
+    row_i: int | None = None
+    col_i: int | None = None
+    bucket: str = "tiles"
+    branch_id: str | None = None
+    mosaic_id: str | None = None
+
+    label_json: str = "{}"
 
 class TileEncoder: 
     """
@@ -211,7 +234,10 @@ class TileEncoder:
         }
 
         if label is not None:
+            meta["bucket"] = label.bucket
             meta["label"] = dict(label.metadata())
+        else:
+            meta["bucket"] = "shards"
 
         if tile.tile_id is not None:
             meta["tile_ref_id"] = tile.tile_id

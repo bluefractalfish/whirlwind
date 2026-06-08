@@ -20,7 +20,7 @@ class UnaryLabeler:
             shard-000000.tar
     """
 
-    def __init__(self, bucket: str = "tiles") -> None:
+    def __init__(self, bucket: str = "shards") -> None:
         self.bucket = bucket
 
     def label(self, tile: Tile) -> SimpleLabel:

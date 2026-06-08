@@ -7,8 +7,10 @@ from whirlwind.adapters.io.windowplan_io import WindowPlanCSV
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.adapters.io.shard_manifest import make_sink  
 from whirlwind.adapters.io.write_shards import ( 
-                ShardWriter, WriteShardRequest, BinSplitShardWriter
+
+                ShardWriter, WriteShardRequest, BinSplitShardWriter, RoutedShardWriter
             )
+from whirlwind.adapters.label.label_protocol import Labeler
 from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
@@ -45,12 +47,14 @@ class TileRasterFromPlan:
                  keep_empty: bool,  
                  min_content_fraction: float, 
                  zero_is_empty: bool, 
+                 labeler: Labeler | None = None
                  ) -> None: 
         self.p = p 
         self.code = 0 
+        self.labeler = labeler or UnaryLabeler()
         f = RasterFile(p)
         self.encoder = TileEncoder(src=f)
-
+        
         branch = tree.branchlook(manifest,p)
         self.dry = dry 
         self.keep_empty=keep_empty
@@ -93,6 +97,36 @@ class TileRasterFromPlan:
                         size=self.shard_size,) 
 
 
+    
+    def run(self) -> TileSummary: 
+        planned_windows = self.plan_sink.read()
+
+        with RoutedShardWriter(self.req) as writer: 
+            with RasterioWindowReader(
+                    self.p, self.masked, self.fill_value
+                    ) as reader:  
+                n_tiles = 0 
+                for tile in reader.tiles_from_rows(planned_windows):
+
+                    if not self.keep_empty: 
+                        stats = tile_content_stats(
+                                tile, 
+                                min_content_fraction=self.min_content_fraction, 
+                                zero_is_empty=self.zero_is_empty)
+                        if stats.mostly_empty:
+                            continue 
+                    label = self.labeler.label(tile)
+                    encoded = self.encoder.encode(tile,label)
+                    if self.dry:
+                        row = encoded.as_manifest_row(f"dry_{tile.tile_id}")
+                    else:
+                        placement = writer.write(encoded)
+                        row = encoded.as_manifest_row(placement.shard_path)
+                        n_tiles += 1 
+                    self.manifest_sink.write(row)
+        return TileSummary(code=0, n_tiles=n_tiles)
+
+
 
     def tile(self) -> TileSummary:
         planned_windows = self.plan_sink.read() 
@@ -123,7 +157,7 @@ class TileRasterFromPlan:
                     else:
                         placement = writer.write(encoded)
                         n_tiles += 1 
-                        row = encoded.as_manifest_row(placement.key)
+                        row = encoded.as_manifest_row(placement.shard_path)
 
                     self.manifest_sink.write(row)
         
@@ -144,7 +178,8 @@ class TileRasterFromPlan:
                     return TileSummary(code=3)
 
                 labeler = LabelByIntersection.from_gpkg(
-                            gpkg_path=gpkg_path,
+                            gpkg_path=gpkg_path, 
+                            geometry_name=geometry_name,
                             area_layer=f"{geometry_name}_area",
                             line_layer=f"{geometry_name}_line",
                             target_crs=reader.ds.crs )
@@ -157,7 +192,7 @@ class TileRasterFromPlan:
                     else:
                         placement = writer.write(encoded)
                         n_tiles += 1 
-                        row = encoded.as_manifest_row(placement.key)
+                        row = encoded.as_manifest_row(placement.shard_path)
                     self.manifest_sink.write(row)
 
         return TileSummary(code=0,n_tiles=n_tiles)

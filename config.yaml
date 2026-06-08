@@ -54,6 +54,21 @@ plan:
     stride: 512
     drop_partial: true
 
+classification: 
+  spec: 
+    model_name: ViT-B-32
+    hf_repo: chendelong/RemoteCLIP
+    device: cpu 
+    layout: chw
+    percent_lo: 2.0
+    percent_hi: 98.0 
+    mostly_threshold: 0.60 
+    hybrid_second_threshold: 0.25 
+    prefer_structures: true 
+    structure_margin: 0.08 
+    min_structure_score: 0.22
+  checkpoints:
+      cache_dir: /home/rhea/B/checkpoints
 
 
 segmentation:
