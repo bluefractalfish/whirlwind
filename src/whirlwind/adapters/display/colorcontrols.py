@@ -1,7 +1,26 @@
 
 import numpy as np 
+from typing import Literal 
+
 from rasterio.enums import ColorInterp
 from rasterio.io import DatasetWriter 
+
+ArrayLayout = Literal["auto", "chw", "hwc"]
+
+def resolve_layout(arr: np.ndarray, layout: ArrayLayout) -> Literal["chw","hwc"]:
+    if layout in ("chw","hwc"):
+        return layout 
+    if arr.ndim != 3:
+        raise ValueError("layout=auto only applies to 3dim arrays")
+    
+    # assuming fewer than 16 bands!! 
+    if arr.shape[0] <= 16 and arr.shape[1] > 16 and arr.shape[2] > 16:
+        return "chw"
+
+    if arr.shape[2] <= 16 and arr.shape[1] > 16 and arr.shape[0] > 16:
+        return "hwc"
+
+    raise ValueError(f"could not infer layout from shape: {arr}")
 
 def blend_rgb_overlay(
     base_rgb: np.ndarray,
@@ -56,10 +75,41 @@ def interpret_colors(dst: DatasetWriter, arr: np.ndarray) -> None:
     else:
         dst.colorinterp = tuple(ColorInterp.undefined for _ in range(count))
 
+def tile_to_rgb_uint8(
+    tile: np.ndarray,
+    *,
+    layout: ArrayLayout,
+    rgb_bands: tuple[int, int, int],
+    p_low: float,
+    p_high: float,
+) -> np.ndarray:
+    """Convert raster tile array into RGB uint8 for RemoteCLIP."""
+
+    arr = np.asarray(tile)
+
+    if arr.ndim == 2:
+        rgb_float = np.stack([arr, arr, arr], axis=-1)
+
+    elif arr.ndim == 3:
+        resolved = resolve_layout(arr, layout)
+
+        if resolved == "chw":
+            max_band = arr.shape[0] - 1
+            bands = [min(max(b, 0), max_band) for b in rgb_bands]
+            rgb_float = np.transpose(arr[bands, :, :], (1, 2, 0))
+        else:
+            max_band = arr.shape[2] - 1
+            bands = [min(max(b, 0), max_band) for b in rgb_bands]
+            rgb_float = arr[:, :, bands]
+    else:
+        raise ValueError(f"expected 2D or 3D tile array, got {arr.shape}")
+
+    return scale_to_uint8(rgb_float, p_low=p_low, p_high=p_high)
 
 def to_rgb(
     arr: np.ndarray,
     *,
+    layout: ArrayLayout | None = None, 
     display_bands: tuple[int, int, int] | None = None,
     p_low: float,
     p_high: float,
@@ -151,6 +201,9 @@ def to_rgba(
 
     return np.concatenate([rgb, alpha_u8[np.newaxis, :, :]], axis=0)
 
+
+
+# these both basically do the same thing. keeping for legacy compatability 
 def stretch_to_uint8(
     arr: np.ndarray,
     *,
@@ -204,6 +257,45 @@ def stretch_to_uint8(
 
     return out
 
+
+def scale_to_uint8(arr: np.ndarray, *, p_low: float, p_high: float) -> np.ndarray:
+    x = np.asarray(arr)
+
+    if x.dtype == np.uint8:
+        return x.copy()
+
+    x = x.astype(np.float32)
+    out = np.zeros(x.shape, dtype=np.uint8)
+
+    for c in range(x.shape[-1]):
+        band = x[..., c]
+        finite = np.isfinite(band)
+
+        if not finite.any():
+            continue
+
+        vals = band[finite]
+        raw_min = float(vals.min())
+        raw_max = float(vals.max())
+
+        if raw_max <= raw_min:
+            out[..., c].fill(255 if raw_max > 0 else 0)
+            continue
+
+        lo = float(np.percentile(vals, p_low))
+        hi = float(np.percentile(vals, p_high))
+
+        if hi <= lo:
+            lo = raw_min
+            hi = raw_max
+
+        y = (band - lo) / (hi - lo)
+        y = np.clip(y, 0.0, 1.0)
+        y[~finite] = 0.0
+
+        out[..., c] = (y * 255.0).round().astype(np.uint8)
+
+    return out
 
 def band_to_uint8(vals: np.ndarray) -> int:
     """

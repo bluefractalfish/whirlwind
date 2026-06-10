@@ -6,8 +6,10 @@ from pathlib import Path
 from whirlwind.adapters.io.idmanifest import IDManifest 
 from whirlwind.adapters.io.raster_tiler import TileRasterFromPlan  
 from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
+from whirlwind.adapters.classification.semantic import SemanticLabeler, SemanticClassifier
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.bridges.specs.tiling import TSpec 
+from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile
 from whirlwind.filesystem.runtree import RunTree 
 from whirlwind.interface import face 
@@ -31,9 +33,11 @@ class Request:
     manifest_kind: str 
     intersection_label: bool 
     intersection_geom_name: str | None=None
+    classification: bool = False
+    bands: tuple[int,int,int] = (0,1,2)
     masked: bool = False 
     fill_value: float = 0.0 
-    min_content_fraction: float = 0.5 
+    min_content_fraction: float = 1.0
     keep_empty: bool = False 
     zero_is_empty: bool = True 
 
@@ -83,13 +87,17 @@ class TesselationBridge:
                 # confirm tile plan exists 
                 try:  
                     if request.intersection_label:
-                            labeler = LabelByIntersection.from_gpkg(
+                        labeler = LabelByIntersection.from_gpkg(
                                 gpkg_path=request.tree.branchlook(request.manifest, p).browse_dir / request.dpath_name,
                                 geometry_name=request.intersection_geom_name or "geom",
                                 area_layer=f"{request.intersection_geom_name}_area",
                                 line_layer=f"{request.intersection_geom_name}_line",
                                 target_crs=None,  # temporary problem: you currently need reader.ds.crs for this
-                            )
+                            ) 
+                    elif request.classification: 
+                        semantic_classifier_spec = SCSpec(rgb_bands=request.bands)
+                        classifier = SemanticClassifier(semantic_classifier_spec) 
+                        labeler = SemanticLabeler(classifier)
                     else:
                             labeler = UnaryLabeler()
 

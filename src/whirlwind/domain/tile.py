@@ -432,6 +432,7 @@ def tile_content_stats(
 
     total_pixels = int(content_pixel.size)
 
+
     if total_pixels == 0:
         return TileContentStats(
             valid_fraction=0.0,

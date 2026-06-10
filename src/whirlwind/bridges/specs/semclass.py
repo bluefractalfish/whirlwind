@@ -1,14 +1,13 @@
 
 from dataclasses import dataclass
 from typing import Literal
+from whirlwind.adapters.display.colorcontrols import ArrayLayout
 
-
-ArrayLayout = Literal["auto", "chw", "hwc"]
 BucketMode = Literal["mostly", "hybrid"]
 
 @dataclass(frozen=True) 
 class SCSpec: 
-    cache_dir: str
+    cache_dir: str = "~/.cache/remoteclip"
     model_name: str = "ViT-B-32"
     checkpoint_path: str | None = None 
     hf_repo: str = "chendelong/RemoteCLIP"
@@ -18,8 +17,8 @@ class SCSpec:
     rgb_bands: tuple[int, int, int] = (0,1,2)
     percentile_low: float = 2.0 
     percentile_high: float = 98.0 
-    bucket_mode: BucketMode = "hybrid"
-    mostly_threshold: float = 0.60 
+    bucket_mode: BucketMode = "mostly"
+    mostly_threshold: float = 0.80 
     hybrid_second_threshold: float = 0.25
     
 
