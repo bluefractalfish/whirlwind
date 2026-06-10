@@ -17,8 +17,8 @@ class SCSpec:
     rgb_bands: tuple[int, int, int] = (0,1,2)
     percentile_low: float = 2.0 
     percentile_high: float = 98.0 
-    bucket_mode: BucketMode = "mostly"
-    mostly_threshold: float = 0.80 
+    bucket_mode: BucketMode = "hybrid"
+    mostly_threshold: float = 0.50 
     hybrid_second_threshold: float = 0.25
     
 

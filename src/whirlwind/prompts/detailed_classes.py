@@ -74,7 +74,8 @@ DETAILED_TO_FINAL: dict[str, str] = {
     "metal_roof_building": "structures",
     "small_shed_or_outbuilding": "structures",
     "farm_or_industrial_structure": "structures",
-    "damaged_or_broken_structure": "structures",
+
+    "damaged_or_broken_structure": "debris",
 
     # Roads / paved / tracks
     "asphalt_road": "roads",
@@ -157,6 +158,8 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, list[str]] = {
     ],
     "damaged_or_broken_structure": [
         "an overhead aerial image of a damaged building roof with debris and broken edges",
+        "an overhead aerial image of the remaining walls of a roofless structure",
+        "the areal view of a grid of walls remaining after the roof has been removed",
         "a remote sensing crop of a collapsed or partially destroyed structure",
         "an orthomosaic patch showing roof damage missing panels or scattered building debris",
         "a nadir aerial image of a storm damaged building structure",
@@ -302,7 +305,7 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, list[str]] = {
         "an overhead aerial image of scattered debris or rubble",
         "a remote sensing crop of storm debris broken material or irregular wreckage",
         "an orthomosaic patch of debris field with chaotic texture",
-        "a nadir aerial view of damaged scattered objects on ground",
+        "a nadir aerial view of damaged scattered objects on ground or in trees",
     ],
     "unknown_mixed_landcover": [
         "an ambiguous overhead aerial image with mixed land cover",
