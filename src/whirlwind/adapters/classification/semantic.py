@@ -1,8 +1,6 @@
 
-from collections import Counter
-from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Sequence
 
 import numpy as np
 from PIL import Image
@@ -10,7 +8,6 @@ from PIL import Image
 import torch
 import open_clip
 from huggingface_hub import hf_hub_download
-import rasterio
 
 from whirlwind.bridges.specs.semclass import SCSpec 
 from whirlwind.prompts.detailed_classes import (
@@ -96,7 +93,7 @@ class SemanticClassifier:
         if self.spec.prefer_structures:
             final_scores = self._prefer_structures_if_close(final_scores)
 
-        return self._label_from_scores_debris_prio(
+        return self._label_from_scores(
             final_scores=final_scores,
             detailed_scores=detailed_scores,
         )
@@ -130,7 +127,7 @@ class SemanticClassifier:
         scores = {name: 0.0 for name in FINAL_CLASSES}
 
         for detailed_class, score in detailed_scores.items():
-            final_class = DETAILED_TO_FINAL.get(detailed_class, "mixed")
+            final_class = DETAILED_TO_FINAL.get(detailed_class, "review")
             scores[final_class] += float(score)
 
         total = sum(scores.values())
@@ -143,6 +140,7 @@ class SemanticClassifier:
         self,
         final_scores: dict[str, float],
     ) -> dict[str, float]:
+
         scores = dict(final_scores)
 
         top_class = max(scores, key=scores.get)
@@ -150,7 +148,7 @@ class SemanticClassifier:
         structure_score = float(scores.get("structures", 0.0))
 
         if (
-            top_class in {"roads", "tracks", "dirt", "shadow", "mixed"}
+            top_class in {"roads", "tracks", "dirt", "shadow", "review"}
             and structure_score >= self.spec.min_structure_score
             and top_score - structure_score <= self.spec.structure_margin
         ):
@@ -169,7 +167,7 @@ class SemanticClassifier:
         final_scores: dict[str, float],
         detailed_scores: dict[str, float],
     ) -> SemanticLabel: 
-
+    
         ranked = sorted(final_scores.items(), key=lambda kv: kv[1], reverse=True)
 
         top_class, top_score = ranked[0] 
@@ -192,7 +190,7 @@ class SemanticClassifier:
             )
 
 
-        dominant = "mixed" if mixed else top_class
+        dominant = "review" if mixed else top_class
 
         return SemanticLabel(
             bucket=bucket,
@@ -207,75 +205,13 @@ class SemanticClassifier:
             bucket_mode=self.spec.bucket_mode,
         )
 
-    def _label_from_scores_debris_prio(
-        self,
-        *,
-        final_scores: dict[str, float],
-        detailed_scores: dict[str, float],
-    ) -> SemanticLabel: 
+    def _bucket_name(self, 
+                     top_bin: BinScore, 
+                     second_bin: BinScore, 
+                     mixed: bool) -> str:
+        ...
 
-        scores = dict(final_scores)
-
-        # Sort final classes from most likely to least likely.
-        ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-
-        top_class, top_score = ranked[0]
-        second_class, second_score = ranked[1] if len(ranked) > 1 else ("none", 0.0)
-
-        max_score = float(ranked[0][1])
-        min_score = float(ranked[-1][1])
-        score_spread = max_score - min_score
-
-        # Mixed should be rare:
-        # only use it when every class is basically tied.
-        mixed_spread_threshold = 0.015
-        mixed = len(ranked) > 1 and score_spread <= mixed_spread_threshold
-
-        # Debris priority:
-        # if debris is close to the best class, route to debris.
-        debris_priority_margin = 0.095
-        debris_score = float(scores.get("debris", 0.0))
-
-        if not mixed and "debris" in scores:
-            if top_score - debris_score <= debris_priority_margin:
-                top_class = "debris"
-                top_score = debris_score
-
-                reranked = sorted(
-                    [
-                        (name, score)
-                        for name, score in scores.items()
-                        if name != "debris"
-                    ],
-                    key=lambda kv: kv[1],
-                    reverse=True,
-                )
-                second_class, second_score = reranked[0] if reranked else ("none", 0.0)
-
-        top_bin = BinScore(name=top_class, score=float(top_score))
-        second_bin = BinScore(name=second_class, score=float(second_score))
-
-        bucket = self._bucket_name(
-            top_bin=top_bin,
-            second_bin=second_bin,
-            mixed=mixed,
-        )
-
-        dominant = "mixed" if mixed else top_class
-
-        return SemanticLabel(
-            bucket=bucket,
-            dominant=dominant,
-            mixed=mixed,
-            top_class=top_bin,
-            second_class=second_bin,
-            final_scores=final_scores,
-            detailed_scores=detailed_scores,
-            majority_threshold=self.spec.mostly_threshold,
-            second_threshold=self.spec.hybrid_second_threshold,
-            bucket_mode=self.spec.bucket_mode,
-        )
-    def _bucket_name(
+    def _hybrid_bucket_name(
         self,
         *,
         top_bin: BinScore,
@@ -286,7 +222,7 @@ class SemanticClassifier:
             return f"{top_bin.name}"
 
         if self.spec.bucket_mode == "mostly":
-            return "mixed"
+            return "review"
 
         if (
             self.spec.bucket_mode == "hybrid"
@@ -294,7 +230,7 @@ class SemanticClassifier:
         ):
             return f"{top_bin.name}_{second_bin.name}"
 
-        return "mixed"
+        return "review"
 
 
 class SemanticLabeler:

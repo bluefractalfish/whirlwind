@@ -96,6 +96,7 @@ class TesselationBridge:
                             ) 
                     elif request.classification: 
                         semantic_classifier_spec = SCSpec(rgb_bands=request.bands)
+                        print(semantic_classifier_spec.bucket_mode)
                         classifier = SemanticClassifier(semantic_classifier_spec) 
                         labeler = SemanticLabeler(classifier)
                     else:

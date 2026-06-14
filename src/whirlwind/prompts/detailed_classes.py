@@ -52,16 +52,13 @@ DETAILED_CLASSES: tuple[str, ...] = (
 FINAL_CLASSES: tuple[str, ...] = (
     "structures",
     "roads",
-    "tracks",
     "trees",
     "grass",
     "dirt",
     "crops",
     "water",
-    "shadow",
-    "vehicles",
     "debris",
-    "mixed",
+    "review",
 )
 
 
@@ -75,14 +72,12 @@ DETAILED_TO_FINAL: dict[str, str] = {
     "small_shed_or_outbuilding": "structures",
     "farm_or_industrial_structure": "structures",
 
-    "damaged_or_broken_structure": "debris",
-
-    # Roads / paved / tracks
+    # Roads
     "asphalt_road": "roads",
     "concrete_road": "roads",
     "gravel_road": "roads",
     "driveway_or_parking_area": "roads",
-    "linear_track_or_tire_path": "tracks",
+    "linear_track_or_tire_path": "roads",
 
     # Trees
     "deciduous_tree_canopy": "trees",
@@ -106,10 +101,11 @@ DETAILED_TO_FINAL: dict[str, str] = {
 
     # Other explicit
     "water": "water",
-    "deep_shadow": "shadow",
-    "vehicle": "vehicles",
+    "deep_shadow": "review",
+    "vehicle": "review",
     "debris_or_rubble": "debris",
-    "unknown_mixed_landcover": "mixed",
+    "unknown_mixed_landcover": "review",
+    "damaged_or_broken_structure": "debris",
 }
 
 
