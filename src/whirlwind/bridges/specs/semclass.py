@@ -41,8 +41,5 @@ class SCSpec:
     
     #logit 
     logit_scale: float = 100.0
-    # ------------------------------------------------------------------
-    # Optional runtime behavior
-    # ------------------------------------------------------------------
 
     log_decisions: bool = True 

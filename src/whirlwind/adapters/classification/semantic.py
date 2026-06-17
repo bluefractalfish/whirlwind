@@ -39,6 +39,19 @@ from whirlwind.prompts.tile_classes import (
 LOGGER = logging.getLogger(__name__)
 TOP_K_CLASSES = 2
 
+class SemanticLabeler:
+    """Adapter from classifier to the existing Labeler shape."""
+
+    def __init__(self, classifier: SemanticClassifier) -> None:
+        self.classifier = classifier
+
+    def label(self, tile: Tile) -> SemanticLabel:
+        if tile.read is None:
+            raise ValueError("cannot classify tile with tile.read is None")
+        return self.classifier.classify(
+            tile.read.array,
+            tile_id=tile.tile_id,
+        )
 
 class SemanticClassifier: 
     def __init__(
@@ -130,9 +143,9 @@ class SemanticClassifier:
 
         detail_final_scores = collapse(detailed_scores)
         
-        decision = DecisionSummary.build(
+        decision = DecisionSummary.build_from(
                                         coarse_scores=coarse_scores,
-                                        detail_final_scores=detail_final_scores, 
+                                        detailed_scores=detail_final_scores, 
                                         class_thresholds=self.class_thresholds)
 
         label =  SemanticLabel.from_decision(decision=decision, 
@@ -166,60 +179,62 @@ class SemanticClassifier:
             extra={
                 "tile_id": tile_id,
                 "bucket": label.bucket,
-                "candidate": label.candidate,
+                "dominant": label.dominant,
                 "accepted": label.accepted,
-                "top_class": label.top_class.name,
-                "top_score": label.top_class.score,
-                "second_class": label.second_class.name, 
-                "second_score": label.second_class.score, 
+                "top_class": label.top_class,
+                "second_class": label.second_class, 
                 "margin": label.margin,
                 "review_score": label.review_score,
-                "detail_top_class": label.top_detailed_class.name,
-                "detail_top_score": label.top_detailed_class.score,
+                "detail_top_class": label.top_detailed_class,
                 "review_reasons": label.review_reasons,
             },
         )
 
-
-
-class SemanticLabeler:
-    """Adapter from classifier to the existing Labeler shape."""
-
-    def __init__(self, classifier: SemanticClassifier) -> None:
-        self.classifier = classifier
-
-    def label(self, tile: Tile) -> SemanticLabel:
-        if tile.read is None:
-            raise ValueError("cannot classify tile with tile.read is None")
-        return self.classifier.classify(
-            tile.read.array,
-            tile_id=tile.tile_id,
-        )
-
-
 class SemanticIntellect: 
 
     def __init__(self, spec: SCSpec) -> None:
-
+        
+        self.spec = spec
         self.device = torch.device(spec.device)
         self.model, _, self.preprocess = open_clip.create_model_and_transforms(
               spec.model_name
             ) 
         self.tokenizer = open_clip.get_tokenizer(spec.model_name)
-        if spec.checkpoint_path is not None:
-            checkpoint_path = str(Path(spec.checkpoint_path).expanduser())
-        else:
-            checkpoint_path = hf_hub_download(
-                      repo_id=spec.hf_repo, 
-                      filename=f"RemoteCLIP-{spec.model_name}.pt",
-                      cache_dir=str(Path(spec.cache_dir).expanduser())
-                    )
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        
+        checkpoint_path = self._resolve_checkpoint()
+
+
+        checkpoint = torch.load( 
+                                checkpoint_path, 
+                                map_location="cpu", 
+                                weights_only=True)
+
         if isinstance(checkpoint, dict) and "state_dict" in checkpoint: 
               checkpoint = checkpoint["state_dict"]
         self.model.load_state_dict(checkpoint, strict=False) 
         self.model = self.model.to(self.device).eval()
     
+    def _resolve_checkpoint(self) -> str: 
+        if self.spec.checkpoint_path is not None: 
+            path = Path(self.spec.checkpoint_path).expanduser()
+            if not path.exists():
+                raise FileNotFoundError("cannot find remoteclip checkpoint")
+            return str(path)
+        try:
+            return hf_hub_download(
+                repo_id=self.spec.hf_repo,
+                filename=f"RemoteCLIP-{self.spec.model_name}.pt",
+                cache_dir=str(Path(self.spec.cache_dir).expanduser()),
+            )
+        except RuntimeError as exc:
+            if "client has been closed" in str(exc):
+                raise RuntimeError(
+                    "Hugging Face download failed because its HTTP client was closed. "
+                    "Download the checkpoint manually and pass SCSpec(checkpoint_path=...). "
+                    f"Expected filename: RemoteCLIP-{self.spec.model_name}.pt"
+                ) from exc
+            raise
+
     def encode_text_features(self, 
                bank: PromptBank
                ) -> torch.Tensor: 

@@ -100,7 +100,9 @@ class TesselationBridge:
                                 target_crs=None,  # temporary problem: you currently need reader.ds.crs for this
                             ) 
                     elif request.classification: 
-                        semantic_classifier_spec = SCSpec()
+                        semantic_classifier_spec = SCSpec(
+                                checkpoint_path=Path("~/.cache/whirlwind/remoteclip/RemoteCLIP-ViT-B-32.pt")
+                                )
                         classifier = SemanticClassifier(semantic_classifier_spec) 
                         labeler = SemanticLabeler(classifier)
                     else:
