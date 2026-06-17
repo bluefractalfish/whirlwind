@@ -179,5 +179,6 @@ def label_from_decision(
         second_class=BinScore(name=second_class, score=float(second_score)),
         final_scores={k: float(v) for k, v in final_scores.items()},
         detailed_scores={k: float(v) for k, v in detailed_scores.items()},
+        detail_margin=000
     )
 
