@@ -40,55 +40,54 @@ def final_class_rule_from_config(class_name: str, config: Config) -> "ClassThres
         return ClassThreshold(min_score, min_margin, max_second, max_review)
     return ClassThreshold(0.0, 0.0, 0.0, 0.0)
 
-
 CLASS_THRESHOLDS: dict[str, ClassThreshold] = {
     "structures": ClassThreshold(
-        min_score=0.55,
+        min_score=0.48,
         min_margin=0.10,
         max_second_score=0.30,
         max_review_score=0.22,
     ),
     "roads": ClassThreshold(
-        min_score=0.59,
+        min_score=0.40,
         min_margin=0.12,
         max_second_score=0.28,
-        max_review_score=0.20,
-    ),
-    "tracks": ClassThreshold(
-        min_score=0.57,
-        min_margin=0.11,
-        max_second_score=0.29,
-        max_review_score=0.21,
-    ),
-    "trees": ClassThreshold(
-        min_score=0.56,
-        min_margin=0.10,
-        max_second_score=0.30,
         max_review_score=0.22,
     ),
+    "tracks": ClassThreshold(
+        min_score=0.45,
+        min_margin=0.11,
+        max_second_score=0.29,
+        max_review_score=0.24,
+    ),
+    "trees": ClassThreshold(
+        min_score=0.52,
+        min_margin=0.10,
+        max_second_score=0.30,
+        max_review_score=0.24,
+    ),
     "grass": ClassThreshold(
-        min_score=0.60,
+        min_score=0.55,
         min_margin=0.12,
         max_second_score=0.26,
-        max_review_score=0.20,
+        max_review_score=0.24,
     ),
     "dirt": ClassThreshold(
-        min_score=0.60,
+        min_score=0.55,
         min_margin=0.12,
         max_second_score=0.26,
-        max_review_score=0.20,
+        max_review_score=0.24,
     ),
     "crops": ClassThreshold(
         min_score=0.58,
         min_margin=0.12,
         max_second_score=0.28,
-        max_review_score=0.20,
+        max_review_score=0.24,
     ),
     "water": ClassThreshold(
         min_score=0.62,
         min_margin=0.10,
         max_second_score=0.24,
-        max_review_score=0.18,
+        max_review_score=0.24,
     ),
     "debris": ClassThreshold(
         min_score=0.50,
@@ -98,7 +97,7 @@ CLASS_THRESHOLDS: dict[str, ClassThreshold] = {
     ),
 }
 
-DETAIL_AGREEMENT_MIN_SCORE = 0.30
+DETAIL_AGREEMENT_MIN_SCORE = 0.22
 DETAIL_AGREEMENT_MIN_MARGIN = 0.04
 
 
