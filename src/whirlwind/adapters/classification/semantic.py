@@ -1,240 +1,189 @@
 
+import json
+import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence, Any
 
 import numpy as np
+import open_clip
+import torch
+from huggingface_hub import hf_hub_download
 from PIL import Image
 
-import torch
-import open_clip
-from huggingface_hub import hf_hub_download
-
-from whirlwind.bridges.specs.semclass import SCSpec 
-from whirlwind.prompts.detailed_classes import (
-        DETAILED_CLASSES, PROMPTS_BY_DETAILED_CLASS, 
-        FINAL_CLASSES, DETAILED_TO_FINAL
-        )
-
 from whirlwind.adapters.display.colorcontrols import tile_to_rgb_uint8
-from whirlwind.adapters.label.semantic_labels import SemanticLabel, BinScore
+from whirlwind.adapters.label.semantic_labels import SemanticLabel, DecisionSummary
+from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.domain.tile import Tile
+from whirlwind.prompts.prompt_builders import PromptBank, collapse
+from whirlwind.models.helpers.logit import PromptLogitator
+from whirlwind.prompts.detailed_classes import (
+    DETAILED_CLASSES,
+    DETAILED_TO_FINAL,
+    FINAL_CLASSES,
+    FINAL_TO_DETAILED_CLASSES,
+    PROMPTS_BY_DETAILED_CLASS,
+    REVIEW_CLASS,
+)
+from whirlwind.prompts.tile_classes import (
+        DETAIL_AGREEMENT_MIN_MARGIN, 
+        DETAIL_AGREEMENT_MIN_SCORE, 
+        FINAL_CLASS_PROMPTS, 
+        CLASS_THRESHOLDS, 
+        TIE_BREAK_ORDER, 
+        ClassThreshold
+    )
 
-class SemanticClassifier:
-    """ 
-        used to create labels according to RemoteCLIP classification, with classes 
-        provided by prompt/classes 
-    """
 
-    def __init__(self, spec: SCSpec) -> None:
-        self.spec = spec
-        self.device = torch.device(spec.device)
 
-        self.model, _, self.preprocess = open_clip.create_model_and_transforms(
-            spec.model_name
-        )
-        self.tokenizer = open_clip.get_tokenizer(spec.model_name)
+LOGGER = logging.getLogger(__name__)
+TOP_K_CLASSES = 2
 
-        checkpoint_path = self._resolve_checkpoint(spec)
-        ckpt = torch.load(checkpoint_path, map_location="cpu")
 
-        if isinstance(ckpt, dict) and "state_dict" in ckpt:
-            ckpt = ckpt["state_dict"]
+class SemanticClassifier: 
+    def __init__(
+            self, 
+            spec: SCSpec, 
+            *, 
+            class_thresholds: Mapping[str, ClassThreshold] | None = None, 
+            logger: logging.Logger | None=None
+            ) -> None: 
 
-        self.model.load_state_dict(ckpt, strict=False)
-        self.model = self.model.to(self.device).eval()
 
-        self.detailed_classes = DETAILED_CLASSES
-        self.texts: list[str] = []
-        self.text_to_class: list[str] = []
+        self.spec = spec 
+        self.logger = logger or LOGGER 
 
-        for class_name in self.detailed_classes:
-            for prompt in PROMPTS_BY_DETAILED_CLASS[class_name]:
-                self.texts.append(prompt)
-                self.text_to_class.append(class_name)
+        self.class_bank = PromptBank.build(
+                classes=FINAL_CLASSES, 
+                prompts_by_class=FINAL_CLASS_PROMPTS) 
 
-        with torch.no_grad():
-            text_tokens = self.tokenizer(self.texts).to(self.device)
-            text_features = self.model.encode_text(text_tokens)
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        self.detailed_class_bank = PromptBank.build(
+                classes=DETAILED_CLASSES, 
+                prompts_by_class=PROMPTS_BY_DETAILED_CLASS) 
 
-        self.text_features = text_features
+        
+        self.class_thresholds = self._merge(class_thresholds) 
+        
+        self.intellect = SemanticIntellect(self.spec)
 
-        self.prompt_indices_by_class: dict[str, list[int]] = {
-            class_name: [
-                i for i, mapped in enumerate(self.text_to_class)
-                if mapped == class_name
-            ]
-            for class_name in self.detailed_classes
-        }
+        self.class_text_features = self.intellect.encode_text_features(
+                self.class_bank
+                ) 
+        self.detailed_text_features = self.intellect.encode_text_features(
+                self.detailed_class_bank
+                )
 
-    def _resolve_checkpoint(self, spec: SCSpec) -> str:
-        if spec.checkpoint_path is not None:
-            return str(Path(spec.checkpoint_path).expanduser())
+    def _merge(self, class_thresholds) -> dict[Any,Any]:
+        merged_thresholds = dict(CLASS_THRESHOLDS) 
+        if class_thresholds is not None: 
+            merged_thresholds.update(class_thresholds) 
+        return merged_thresholds
 
-        return hf_hub_download(
-            repo_id=spec.hf_repo,
-            filename=f"RemoteCLIP-{spec.model_name}.pt",
-            cache_dir=str(Path(spec.cache_dir).expanduser()),
-        )
+    def _logits(self,
+                image_features: torch.Tensor,
+                text_features: torch.Tensor) -> torch.Tensor:  
+        return (100.0 * image_features @ text_features.T).squeeze(0)
 
-    def classify_tile(self, tile: np.ndarray) -> SemanticLabel:
+    def _softmax_logits(self, 
+                    image_features: torch.Tensor, 
+                    bank: PromptBank, 
+                    text_features: torch.Tensor, 
+                    ) -> dict[str, float]:  
+        
+        logitator = PromptLogitator(
+                i_features=image_features, 
+                t_features=text_features, 
+                logit_scale=self.spec.logit_scale, 
+                bank=bank
+                ) 
+
+        return logitator.resolve_scores(TOP_K_CLASSES, "softmax")
+
+    def classify(self, 
+                 tile: np.ndarray, 
+                 *, 
+                 tile_id: str | None=None, 
+                 ) -> SemanticLabel:  
+
         rgb = tile_to_rgb_uint8(
-            tile,
-            layout=self.spec.layout,
-            rgb_bands=self.spec.rgb_bands,
-            p_low=self.spec.percentile_low,
-            p_high=self.spec.percentile_high,
-        )
+                tile, 
+                layout = self.spec.layout, 
+                rgb_bands=self.spec.rgb_bands, 
+                p_low = self.spec.percentile_low, 
+                p_high = self.spec.percentile_high, 
+            ) 
 
         image = Image.fromarray(rgb).convert("RGB")
-        detailed_scores = self._classify_image(image)
-        final_scores = self._collapse_to_final(detailed_scores)
+        image_features = self.intellect.encode_image_features(image)
 
-        if self.spec.prefer_structures:
-            final_scores = self._prefer_structures_if_close(final_scores)
+        coarse_scores = self._softmax_logits(
+                image_features=image_features, 
+                bank = self.class_bank, 
+                text_features= self.class_text_features,
+                )  
 
-        return self._label_from_scores(
-            final_scores=final_scores,
-            detailed_scores=detailed_scores,
-        )
+        detailed_scores = self._softmax_logits(
+                image_features=image_features, 
+                bank = self.detailed_class_bank, 
+                text_features = self.detailed_text_features, 
+                )
 
-    def classify_tiles(self, tiles: Sequence[np.ndarray]) -> list[SemanticLabel]:
-        return [self.classify_tile(tile) for tile in tiles]
-
-    def _classify_image(self, image: Image.Image) -> dict[str, float]:
-        image_tensor = self.preprocess(image).unsqueeze(0).to(self.device)
-
-        with torch.no_grad():
-            image_features = self.model.encode_image(image_tensor)
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-
-            prompt_logits = (100.0 * image_features @ self.text_features.T).squeeze(0)
-
-            class_logits = []
-            for class_name in self.detailed_classes:
-                idxs = self.prompt_indices_by_class[class_name]
-                class_logits.append(prompt_logits[idxs].mean())
-
-            class_logits_tensor = torch.stack(class_logits)
-            class_probs = class_logits_tensor.softmax(dim=0).detach().cpu().numpy()
-
-        return {
-            class_name: float(prob)
-            for class_name, prob in zip(self.detailed_classes, class_probs)
-        }
-
-    def _collapse_to_final(self, detailed_scores: dict[str, float]) -> dict[str, float]:
-        scores = {name: 0.0 for name in FINAL_CLASSES}
-
-        for detailed_class, score in detailed_scores.items():
-            final_class = DETAILED_TO_FINAL.get(detailed_class, "review")
-            scores[final_class] += float(score)
-
-        total = sum(scores.values())
-        if total > 0:
-            scores = {k: float(v / total) for k, v in scores.items()}
-
-        return scores
-
-    def _prefer_structures_if_close(
-        self,
-        final_scores: dict[str, float],
-    ) -> dict[str, float]:
-
-        scores = dict(final_scores)
-
-        top_class = max(scores, key=scores.get)
-        top_score = float(scores[top_class])
-        structure_score = float(scores.get("structures", 0.0))
-
-        if (
-            top_class in {"roads", "tracks", "dirt", "shadow", "review"}
-            and structure_score >= self.spec.min_structure_score
-            and top_score - structure_score <= self.spec.structure_margin
-        ):
-            scores["structures"] = top_score + 0.001
-            scores[top_class] = max(0.0, structure_score - 0.001)
-
-        total = sum(scores.values())
-        if total > 0:
-            scores = {k: float(v / total) for k, v in scores.items()}
-
-        return scores
-
-    def _label_from_scores(
-        self,
-        *,
-        final_scores: dict[str, float],
-        detailed_scores: dict[str, float],
-    ) -> SemanticLabel: 
-    
-        ranked = sorted(final_scores.items(), key=lambda kv: kv[1], reverse=True)
-
-        top_class, top_score = ranked[0] 
+        detail_final_scores = collapse(detailed_scores)
         
-        second_class, second_score = ranked[1] if len(ranked) > 1 else ("none", 0.0)
-            
+        decision = DecisionSummary.build(
+                                        coarse_scores=coarse_scores,
+                                        detail_final_scores=detail_final_scores, 
+                                        class_thresholds=self.class_thresholds)
 
-        top_bin = BinScore(name = top_class, score=top_score) 
-        second_bin = BinScore(name=second_class, score=second_score) 
+        label =  SemanticLabel.from_decision(decision=decision, 
+                                          class_scores=coarse_scores,
+                                          detailed_scores=detailed_scores) 
 
-        mixed = (
-            top_score < self.spec.mostly_threshold
-            or second_score >= self.spec.hybrid_second_threshold
+        self._log_decision(tile_id=tile_id, label=label)
+        return label 
+
+    def bulk_classify(self, 
+                      tiles: Sequence[np.ndarray],
+                      *, 
+                      tile_ids: Sequence[str | None] | None = None, 
+                      ) -> list[SemanticLabel]:
+        ... 
+    def record_decision(self, 
+                        *, 
+                        tile_id: str | None, 
+                        label: SemanticLabel, 
+                        coarse_scores: Mapping[str, float], 
+                        detail_scores: Mapping[str, float], 
+                        detail_class_scores: Mapping[str, float]
+                        ) -> None: 
+        ... 
+    def _log_decision(self, tile_id: str | None, label: SemanticLabel) -> None:
+        if not self.spec.log_decisions:
+            return
+
+        self.logger.debug(
+            "semantic decision",
+            extra={
+                "tile_id": tile_id,
+                "bucket": label.bucket,
+                "candidate": label.candidate,
+                "accepted": label.accepted,
+                "top_class": label.top_class.name,
+                "top_score": label.top_class.score,
+                "second_class": label.second_class.name, 
+                "second_score": label.second_class.score, 
+                "margin": label.margin,
+                "review_score": label.review_score,
+                "detail_top_class": label.top_detailed_class.name,
+                "detail_top_score": label.top_detailed_class.score,
+                "review_reasons": label.review_reasons,
+            },
         )
 
-        bucket = self._bucket_name(
-                top_bin = top_bin,
-                second_bin=second_bin, 
-                mixed=mixed
-            )
-
-
-        dominant = "review" if mixed else top_class
-
-        return SemanticLabel(
-            bucket=bucket,
-            dominant=dominant,
-            mixed=mixed,
-            top_class=top_bin,
-            second_class=second_bin,
-            final_scores=final_scores,
-            detailed_scores=detailed_scores,
-            majority_threshold=self.spec.mostly_threshold,
-            second_threshold=self.spec.hybrid_second_threshold,
-            bucket_mode=self.spec.bucket_mode,
-        )
-
-    def _bucket_name(self, 
-                     top_bin: BinScore, 
-                     second_bin: BinScore, 
-                     mixed: bool) -> str:
-        ...
-
-    def _hybrid_bucket_name(
-        self,
-        *,
-        top_bin: BinScore,
-        second_bin: BinScore,
-        mixed: bool,
-    ) -> str:
-        if not mixed:
-            return f"{top_bin.name}"
-
-        if self.spec.bucket_mode == "mostly":
-            return "review"
-
-        if (
-            self.spec.bucket_mode == "hybrid"
-            and second_bin.score >= self.spec.hybrid_second_threshold
-        ):
-            return f"{top_bin.name}_{second_bin.name}"
-
-        return "review"
 
 
 class SemanticLabeler:
-    """Adapter from classifier to your Labeler shape."""
+    """Adapter from classifier to the existing Labeler shape."""
 
     def __init__(self, classifier: SemanticClassifier) -> None:
         self.classifier = classifier
@@ -242,6 +191,47 @@ class SemanticLabeler:
     def label(self, tile: Tile) -> SemanticLabel:
         if tile.read is None:
             raise ValueError("cannot classify tile with tile.read is None")
-        return self.classifier.classify_tile(tile.read.array)
+        return self.classifier.classify(
+            tile.read.array,
+            tile_id=tile.tile_id,
+        )
 
 
+class SemanticIntellect: 
+
+    def __init__(self, spec: SCSpec) -> None:
+
+        self.device = torch.device(spec.device)
+        self.model, _, self.preprocess = open_clip.create_model_and_transforms(
+              spec.model_name
+            ) 
+        self.tokenizer = open_clip.get_tokenizer(spec.model_name)
+        if spec.checkpoint_path is not None:
+            checkpoint_path = str(Path(spec.checkpoint_path).expanduser())
+        else:
+            checkpoint_path = hf_hub_download(
+                      repo_id=spec.hf_repo, 
+                      filename=f"RemoteCLIP-{spec.model_name}.pt",
+                      cache_dir=str(Path(spec.cache_dir).expanduser())
+                    )
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        if isinstance(checkpoint, dict) and "state_dict" in checkpoint: 
+              checkpoint = checkpoint["state_dict"]
+        self.model.load_state_dict(checkpoint, strict=False) 
+        self.model = self.model.to(self.device).eval()
+    
+    def encode_text_features(self, 
+               bank: PromptBank
+               ) -> torch.Tensor: 
+        with torch.no_grad(): 
+            text_tokens = self.tokenizer(list(bank.text_sets)).to(self.device)
+            text_features = self.model.encode_text(text_tokens)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        return text_features
+    
+    def encode_image_features(self, image: Image.Image) -> torch.Tensor: 
+        image_tensor = self.preprocess(image).unsqueeze(0).to(self.device) 
+        with torch.no_grad(): 
+            image_features = self.model.encode_image(image_tensor) 
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        return image_features

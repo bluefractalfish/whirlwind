@@ -31,10 +31,15 @@ class Request:
     plan_name: str 
     manifest_name: str 
     manifest_kind: str 
+    # for intersection with geometry based labels 
     intersection_label: bool 
     intersection_geom_name: str | None=None
+    # specs for semantic classification 
     classification: bool = False
+    device: str = "cpu" 
+    model_name: str = "ViT-B-32"
     bands: tuple[int,int,int] = (0,1,2)
+    # for masking, removing empty tiles 
     masked: bool = False 
     fill_value: float = 0.0 
     min_content_fraction: float = 1.0
@@ -95,8 +100,7 @@ class TesselationBridge:
                                 target_crs=None,  # temporary problem: you currently need reader.ds.crs for this
                             ) 
                     elif request.classification: 
-                        semantic_classifier_spec = SCSpec(rgb_bands=request.bands)
-                        print(semantic_classifier_spec.bucket_mode)
+                        semantic_classifier_spec = SCSpec()
                         classifier = SemanticClassifier(semantic_classifier_spec) 
                         labeler = SemanticLabeler(classifier)
                     else:

@@ -1,313 +1,321 @@
 
+from whirlwind.prompts.tile_classes import REVIEW_CLASS, FINAL_CLASSES
 
-# classes for prompt management 
+
 DETAILED_CLASSES: tuple[str, ...] = (
+    # structures
+    "residential_roof",
+    "large_structure_roof",
+    "small_outbuilding_roof",
+    "damaged_structure_roof",
+    "roofless_structure_remains",
 
-    # Structures
-    "single_family_house_roof",
-    "rectangular_building_roof",
-    "dark_shingle_roof",
-    "light_roof_or_concrete_roof",
-    "metal_roof_building",
-    "small_shed_or_outbuilding",
-    "farm_or_industrial_structure",
-    "damaged_or_broken_structure",
-
-    # Roads / paved / tracks
-    "asphalt_road",
-    "concrete_road",
+    # roads
+    "paved_road",
     "gravel_road",
-    "driveway_or_parking_area",
-    "linear_track_or_tire_path",
+    "parking_or_driveway",
+    "damaged_road_surface",
 
-    # Trees / woody vegetation
-    "deciduous_tree_canopy",
+    # tracks
+    "two_rut_vehicle_track",
+    "tire_rut_track",
+    "field_access_track",
+    "woodland_or_logging_track",
+    "damaged_or_eroded_track",
+
+    # trees
+    "single_tree_crown",
+    "dense_tree_canopy",
     "conifer_tree_canopy",
-    "individual_tree_crown",
-    "dense_tree_stand",
-    "shrub_or_brush",
+    "damaged_or_downed_tree",
 
-    # Grass / low vegetation
-    "mowed_lawn_grass",
-    "pasture_grass",
-    "rough_rangeland_grass",
-    "green_field_low_vegetation",
+    # grass
+    "mowed_grass",
+    "rough_grassland",
 
-    # Soil / crops
+    # dirt
     "bare_soil",
-    "tilled_dirt",
-    "dry_bare_ground",
-    "crop_rows_on_bare_soil",
-    "green_crop_field",
+    "disturbed_bare_ground",
 
-    # Other explicit classes
-    "water",
+    # crops
+    "green_crop_rows",
+    "bare_soil_crop_rows",
+
+    # water
+    "water_surface",
+
+    # debris
+    "rubble_or_scattered_debris",
+
+    # review-only
     "deep_shadow",
     "vehicle",
-    "debris_or_rubble",
-    "unknown_mixed_landcover",
-)
-
-
-FINAL_CLASSES: tuple[str, ...] = (
-    "structures",
-    "roads",
-    "trees",
-    "grass",
-    "dirt",
-    "crops",
-    "water",
-    "debris",
-    "review",
+    "edge_or_partial_object",
+    "mixed_landcover",
 )
 
 
 DETAILED_TO_FINAL: dict[str, str] = {
-    # Structures
-    "single_family_house_roof": "structures",
-    "rectangular_building_roof": "structures",
-    "dark_shingle_roof": "structures",
-    "light_roof_or_concrete_roof": "structures",
-    "metal_roof_building": "structures",
-    "small_shed_or_outbuilding": "structures",
-    "farm_or_industrial_structure": "structures",
+    # structures
+    "residential_roof": "structures",
+    "large_structure_roof": "structures",
+    "small_outbuilding_roof": "structures",
+    "damaged_structure_roof": "structures",
+    "roofless_structure_remains": "structures",
 
-    # Roads
-    "asphalt_road": "roads",
-    "concrete_road": "roads",
+    # roads
+    "paved_road": "roads",
     "gravel_road": "roads",
-    "driveway_or_parking_area": "roads",
-    "linear_track_or_tire_path": "roads",
+    "parking_or_driveway": "roads",
+    "damaged_road_surface": "roads",
 
-    # Trees
-    "deciduous_tree_canopy": "trees",
+    # tracks
+    "two_rut_vehicle_track": "tracks",
+    "tire_rut_track": "tracks",
+    "field_access_track": "tracks",
+    "woodland_or_logging_track": "tracks",
+    "damaged_or_eroded_track": "tracks",
+
+    # trees
+    "single_tree_crown": "trees",
+    "dense_tree_canopy": "trees",
     "conifer_tree_canopy": "trees",
-    "individual_tree_crown": "trees",
-    "dense_tree_stand": "trees",
-    "shrub_or_brush": "trees",
+    "damaged_or_downed_tree": "trees",
 
-    # Grass
-    "mowed_lawn_grass": "grass",
-    "pasture_grass": "grass",
-    "rough_rangeland_grass": "grass",
-    "green_field_low_vegetation": "grass",
+    # grass
+    "mowed_grass": "grass",
+    "rough_grassland": "grass",
 
-    # Dirt / crops
+    # dirt
     "bare_soil": "dirt",
-    "tilled_dirt": "dirt",
-    "dry_bare_ground": "dirt",
-    "crop_rows_on_bare_soil": "crops",
-    "green_crop_field": "crops",
+    "disturbed_bare_ground": "dirt",
 
-    # Other explicit
-    "water": "water",
-    "deep_shadow": "review",
-    "vehicle": "review",
-    "debris_or_rubble": "debris",
-    "unknown_mixed_landcover": "review",
-    "damaged_or_broken_structure": "debris",
+    # crops
+    "green_crop_rows": "crops",
+    "bare_soil_crop_rows": "crops",
+
+    # water
+    "water_surface": "water",
+
+    # debris
+    "rubble_or_scattered_debris": "debris",
+
+    # review-only
+    "deep_shadow": REVIEW_CLASS,
+    "vehicle": REVIEW_CLASS,
+    "edge_or_partial_object": REVIEW_CLASS,
+    "mixed_landcover": REVIEW_CLASS,
 }
 
 
-PROMPTS_BY_DETAILED_CLASS: dict[str, list[str]] = {
-    "single_family_house_roof": [
-        "a submeter nadir aerial image of a single family house roof with straight roof edges",
-        "an overhead orthomosaic crop centered on a residential rooftop with rectangular geometry",
-        "a remote sensing image of a house roof surrounded by yard or driveway",
-        "an aerial image of a residential building roof with sharp man made corners",
-    ],
-    "rectangular_building_roof": [
-        "an overhead aerial image of a rectangular building roof with clean straight boundaries",
-        "a nadir remote sensing crop of a flat man made rooftop footprint",
-        "an orthomosaic patch showing a building roof distinct from road and bare ground",
-        "a high resolution aerial crop of a roof polygon with right angles",
-    ],
-    "dark_shingle_roof": [
-        "a submeter overhead image of a dark gray shingle roof on a building",
-        "an aerial crop of a dark residential rooftop with roof planes and rectangular outline",
-        "a remote sensing image of a dark roof, not asphalt road, with building geometry",
-        "a nadir orthomosaic crop of a dark house roof with sharp edges",
-    ],
-    "light_roof_or_concrete_roof": [
-        "an overhead aerial image of a light colored building roof with straight edges",
-        "a submeter remote sensing crop of a white or pale roof, not bare dirt",
-        "an orthomosaic image of a bright rectangular rooftop surface",
-        "a nadir aerial crop of a light roof with visible building corners",
-    ],
-    "metal_roof_building": [
-        "an overhead aerial image of a metal roof building with straight seams",
-        "a remote sensing crop of a shiny or pale agricultural metal rooftop",
-        "an orthomosaic image of a farm shed or barn with metal roof panels",
-        "a nadir aerial view of a large rectangular metal roof structure",
-    ],
-    "small_shed_or_outbuilding": [
-        "an overhead aerial image of a small shed roof in a yard",
-        "a submeter remote sensing crop of a compact rectangular outbuilding",
-        "an orthomosaic patch showing a garage shed or small roofed structure",
-        "a nadir aerial image of a small man made structure with straight boundaries",
-    ],
-    "farm_or_industrial_structure": [
-        "an overhead aerial image of a large farm building warehouse or industrial roof",
-        "a remote sensing crop of a barn or warehouse structure",
-        "an orthomosaic patch of a large non residential building roof",
-        "a nadir aerial view of an industrial or agricultural building",
-    ],
-    "damaged_or_broken_structure": [
-        "an overhead aerial image of a damaged building roof with debris and broken edges",
-        "an overhead aerial image of the remaining walls of a roofless structure",
-        "the areal view of a grid of walls remaining after the roof has been removed",
-        "a remote sensing crop of a collapsed or partially destroyed structure",
-        "an orthomosaic patch showing roof damage missing panels or scattered building debris",
-        "a nadir aerial image of a storm damaged building structure",
-    ],
+PROMPTS_BY_DETAILED_CLASS: dict[str, tuple[str, ...]] = {
+    # structures
+    "residential_roof": (
+        "a submeter nadir aerial image of an intact residential roof with straight roof edges and visible corners",
+        "an overhead orthomosaic crop centered on a house roof surrounded by yard, driveway, or lawn",
+        "a remote sensing image of a residential rooftop footprint and not a road surface, track, crop row, or bare dirt patch",
+        "a top down aerial tile dominated by a single family house roof with visible roof planes and rectilinear boundaries",
+    ),
+    "large_structure_roof": (
+        "an overhead aerial image of a large commercial, industrial, farm, warehouse, or institutional roof",
+        "a nadir remote sensing crop of a broad rectilinear rooftop footprint with straight man made boundaries",
+        "an orthomosaic patch showing a large man made roof area distinct from roads, tracks, bare soil, or fields",
+        "a top down aerial tile dominated by a large building roof with rectangular or polygonal roof geometry",
+    ),
+    "small_outbuilding_roof": (
+        "an overhead aerial image of a shed, garage, barn annex, pump house, or other compact outbuilding roof",
+        "a submeter remote sensing crop centered on a small rectangular roofed structure",
+        "an orthomosaic patch showing a small roof footprint in a yard, farm lot, field edge, or property parcel",
+        "a top down aerial tile dominated by a compact roof with clear man made geometry",
+    ),
+    "damaged_structure_roof": (
+        "an overhead aerial image of a storm damaged building roof with missing sections, torn covering, exposed framing, or displaced roof material",
+        "a remote sensing crop of a damaged roof that is still clearly part of a structure footprint",
+        "an orthomosaic patch showing a broken building roof with rectilinear remains and attached debris",
+        "a top down aerial tile dominated by a damaged structure rather than generic rubble, trees, dirt, road, or track",
+    ),
+    "roofless_structure_remains": (
+        "an overhead aerial image of a roofless structure, wall grid, foundation, or building footprint remains with rectilinear layout",
+        "a remote sensing crop of standing walls, slab, foundation, or footprint remains after a roof was lost",
+        "an orthomosaic patch showing structure remains that are still clearly a building layout",
+        "a top down aerial tile centered on a destroyed building footprint rather than a random debris field",
+    ),
 
-    "asphalt_road": [
-        "an overhead aerial image of a dark asphalt road or street",
-        "a remote sensing crop of a smooth dark paved road with linear shape",
-        "an orthomosaic patch of asphalt pavement, not a rooftop",
-        "a nadir aerial view of a road surface with lane-like geometry",
-    ],
-    "concrete_road": [
-        "an overhead aerial image of a light concrete road or paved street",
-        "a remote sensing crop of pale concrete pavement with a road shape",
-        "an orthomosaic patch of light colored roadway or sidewalk pavement",
-        "a nadir image of a concrete road surface",
-    ],
-    "gravel_road": [
-        "an overhead aerial image of a gravel road with light gray rough texture",
-        "a remote sensing crop of an unpaved gravel driveway or rural road",
-        "an orthomosaic patch of pale gravel path with linear shape",
-        "a nadir aerial view of a rough light colored gravel road",
-    ],
-    "driveway_or_parking_area": [
-        "an overhead aerial image of a driveway parking pad or paved apron near buildings",
-        "a remote sensing crop of a parking area connected to a structure",
-        "an orthomosaic patch of man made pavement around buildings",
-        "a nadir aerial image of a driveway or parking lot surface",
-    ],
-    "linear_track_or_tire_path": [
-        "an overhead aerial image of parallel tire tracks across grass or dirt",
-        "a remote sensing crop of two narrow parallel vehicle tracks",
-        "an orthomosaic patch of linear tracks in a field or bare ground",
-        "a nadir aerial image of unpaved tracks with regular parallel spacing",
-    ],
+    # roads
+    "paved_road": (
+        "an overhead aerial image of asphalt or concrete road with continuous roadway geometry and road-like width",
+        "a remote sensing crop of a paved street, lane, highway, or residential road and not a rooftop or track",
+        "an orthomosaic patch of continuous transportation pavement with clear road alignment",
+        "a top down aerial tile dominated by a paved road corridor rather than narrow tire ruts",
+    ),
+    "gravel_road": (
+        "an overhead aerial image of a maintained gravel or compacted unpaved road with road-like width and continuous transport geometry",
+        "a remote sensing crop of pale gravel roadway or rural lane wide enough to be a road rather than a two-rut track",
+        "an orthomosaic patch of light rough road surface extending across the tile with consistent road corridor width",
+        "a top down aerial tile dominated by a gravel road or access road and not by a narrow field track",
+    ),
+    "parking_or_driveway": (
+        "an overhead aerial image of a driveway, parking pad, parking lot, paved apron, or vehicle access surface beside structures",
+        "a remote sensing crop of vehicle access pavement connected to a building or road",
+        "an orthomosaic patch centered on man made parking, driveway, or paved access surface",
+        "a top down aerial tile dominated by parking or driveway surface and not by a roof or narrow dirt track",
+    ),
+    "damaged_road_surface": (
+        "an overhead aerial image of a damaged road with washout, crack, break, erosion, flooding, or debris while the road shape remains visible",
+        "a remote sensing crop of cracked, broken, blocked, eroded, or partially obstructed roadway",
+        "an orthomosaic patch showing transportation surface damage but still clearly a road corridor",
+        "a top down aerial tile dominated by a damaged road rather than bare soil, track ruts, or scattered debris alone",
+    ),
 
-    "deciduous_tree_canopy": [
-        "a submeter overhead aerial image of broadleaf tree canopy with rounded green crowns",
-        "a remote sensing crop of leafy deciduous tree crowns with irregular organic edges",
-        "an orthomosaic patch of mature deciduous trees with textured green canopy",
-        "a nadir aerial image of broad green tree crowns casting shadows",
-    ],
-    "conifer_tree_canopy": [
-        "an overhead aerial image of conifer evergreen trees with dark green pointed crowns",
-        "a remote sensing crop of pine or cedar tree canopy",
-        "an orthomosaic patch of dark evergreen trees with compact crown texture",
-        "a nadir aerial view of conifer trees darker and rougher than grass",
-    ],
-    "individual_tree_crown": [
-        "a single isolated tree crown in an overhead aerial image",
-        "one round tree canopy object separated from surrounding ground",
-        "a nadir aerial crop centered on an individual tree crown",
-        "a single green or very dark green/black woody vegetation crown with shadow in an orthomosaic",
-    ],
-    "dense_tree_stand": [
+    # tracks
+    "two_rut_vehicle_track": (
+        "an overhead aerial image of a two-rut vehicle track with two parallel worn tire paths and vegetation or soil between them",
+        "a submeter remote sensing crop centered on a narrow two-track path crossing grass, dirt, crops, or open land",
+        "an orthomosaic patch showing paired vehicle ruts that are too narrow and informal to be a road",
+        "a top down aerial tile dominated by a two-rut access track rather than a maintained gravel road",
+        "an aerial image tile where the main feature is two parallel vehicle-worn lines through natural ground cover",
+    ),
+    "tire_rut_track": (
+        "an overhead aerial image of tire ruts impressed into dirt, mud, grass, or disturbed soil",
+        "a remote sensing crop dominated by repeated wheel rut marks that form a travel path",
+        "an orthomosaic patch showing linear tire disturbance and compacted ground rather than bare soil alone",
+        "a top down aerial tile centered on tire tracks, rut scars, or vehicle passage marks",
+        "an aerial image tile where tire-rut geometry is the dominant class evidence, not crop rows or a full road",
+    ),
+    "field_access_track": (
+        "an overhead aerial image of a farm field access track, service path, or narrow access lane through a field",
+        "a remote sensing crop of an informal track crossing crop rows, grassland, pasture, or bare agricultural ground",
+        "an orthomosaic patch showing a narrow vehicle access route along a field edge or across a cultivated field",
+        "a top down aerial tile dominated by a field track and not by the crop rows themselves",
+        "an aerial image tile where a travel path interrupts or crosses agricultural texture",
+    ),
+    "woodland_or_logging_track": (
+        "an overhead aerial image of a narrow dirt or gravel track through trees, brush, forest edge, or woodland",
+        "a remote sensing crop of a logging track, woodland access trail, or informal route partly covered by canopy",
+        "an orthomosaic patch showing a narrow linear path through woody vegetation",
+        "a top down aerial tile dominated by an unpaved access track between trees rather than the tree canopy alone",
+        "an aerial image tile where the main feature is a narrow travel corridor through vegetation",
+    ),
+    "damaged_or_eroded_track": (
+        "an overhead aerial image of an eroded, washed out, muddy, blocked, or storm damaged track where the track path remains visible",
+        "a remote sensing crop of a damaged two-rut path or informal access route with erosion, debris, mud, or rutting",
+        "an orthomosaic patch showing a rough damaged track that is still visually a vehicle path",
+        "a top down aerial tile dominated by a damaged track rather than a full damaged road or random bare dirt",
+    ),
+
+    # trees
+    "single_tree_crown": (
+        "a submeter overhead aerial image centered on one isolated tree crown with organic outline and canopy texture",
+        "a remote sensing crop of a single woody canopy object separated from surrounding grass, dirt, road, or roof",
+        "an orthomosaic patch dominated by one broadleaf tree crown with irregular edges",
+        "a top down aerial tile centered on one tree crown and not on grass, crop rows, roof, road, or track",
+    ),
+    "dense_tree_canopy": (
         "a dense continuous stand of trees in overhead aerial imagery",
-        "a remote sensing crop filled mostly by connected tree canopy",
-        "an orthomosaic patch of forest canopy with overlapping crowns",
-        "a high resolution aerial image of dense woody vegetation",
-    ],
-    "shrub_or_brush": [
-        "an overhead aerial image of low shrubs or brush with irregular green woody texture",
-        "a remote sensing crop of scrub vegetation, not smooth lawn grass",
-        "an orthomosaic patch of bushy vegetation with uneven clumps",
-        "a nadir aerial image of scattered shrubs and brushy vegetation",
-    ],
+        "a remote sensing crop filled mostly by overlapping woody tree crowns",
+        "an orthomosaic patch of forest canopy with connected organic texture and canopy shadows",
+        "a top down aerial tile dominated by multiple tree canopies rather than low grass or crops",
+    ),
+    "conifer_tree_canopy": (
+        "an overhead aerial image of conifer or evergreen tree canopy with dark textured crowns",
+        "a remote sensing crop of pine, cedar, or evergreen canopy and not smooth grass",
+        "an orthomosaic patch dominated by dark evergreen crowns with organic tree texture",
+        "a top down aerial tile centered on conifer canopy",
+    ),
+    "damaged_or_downed_tree": (
+        "an overhead aerial image of snapped, uprooted, or downed trees that are still visibly trees",
+        "a remote sensing crop of damaged woody canopy, broken crowns, fallen trunks, branches, or uprooted trees",
+        "an orthomosaic patch showing tree damage rather than generic debris, bare soil, road, or track",
+        "a top down aerial tile dominated by damaged tree canopy or downed woody vegetation",
+    ),
 
-    "mowed_lawn_grass": [
-        "an overhead aerial image of smooth mowed lawn grass",
-        "a remote sensing crop showing uniform short green grass near buildings",
-        "an orthomosaic patch of smooth bright lawn with little texture",
-        "a nadir aerial image of maintained turf grass with even color",
-    ],
-    "pasture_grass": [
-        "an overhead aerial image of pasture grass or open grassy field",
-        "a remote sensing crop of green pasture with low vegetation and no tree crowns",
-        "an orthomosaic patch of open grassland with smooth vegetation texture",
-        "a nadir aerial view of pasture, not trees and not crop rows",
-    ],
-    "rough_rangeland_grass": [
-        "an overhead aerial image of rough rangeland grass with uneven tan green texture",
-        "a remote sensing crop of natural grassland or prairie vegetation",
-        "an orthomosaic patch of sparse rough grass and dry vegetation",
-        "a nadir image of irregular grass cover without trees or roofs",
-    ],
-    "green_field_low_vegetation": [
-        "an overhead aerial image of low green field vegetation, flat and non woody",
-        "a remote sensing crop of green ground cover with no visible tree crowns",
-        "an orthomosaic patch of low herbaceous vegetation",
-        "a high resolution aerial crop of a flat green field surface",
-    ],
+    # grass
+    "mowed_grass": (
+        "an overhead aerial image of maintained lawn or short mowed grass with smooth fine texture",
+        "a remote sensing crop of uniform low grass near structures, roads, driveways, or yards and not tree canopy",
+        "an orthomosaic patch dominated by short even herbaceous ground cover",
+        "a top down aerial tile of lawn or mowed grass where roads, tracks, roofs, and trees are not dominant",
+    ),
+    "rough_grassland": (
+        "an overhead aerial image of pasture, meadow, field grass, or rough grassland without crop rows",
+        "a remote sensing crop of low herbaceous cover with uneven grass texture and no woody crowns",
+        "an orthomosaic patch dominated by rough grassland rather than planted agriculture, bare soil, road, or track",
+        "a top down aerial tile of natural or unmanaged grass cover without a dominant vehicle track",
+    ),
 
-    "bare_soil": [
-        "an overhead aerial image of exposed bare soil with brown texture",
-        "a remote sensing crop of bare earth, not pavement and not roof",
-        "an orthomosaic patch of brown soil surface without vegetation",
-        "a nadir image of exposed ground with natural irregular texture",
-    ],
-    "tilled_dirt": [
-        "an overhead aerial image of tilled dirt field with rough soil texture",
-        "a remote sensing crop of plowed agricultural soil",
-        "an orthomosaic patch of brown tilled earth with faint rows",
-        "a nadir aerial view of disturbed bare field soil",
-    ],
-    "dry_bare_ground": [
-        "an overhead image of dry tan bare ground",
-        "a remote sensing crop of pale dry earth with sparse vegetation",
-        "an orthomosaic patch of dry exposed ground, not concrete",
-        "a nadir aerial image of tan soil or dry dirt area",
-    ],
-    "crop_rows_on_bare_soil": [
-        "an overhead aerial image of crop rows on bare dirt with regular parallel lines",
-        "a remote sensing crop of agricultural rows with brown soil between lines",
-        "an orthomosaic patch of field rows forming repeated linear pattern",
-        "a nadir aerial view of cultivated crop rows in bare soil",
-    ],
-    "green_crop_field": [
-        "an overhead aerial image of green agricultural crop rows",
-        "a remote sensing crop of planted field with regular row structure",
-        "an orthomosaic patch of green crops arranged in parallel lines",
-        "a nadir aerial view of cultivated green field, not smooth lawn",
-    ],
+    # dirt
+    "bare_soil": (
+        "an overhead aerial image of exposed soil, bare earth, dirt, or dry ground without crop rows or track ruts",
+        "a remote sensing crop of natural bare ground and not pavement, roof, water, road, or vehicle track",
+        "an orthomosaic patch dominated by brown or tan exposed earth with irregular natural texture",
+        "a top down aerial tile where bare ground is dominant and no clear travel corridor is visible",
+    ),
+    "disturbed_bare_ground": (
+        "an overhead aerial image of disturbed, scraped, graded, churned, excavated, or construction-like earth",
+        "a remote sensing crop of irregular disturbed dirt without clear road width, track ruts, or crop row geometry",
+        "an orthomosaic patch dominated by disturbed soil rather than road, crop rows, or two-rut vehicle track",
+        "a top down aerial tile where soil disturbance is the primary subject and not a visible access path",
+    ),
 
-    "water": [
-        "an overhead aerial image of water surface such as pond stream or flooded area",
-        "a remote sensing crop of dark or reflective water",
-        "an orthomosaic patch showing standing water with smooth texture",
-        "a nadir aerial image of water, not shadow",
-    ],
-    "deep_shadow": [
-        "an overhead aerial image of deep black shadow cast by trees or buildings",
-        "a remote sensing crop of dark shadow with little visible texture",
-        "an orthomosaic patch of shadowed ground, not water or asphalt",
-        "a nadir aerial image of strong shadow adjacent to objects",
-    ],
-    "vehicle": [
-        "an overhead aerial image of a vehicle car truck or trailer",
-        "a remote sensing crop of a parked car or truck",
-        "an orthomosaic patch showing a small vehicle with rectangular shape",
-        "a nadir aerial view of a car sized object on road or driveway",
-    ],
-    "debris_or_rubble": [
-        "an overhead aerial image of scattered debris or rubble",
-        "a remote sensing crop of storm debris broken material or irregular wreckage",
-        "an orthomosaic patch of debris field with chaotic texture",
-        "a nadir aerial view of damaged scattered objects on ground or in trees",
-    ],
-    "unknown_mixed_landcover": [
-        "an ambiguous overhead aerial image with mixed land cover",
-        "a remote sensing crop that is unclear or contains several classes",
-        "an orthomosaic patch that is not clearly trees grass road dirt roof or water",
-        "a nadir aerial image of mixed background with no dominant class",
-    ],
+    # crops
+    "green_crop_rows": (
+        "an overhead aerial image of green crops arranged in visible repeated rows",
+        "a remote sensing crop of cultivated vegetation with repeated agricultural row pattern",
+        "an orthomosaic patch dominated by planted field geometry and crop lines",
+        "a top down aerial tile centered on green crop rows and not smooth pasture or vehicle tracks",
+    ),
+    "bare_soil_crop_rows": (
+        "an overhead aerial image of agricultural rows cut into bare soil",
+        "a remote sensing crop of cultivated field with brown soil between evenly spaced planted rows or beds",
+        "an orthomosaic patch dominated by repeated planting rows on exposed earth",
+        "a top down aerial tile centered on bare soil crop rows rather than tire ruts or an access track",
+    ),
+
+    # water
+    "water_surface": (
+        "an overhead aerial image of open water, standing floodwater, pond, stream, ditch water, or water channel",
+        "a remote sensing crop of smooth dark or reflective water surface and not shadow alone",
+        "an orthomosaic patch dominated by pond, creek, flooded depression, drainage water, or standing water",
+        "a top down aerial tile centered on water surface",
+    ),
+
+    # debris
+    "rubble_or_scattered_debris": (
+        "an overhead aerial image of scattered debris, rubble, wreckage, fragments, or broken storm material",
+        "a remote sensing crop of chaotic broken material without a clear intact structure, road, track, tree, or crop field",
+        "an orthomosaic patch dominated by rubble pile, debris field, or irregular wreckage",
+        "a top down aerial tile centered on loose debris and fragmented material",
+    ),
+
+    # review-only classes
+    "deep_shadow": (
+        "an overhead aerial image of deep shadow with very little visible structure or texture",
+        "a remote sensing crop dominated by dark cast shadow and uncertain class evidence",
+        "an orthomosaic patch where the true class is hidden by shadow",
+    ),
+    "vehicle": (
+        "an overhead aerial image of a vehicle, trailer, tractor, truck, or small transport object",
+        "a remote sensing crop centered on a car sized, truck sized, tractor sized, or trailer sized object rather than land cover",
+        "an orthomosaic patch dominated by a vehicle on pavement, dirt, grass, road, or track",
+    ),
+    "edge_or_partial_object": (
+        "an overhead aerial image where the main object is cut off by the tile edge",
+        "a remote sensing crop with only a partial roof, partial road, partial track, partial tree crown, or partial field pattern",
+        "an orthomosaic patch with insufficient spatial context for safe class assignment",
+    ),
+    "mixed_landcover": (
+        "an ambiguous overhead aerial image with several competing land cover classes",
+        "a remote sensing crop that mixes roof, road, track, tree, soil, grass, crop, water, or debris with no dominant class",
+        "an orthomosaic patch that should be reviewed instead of force assigned",
+    ),
 }
 
+
+FINAL_TO_DETAILED_CLASSES: dict[str, tuple[str, ...]] = {
+    final_class: tuple(
+        class_name
+        for class_name in DETAILED_CLASSES
+        if DETAILED_TO_FINAL[class_name] == final_class
+    )
+    for final_class in FINAL_CLASSES
+}
