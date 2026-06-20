@@ -40,9 +40,9 @@ class Request:
     model_name: str = "ViT-B-32"
     bands: tuple[int,int,int] = (0,1,2)
     # for masking, removing empty tiles 
-    masked: bool = False 
+    masked: bool = False
     fill_value: float = 0.0 
-    min_content_fraction: float = 1.0
+    min_content_fraction: float = 0.70
     keep_empty: bool = False 
     zero_is_empty: bool = True 
 

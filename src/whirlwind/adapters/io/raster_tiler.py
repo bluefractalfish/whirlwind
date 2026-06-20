@@ -20,7 +20,7 @@ from whirlwind.adapters.label.binary_label_by_intersection import LabelByInterse
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
 from whirlwind.domain.tile import ( 
-            TileEncoder, tile_content_stats, attach_content_stats
+            TileEncoder, tile_content_stats
                     ) 
 from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile 
@@ -130,10 +130,10 @@ class TileRasterFromPlan:
                             progress.update(
                                     task_id, 
                                     description=(
-                                        f"tiling {Path(self.p).name} "
-                                        f"tile={n_tiles}/{tiles_to_process} "
-                                        f"written={n_written} "
-                                        f"skipped={n_skipped} "
+                                        f"tiling {Path(self.p).name}\n"
+                                        f"tile={n_tiles}/{tiles_to_process}\n"
+                                        f"written={n_written}\n"
+                                        f"skipped={n_skipped}\n"
                                         )
                                     )
                         if not self.keep_empty: 

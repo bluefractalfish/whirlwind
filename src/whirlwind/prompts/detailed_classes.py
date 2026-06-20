@@ -263,10 +263,9 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, tuple[str, ...]] = {
 
     # water
     "water_surface": (
-        "an overhead aerial image of open water, standing floodwater, pond, stream, ditch water, or water channel",
-        "a remote sensing crop of smooth dark or reflective water surface and not shadow alone",
-        "an orthomosaic patch dominated by pond, creek, flooded depression, drainage water, or standing water",
-        "a top down aerial tile centered on water surface",
+        "an overhead aerial tile dominated by real open water with a visible shoreline, drainage shape, channel boundary, pond edge, creek path, or flood boundary",
+        "a remote sensing crop of real water surface, not black nodata padding, not raster collar, not deep shadow, not blank dark imagery",
+        "an orthomosaic tile where water has geographic shape or boundary evidence rather than being only a smooth dark texture",
     ),
 
     # debris

@@ -364,6 +364,8 @@ class TileContentStats:
     valid_fraction: float
     nonzero_fraction: float
     content_fraction: float
+    black_fraction: float
+    white_fraction: float
     mostly_empty: bool
 
     def record(self) -> dict[str, Any]:
@@ -371,6 +373,8 @@ class TileContentStats:
             "valid_fraction": self.valid_fraction,
             "nonzero_fraction": self.nonzero_fraction,
             "content_fraction": self.content_fraction,
+            "black_fraction": self.black_fraction,
+            "white_fraction": self.white_fraction,
             "mostly_empty": self.mostly_empty,
         }
 
@@ -380,12 +384,17 @@ def tile_content_stats(
     *,
     min_content_fraction: float,
     zero_is_empty: bool = True,
-    eps: float = 0.0,
+    eps: float = 2.0,
+    white_eps: float = 2.0,
+    max_black_fraction: float = 0.40,
+    max_white_fraction: float = 0.40,
 ) -> TileContentStats:
     """
-    Decide whether a tile has enough real image content to keep.
+    Decide whether a tile has enough real RGB image content.
 
-    For RGB orthos where nodata/background is 0, use zero_is_empty=True.
+    - Only checks RGB-like bands, not alpha/NIR.
+    - Treats near-black and near-white padding as empty.
+    - Prevents black collars / white collars from being classified as water.
     """
 
     if tile.read is None:
@@ -393,6 +402,8 @@ def tile_content_stats(
             valid_fraction=0.0,
             nonzero_fraction=0.0,
             content_fraction=0.0,
+            black_fraction=1.0,
+            white_fraction=0.0,
             mostly_empty=True,
         )
 
@@ -402,56 +413,82 @@ def tile_content_stats(
         arr = arr[np.newaxis, :, :]
 
     if arr.ndim != 3:
-        raise ValueError(f"expected tile array shape (bands, height, width), got {arr.shape}")
+        raise ValueError(
+            f"expected tile array shape (bands, height, width), got {arr.shape}"
+        )
 
-    if np.ma.isMaskedArray(arr):
-        mask = np.ma.getmaskarray(arr)
+    # Use only first three image bands for content detection.
+    # This avoids alpha=255 or NIR values making black RGB pixels look valid.
+    rgb = arr[: min(3, arr.shape[0])]
+
+    if np.ma.isMaskedArray(rgb):
+        mask = np.ma.getmaskarray(rgb)
+        data = np.ma.filled(rgb, 0)
         valid_by_band = ~mask
-        data = np.ma.filled(arr, 0)
     else:
-        data = np.asarray(arr)
+        data = np.asarray(rgb)
         valid_by_band = np.isfinite(data)
 
-    # Pixel is valid if any band is valid.
-    valid_pixel = np.any(valid_by_band, axis=0)
+    # Require all RGB bands to be valid, not just one band.
+    valid_pixel = np.all(valid_by_band, axis=0)
+
+    safe = np.nan_to_num(data.astype("float32"), nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Near-black means all RGB bands are close to zero.
+    black_pixel = np.all(np.abs(safe) <= eps, axis=0)
+
+    # Infer likely max value.
+    # uint8 -> 255, uint16 -> 65535, float normalized -> 1.0
+    if np.issubdtype(data.dtype, np.integer):
+        dtype_max = float(np.iinfo(data.dtype).max)
+    else:
+        observed_max = float(np.nanmax(safe)) if safe.size else 1.0
+        dtype_max = 1.0 if observed_max <= 1.5 else 255.0
+
+    white_threshold = dtype_max - white_eps
+
+    # Near-white means all RGB bands are close to dtype max.
+    white_pixel = np.all(safe >= white_threshold, axis=0)
 
     if zero_is_empty:
-        safe = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
-        nonzero_pixel = np.any(np.abs(safe) > eps, axis=0)
+        nonzero_pixel = ~black_pixel
     else:
         nonzero_pixel = valid_pixel
 
-    content_pixel = valid_pixel & nonzero_pixel
+    # Real content excludes black padding and white padding.
+    content_pixel = valid_pixel & nonzero_pixel & ~white_pixel
 
     total_pixels = int(content_pixel.size)
-
 
     if total_pixels == 0:
         return TileContentStats(
             valid_fraction=0.0,
             nonzero_fraction=0.0,
             content_fraction=0.0,
+            black_fraction=1.0,
+            white_fraction=0.0,
             mostly_empty=True,
         )
 
     valid_fraction = float(valid_pixel.sum() / total_pixels)
     nonzero_fraction = float(nonzero_pixel.sum() / total_pixels)
     content_fraction = float(content_pixel.sum() / total_pixels)
+    black_fraction = float(black_pixel.sum() / total_pixels)
+    white_fraction = float(white_pixel.sum() / total_pixels)
+
+    mostly_empty = (
+        content_fraction < min_content_fraction
+        or black_fraction > max_black_fraction
+        or white_fraction > max_white_fraction
+    )
 
     return TileContentStats(
         valid_fraction=valid_fraction,
         nonzero_fraction=nonzero_fraction,
         content_fraction=content_fraction,
-        mostly_empty=content_fraction < min_content_fraction,
+        black_fraction=black_fraction,
+        white_fraction=white_fraction,
+        mostly_empty=mostly_empty,
     )
 
-
-def attach_content_stats(tile, stats: TileContentStats):
-    """
-    Store content stats in tile metadata.
-
-    TileEncoder currently writes tile.label into metadata["labels"], so this
-    merges content stats into that label dict without destroying damage labels.
-    """
-    ...
 
