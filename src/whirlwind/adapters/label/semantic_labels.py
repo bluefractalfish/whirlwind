@@ -3,7 +3,7 @@ from typing import Any, Literal, Mapping, Sequence
 
 from whirlwind.prompts.tile_classes import (
 
-        REAL_CLASSES, 
+        TARGET_CLASSES, 
         MIN_TOP_SCORE, 
         LOW_EVIDENCE, 
         TIE_MARGIN, 
@@ -147,7 +147,7 @@ class DecisionSummary:
         real_scores = { 
             name: float(score)
             for name, score in coarse_scores.items()
-            if name in REAL_CLASSES
+            if name in TARGET_CLASSES
             }
 
         if not real_scores: 
@@ -231,7 +231,7 @@ class DecisionSummary:
                 dominant=top_class, 
                 confidence=confidence, 
                 confidence_score=confidence_score, 
-                reasons=tuple("real_class_assigned",),
+                reasons=("real_class_assigned",),
                 coarse_ranked=coarse_ranked, 
                 detail_ranked=detailed_ranked, 
                 detail_agrees=detail_agrees

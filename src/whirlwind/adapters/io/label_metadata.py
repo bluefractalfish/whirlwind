@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from whirlwind.domain.tile import EncodedTile
-from whirlwind.prompts.tile_classes import REAL_CLASSES, REVIEW_CLASS
+from whirlwind.prompts.tile_classes import TARGET_CLASSES, REVIEW_CLASS
 
 
 @dataclass(frozen=True)
@@ -127,7 +127,7 @@ def is_review_tile(encoded: EncodedTile) -> bool:
     if label == REVIEW_CLASS:
         return True
 
-    if label not in REAL_CLASSES:
+    if label not in TARGET_CLASSES:
         return True
 
     return False

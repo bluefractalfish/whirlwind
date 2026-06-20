@@ -19,9 +19,9 @@ from whirlwind.adapters.label.label_protocol import Labeler
 from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
-from whirlwind.domain.tile import ( 
-            TileEncoder, tile_content_stats
-                    ) 
+from whirlwind.domain.tile import TileEncoder
+from whirlwind.adapters.classification.filters import should_skip_tile
+                
 from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile 
 from whirlwind.filesystem.runtree import RunTree
@@ -136,17 +136,32 @@ class TileRasterFromPlan:
                                         f"skipped={n_skipped}\n"
                                         )
                                     )
-                        if not self.keep_empty: 
-                            stats = tile_content_stats(
-                                    tile, 
-                                    min_content_fraction=self.min_content_fraction, 
-                                    zero_is_empty=self.zero_is_empty)
-                            if stats.mostly_empty: 
-                                n_skipped += 1 
+
+                        if not self.keep_empty:
+                            skip = should_skip_tile(
+                                tile,
+                                min_content_fraction=self.min_content_fraction,
+                                zero_is_empty=self.zero_is_empty,
+                            )
+
+                            if skip.skip:
+                                n_skipped += 1
+
+                                # Temporary debug. Remove once tuned.
+                                print(
+                                    tile.tile_id,
+                                    "SKIP",
+                                    skip.reason,
+                                    skip.stats,
+                                )
+
                                 if progress is not None and task_id is not None:
                                     progress.advance(task_id, 1)
-                                continue 
+
+                                continue
+
                         label = self.labeler.label(tile)
+
                         encoded = self.encoder.encode(tile,label)
                         if self.dry:
                             shard_path = f"dry_{tile.tile_id}"

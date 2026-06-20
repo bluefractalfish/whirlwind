@@ -7,24 +7,23 @@ from whirlwind.domain.config.schema import Config
 
 REVIEW_CLASS = "review"
 
-REAL_CLASSES: tuple[str, ...] = (
+TARGET_CLASSES: tuple[str, ...] = (
 
     "structures",
     "roads",
-    "tracks",
+    "vehicle_tracks",
     "trees",
     "grass",
     "dirt",
     "crops",
-    "water",
     "debris",
 
 )
 
 
-FINAL_CLASSES: tuple[str, ...] = REAL_CLASSES + (REVIEW_CLASS,)
+FINAL_CLASSES: tuple[str, ...] = TARGET_CLASSES + (REVIEW_CLASS,)
 
-TIE_BREAK_ORDER: tuple[str, ...] = REAL_CLASSES
+TIE_BREAK_ORDER: tuple[str, ...] = TARGET_CLASSES
 
 
 Confidence = Literal["high", "medium", "low"]
@@ -76,37 +75,37 @@ def final_class_rule_from_config(class_name: str, config: Config) -> "ClassThres
     return ClassThreshold(0.0, 0.0, 0.0)
 
 # model has almost no evidence if less than: 
-MIN_TOP_SCORE = 0.22
+MIN_TOP_SCORE = 0.26
 
 # send to review if top score less than: 
-LOW_EVIDENCE = 0.30 
+LOW_EVIDENCE = 0.34 
 # and classes are basically tied: 
-TIE_MARGIN = 0.01 
+TIE_MARGIN = 0.02 
 
-MEDIUM_CONFIDENCE_MIN_SCORE = 0.34 
-MEDIUM_CONFIDENCE_MIN_MARGIN = 0.02 
+MEDIUM_CONFIDENCE_MIN_SCORE = 0.38 
+MEDIUM_CONFIDENCE_MIN_MARGIN = 0.035 
 
-DETAIL_AGREEMENT_MIN_SCORE = 0.22
+DETAIL_AGREEMENT_MIN_SCORE = 0.26
 DETAIL_AGREEMENT_MIN_MARGIN = 0.04
 
 CLASS_THRESHOLDS: dict[str, ClassThreshold] = {
     "structures": ClassThreshold(
-        min_score=0.48,
+        min_score=0.50,
         min_margin=0.08,
         max_second_score=0.38,
     ),
     "roads": ClassThreshold(
-        min_score=0.40,
-        min_margin=0.06,
-        max_second_score=0.38,
-    ),
-    "tracks": ClassThreshold(
         min_score=0.42,
         min_margin=0.06,
-        max_second_score=0.38,
+        max_second_score=0.40,
+    ),
+    "vehicle_tracks": ClassThreshold(
+        min_score=0.42,
+        min_margin=0.06,
+        max_second_score=0.40,
     ),
     "trees": ClassThreshold(
-        min_score=0.48,
+        min_score=0.50,
         min_margin=0.07,
         max_second_score=0.40,
     ),
@@ -125,11 +124,6 @@ CLASS_THRESHOLDS: dict[str, ClassThreshold] = {
         min_margin=0.06,
         max_second_score=0.40,
     ),
-    "water": ClassThreshold(
-        min_score=0.52,
-        min_margin=0.04,
-        max_second_score=0.38,
-    ),
     "debris": ClassThreshold(
         min_score=0.40,
         min_margin=0.04,
@@ -138,70 +132,69 @@ CLASS_THRESHOLDS: dict[str, ClassThreshold] = {
 }
 
 
-
 FINAL_CLASS_PROMPTS: dict[str, tuple[str, ...]] = {
     "structures": (
-        "a nadir overhead aerial tile whose primary subject is a man made building roof with straight edges, corners, and rectilinear geometry",
-        "a submeter orthomosaic crop dominated by a house, shed, barn, warehouse, garage, or other roofed structure footprint",
-        "an overhead remote sensing tile of a damaged building with roof remnant, wall grid, foundation, or rectilinear structure remains",
-        "a top down aerial image centered on a structure and not centered on a road, track, tree canopy, crop rows, or bare soil",
-        "an aerial image tile where the dominant object is a roof or building footprint, even if partly damaged or surrounded by debris",
+        "a nadir overhead aerial tile dominated by a building roof, wall footprint, foundation, or roofed man made structure",
+        "a submeter orthomosaic crop centered on a house, shed, barn, garage, warehouse, outbuilding, or other structure footprint",
+        "an overhead remote sensing tile of a damaged building where rectilinear roof, wall, slab, or foundation geometry is still visible",
+        "a top down aerial image where the dominant object has straight edges, corners, roof planes, or man made rectangular structure geometry",
+        "an aerial image tile dominated by a structure rather than a road surface, driveway, crop row pattern, tree canopy, grass, dirt, or blank raster edge",
     ),
+
     "roads": (
-        "a nadir overhead aerial tile whose primary subject is a maintained road, street, driveway, parking lot, or transportation pavement",
-        "a submeter orthomosaic crop dominated by asphalt, concrete, compacted gravel road, driveway, or parking surface and not by roofs",
-        "an overhead remote sensing tile of a damaged, cracked, washed out, or debris covered road corridor that is still visibly a road",
-        "a top down aerial image centered on a continuous road surface with road-like width, edges, and vehicle access geometry",
-        "an aerial image tile dominated by a full road, driveway, parking pad, or lane rather than a narrow two-rut track through grass or dirt",
+        "a nadir overhead aerial tile dominated by a maintained road, street, driveway, parking pad, parking lot, or full width vehicle surface",
+        "a submeter orthomosaic crop of asphalt, concrete, compacted gravel road, driveway, or parking surface with road-like width and continuous edges",
+        "an overhead remote sensing tile of a road corridor, including damaged, cracked, washed out, debris covered, or partially blocked road surface",
+        "a top down aerial image centered on a continuous travel surface wide enough for vehicles, not just two narrow tire ruts",
+        "an aerial image tile where the dominant feature is a full road, driveway, parking area, or lane rather than a roof, crop rows, grass, or paired wheel tracks",
     ),
-    "tracks": (
-        "a nadir overhead aerial tile whose primary subject is a narrow vehicle track, two-rut trail, tire rut path, farm track, or informal access route",
-        "a submeter orthomosaic crop dominated by paired tire ruts or a narrow linear path through grass, dirt, crops, or woodland",
-        "an overhead remote sensing tile of an unpaved track with two parallel worn lines and vegetation or soil between the ruts",
-        "a top down aerial image centered on a dirt track, field access path, logging trail, or informal vehicle route that is not a full road",
-        "an aerial image tile where the dominant feature is travel disturbance or tire-worn linear tracks rather than bare dirt alone or crop rows",
-        "an overhead orthomosaic tile showing parallel wheel ruts, repeated vehicle passage marks, or a narrow access track crossing open land",
+
+    "vehicle_tracks": (
+        "a nadir overhead aerial tile dominated by paired vehicle tire ruts through grass, dirt, crops, mud, or open land",
+        "a submeter orthomosaic crop showing two parallel wheel paths with regular spacing and vegetation or soil between the ruts",
+        "an overhead remote sensing tile of an informal vehicle track, tractor track, farm access track, logging track, or two-rut path that is not a full road",
+        "a top down aerial image centered on tire marks made by repeated vehicle passage, with paired linear rut geometry",
+        "an aerial image tile where the dominant evidence is narrow vehicle-caused wheel tracks, not crop rows, road pavement, drainage lines, tornado scarring, or random bare dirt",
+        "a remote sensing crop where the line marks have regular parallel wheel spacing and follow a vehicle path rather than chaotic storm damage marks",
     ),
+
     "trees": (
-        "a nadir overhead aerial tile whose primary subject is woody tree canopy or one or more tree crowns with organic irregular edges",
-        "a submeter orthomosaic crop dominated by deciduous or conifer canopy and not by lawn, crop rows, roads, tracks, or roofs",
-        "an overhead remote sensing tile of damaged, snapped, uprooted, or downed trees that are still visibly tree canopy, branches, trunks, or woody crowns",
-        "a top down aerial image centered on woody vegetation and not on pavement, bare soil, crop rows, or low grass",
-        "an aerial image tile where the dominant texture is tree crown structure, canopy shadow, branches, or forest cover",
+        "a nadir overhead aerial tile dominated by woody tree canopy, tree crowns, branches, trunks, or forest cover with organic irregular edges",
+        "a submeter orthomosaic crop of deciduous or conifer canopy, including snapped, uprooted, damaged, or downed trees that are still visibly woody vegetation",
+        "an overhead remote sensing tile where the dominant texture is tree crown structure, canopy shadow, branches, forest canopy, or fallen woody material",
+        "a top down aerial image centered on woody vegetation rather than low grass, lawn, crop rows, road surface, bare soil, roof, or blank raster padding",
+        "an aerial image tile where the main subject is one or more tree crowns or damaged trees, not smooth herbaceous grass cover",
     ),
+
     "grass": (
-        "a nadir overhead aerial tile whose primary subject is low grassy vegetation with smooth, fine, herbaceous texture",
-        "a submeter orthomosaic crop dominated by lawn, pasture, meadow, or open grassland and not by woody tree canopy",
-        "an overhead remote sensing tile of low green or tan herbaceous cover without agricultural crop row pattern",
-        "a top down aerial image centered on grass cover and not on roofs, roads, tracks, exposed soil, or water",
-        "an aerial image tile dominated by continuous low vegetation where any tire marks or tracks are minor and not the primary subject",
+        "a nadir overhead aerial tile dominated by low herbaceous vegetation, lawn, pasture, meadow, or grassland with fine smooth texture",
+        "a submeter orthomosaic crop of short grass, rough grassland, yard, pasture, or open herbaceous ground cover without woody tree crowns",
+        "an overhead remote sensing tile of low green or tan vegetation without agricultural row pattern, road surface, roof geometry, or dominant tire tracks",
+        "a top down aerial image centered on grass cover where trees, crop rows, roads, structures, bare soil, and vehicle tracks are not dominant",
+        "an aerial image tile dominated by continuous low vegetation rather than tall woody canopy, dark tree shadows, crop rows, or paired wheel ruts",
     ),
+
     "dirt": (
-        "a nadir overhead aerial tile whose primary subject is exposed soil, bare ground, scraped earth, or non vegetated earth surface",
-        "a submeter orthomosaic crop dominated by brown or tan bare earth and not by pavement, roofs, water, tracks, or crop rows",
-        "an overhead remote sensing tile of disturbed soil, graded earth, or irregular bare ground texture without a clear travel path",
-        "a top down aerial image centered on bare ground without organized crop rows, tire-rut geometry, or tree crowns",
-        "an aerial image tile where the dominant feature is earth surface itself rather than a road, track, driveway, or agricultural pattern",
+        "a nadir overhead aerial tile dominated by exposed soil, bare ground, scraped earth, graded dirt, or non vegetated earth surface",
+        "a submeter orthomosaic crop of brown or tan bare earth without organized crop rows, paired tire rut geometry, road-like width, or roof structure",
+        "an overhead remote sensing tile of disturbed soil, churned ground, irregular bare dirt, or scraped earth where no clear vehicle path dominates",
+        "a top down aerial image centered on bare ground rather than road, driveway, crop rows, tree canopy, grass, structure, or debris",
+        "an aerial image tile where the dominant feature is earth surface itself, not a maintained road, vehicle track, agricultural row pattern, or blank white/black raster edge",
     ),
+
     "crops": (
-        "a nadir overhead aerial tile whose primary subject is an agricultural field with visible row structure, planted rows, or repeated crop pattern",
-        "a submeter orthomosaic crop dominated by planted rows of green crops or rows cut into bare soil",
-        "an overhead remote sensing tile of cultivated agriculture and not smooth lawn, wild grassland, dirt track, or vehicle ruts",
-        "a top down aerial image centered on organized farming geometry with repeated rows, bed patterns, or field planting structure",
-        "an aerial image tile where repeated agricultural row spacing is the dominant pattern rather than tire tracks crossing a field",
+        "a nadir overhead aerial tile dominated by agricultural field rows, planted rows, crop beds, or repeated cultivated field pattern",
+        "a submeter orthomosaic crop of green crop rows or bare soil planting rows with regular agricultural spacing",
+        "an overhead remote sensing tile where the main pattern is organized farming geometry rather than grassland, vehicle tracks, roads, or bare dirt alone",
+        "a top down aerial image centered on repeated crop row structure, bed pattern, furrows, or field planting geometry",
+        "an aerial image tile where agricultural row spacing is the dominant pattern, not paired tire tracks crossing a field or a road along a field edge",
     ),
-    "water": (
-        "a nadir overhead aerial tile whose primary subject is open water, standing floodwater, pond, stream, ditch water, or smooth water surface",
-        "a submeter orthomosaic crop dominated by dark or reflective water and not by deep shadow alone",
-        "an overhead remote sensing tile of pond, creek, flooded depression, drainage channel, or water filled low area",
-        "a top down aerial image centered on water with smooth low texture rather than canopy, pavement, roof, dirt, or track ruts",
-    ),
+
     "debris": (
-        "a nadir overhead aerial tile whose primary subject is rubble, wreckage, scattered storm debris, or chaotic broken material on the ground",
-        "a submeter orthomosaic crop dominated by fragmented damaged material rather than an intact building, road, track, tree, or crop field",
-        "an overhead remote sensing tile of debris field, rubble pile, scattered wreckage, or broken material without a clear parent object",
-        "a top down aerial image centered on loose debris and irregular fragments rather than a damaged but identifiable roof, road, or tree",
-        "an aerial image tile where the dominant visual evidence is chaotic storm debris, not simply a dirty surface, crop rows, or tire tracks",
+        "a nadir overhead aerial tile dominated by rubble, wreckage, scattered storm debris, broken material, or chaotic fragments on the ground",
+        "a submeter orthomosaic crop where loose fragmented material is the primary subject rather than an intact roof, road, track, tree canopy, crop field, or dirt surface",
+        "an overhead remote sensing tile of storm debris field, rubble pile, scattered wreckage, broken structure material, or irregular damaged fragments",
+        "a top down aerial image centered on chaotic debris and loose broken material rather than a damaged but identifiable structure, road, tree, or vehicle track",
+        "an aerial image tile where the dominant visual evidence is irregular storm debris, not simply crop rows, grass, dirt, tire tracks, or blank raster padding",
     ),
 }
-

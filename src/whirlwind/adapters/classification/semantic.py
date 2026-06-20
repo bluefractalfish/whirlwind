@@ -1,7 +1,5 @@
 
-import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence, Any
 
@@ -19,23 +17,12 @@ from whirlwind.prompts.prompt_builders import PromptBank, collapse
 from whirlwind.models.helpers.logit import PromptLogitator
 from whirlwind.prompts.detailed_classes import (
     DETAILED_CLASSES,
-    DETAILED_TO_FINAL,
-    FINAL_CLASSES,
-    FINAL_TO_DETAILED_CLASSES,
     PROMPTS_BY_DETAILED_CLASS,
-    REVIEW_CLASS,
 )
 from whirlwind.prompts.tile_classes import (
-        REAL_CLASSES, 
-        REVIEW_CLASS, 
-        MIN_TOP_SCORE, 
-        LOW_EVIDENCE, 
-        TIE_MARGIN,
-        MEDIUM_CONFIDENCE_MIN_MARGIN, 
-        MEDIUM_CONFIDENCE_MIN_SCORE, 
+        TARGET_CLASSES, 
         FINAL_CLASS_PROMPTS, 
         CLASS_THRESHOLDS, 
-        TIE_BREAK_ORDER, 
         ClassThreshold
     )
 
@@ -72,7 +59,7 @@ class SemanticClassifier:
         self.logger = logger or LOGGER 
 
         self.class_bank = PromptBank.build(
-                classes=REAL_CLASSES, 
+                classes=TARGET_CLASSES, 
                 prompts_by_class=FINAL_CLASS_PROMPTS) 
 
         self.detailed_class_bank = PromptBank.build(
@@ -218,7 +205,7 @@ class SemanticIntellect:
 
         if isinstance(checkpoint, dict) and "state_dict" in checkpoint: 
               checkpoint = checkpoint["state_dict"]
-        self.model.load_state_dict(checkpoint, strict=False) 
+        self.model.load_state_dict(checkpoint, strict=True) 
         self.model = self.model.to(self.device).eval()
     
     def _resolve_checkpoint(self) -> str: 
