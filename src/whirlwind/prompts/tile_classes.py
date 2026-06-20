@@ -140,22 +140,20 @@ FINAL_CLASS_PROMPTS: dict[str, tuple[str, ...]] = {
         "a top down aerial image where the dominant object has straight edges, corners, roof planes, or man made rectangular structure geometry",
         "an aerial image tile dominated by a structure rather than a road surface, driveway, crop row pattern, tree canopy, grass, dirt, or blank raster edge",
     ),
-
     "roads": (
-        "a nadir overhead aerial tile dominated by a maintained road, street, driveway, parking pad, parking lot, or full width vehicle surface",
-        "a submeter orthomosaic crop of asphalt, concrete, compacted gravel road, driveway, or parking surface with road-like width and continuous edges",
-        "an overhead remote sensing tile of a road corridor, including damaged, cracked, washed out, debris covered, or partially blocked road surface",
-        "a top down aerial image centered on a continuous travel surface wide enough for vehicles, not just two narrow tire ruts",
-        "an aerial image tile where the dominant feature is a full road, driveway, parking area, or lane rather than a roof, crop rows, grass, or paired wheel tracks",
+        "a nadir overhead aerial tile dominated by a full-width road, road with yellow or white lines on it, street, driveway, lane, parking pad, parking lot, access road, dirt road, gravel road, or maintained vehicle surface",
+        "a submeter orthomosaic crop of asphalt, concrete, compacted gravel, compacted dirt road, driveway, or parking surface with continuous road-like width and visible edges",
+        "an overhead remote sensing tile of a continuous travel corridor wide enough for vehicles, including paved roads, gravel roads, dirt roads, farm roads, ranch roads, logging roads, and access roads",
+        "a top down aerial image centered on a continuous road surface or driveway rather than two narrow separated tire ruts",
+        "an aerial image tile where the dominant feature is a full-width vehicle surface, even if unpaved, rough, rural, damaged, debris-covered, or partially blocked",
     ),
 
     "vehicle_tracks": (
-        "a nadir overhead aerial tile dominated by paired vehicle tire ruts through grass, dirt, crops, mud, or open land",
-        "a submeter orthomosaic crop showing two parallel wheel paths with regular spacing and vegetation or soil between the ruts",
-        "an overhead remote sensing tile of an informal vehicle track, tractor track, farm access track, logging track, or two-rut path that is not a full road",
-        "a top down aerial image centered on tire marks made by repeated vehicle passage, with paired linear rut geometry",
-        "an aerial image tile where the dominant evidence is narrow vehicle-caused wheel tracks, not crop rows, road pavement, drainage lines, tornado scarring, or random bare dirt",
-        "a remote sensing crop where the line marks have regular parallel wheel spacing and follow a vehicle path rather than chaotic storm damage marks",
+        "a nadir overhead aerial tile dominated by two separate parallel vehicle wheel ruts with grass, dirt, crops, or mud visible between the ruts",
+        "a submeter orthomosaic crop showing paired tire lines with regular wheel spacing, where the middle strip between the tire paths is visibly different from the ruts",
+        "a top down aerial image centered on two narrow vehicle-caused wheel paths, not a full-width road, driveway, lane, access road, or gravel surface or anything paved with lines painted on it",
+        "an aerial image tile where the dominant feature is paired tire-rut geometry: two thin parallel tracks separated by undisturbed ground",
+        "a remote sensing crop of vehicle tire ruts through grass, dirt, mud, crops, or open land, excluding maintained roads, gravel roads, driveways, parking areas, and full-width dirt roads",
     ),
 
     "trees": (

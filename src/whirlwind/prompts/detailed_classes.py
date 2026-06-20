@@ -14,13 +14,18 @@ DETAILED_CLASSES: tuple[str, ...] = (
     "gravel_road",
     "parking_or_driveway",
     "damaged_road_surface",
+    "full_width_dirt_road",
+    "full_width_gravel_access_road",
+    "rural_access_road",
 
     # vehicle tracks
     "two_rut_vehicle_track",
     "tire_rut_track",
-    "field_access_track",
-    "woodland_or_logging_track",
     "vehicle_tracks_through_crops",
+    "two_rut_vehicle_track",
+    "paired_tire_ruts_in_grass",
+    "paired_tire_ruts_in_dirt",
+    "paired_tire_ruts_through_crops",
 
     # trees
     "single_tree_crown",
@@ -59,13 +64,18 @@ DETAILED_TO_FINAL: dict[str, str] = {
     "gravel_road": "roads",
     "parking_or_driveway": "roads",
     "damaged_road_surface": "roads",
+    "full_width_dirt_road": "roads",
+    "full_width_gravel_access_road": "roads",
+    "rural_access_road": "roads",
 
     # vehicle tracks
     "two_rut_vehicle_track": "vehicle_tracks",
     "tire_rut_track": "vehicle_tracks",
-    "field_access_track": "vehicle_tracks",
-    "woodland_or_logging_track": "vehicle_tracks",
     "vehicle_tracks_through_crops": "vehicle_tracks",
+    "two_rut_vehicle_track": "vehicle_tracks",
+    "paired_tire_ruts_in_grass": "vehicle_tracks",
+    "paired_tire_ruts_in_dirt": "vehicle_tracks",
+    "paired_tire_ruts_through_crops": "vehicle_tracks",
 
     # trees
     "single_tree_crown": "trees",
@@ -126,7 +136,7 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, tuple[str, ...]] = {
 
     # roads
     "paved_road": (
-        "an overhead aerial image of asphalt or concrete road with continuous roadway geometry and road-like width",
+        "an overhead aerial image of asphalt or concrete road with continuous roadway geometry and road-like width with painted yellow lines",
         "a remote sensing crop of a paved street, lane, highway, or residential road and not a rooftop or two-rut track",
         "an orthomosaic patch of continuous transportation pavement with clear road alignment and surface width",
         "a top down aerial tile dominated by a paved road corridor rather than narrow paired tire ruts",
@@ -150,6 +160,24 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, tuple[str, ...]] = {
         "a top down aerial tile dominated by damaged road surface rather than bare soil, tire ruts, or scattered debris alone",
     ),
 
+    "full_width_dirt_road": (
+        "an overhead aerial image of a full-width dirt road with continuous vehicle surface and road-like edges",
+        "a remote sensing crop of an unpaved dirt road wide enough for vehicles, not two separated tire ruts",
+        "an orthomosaic patch showing a continuous dirt travel corridor rather than paired wheel tracks",
+    ),
+
+    "full_width_gravel_access_road": (
+        "an overhead aerial image of a full-width gravel access road or maintained unpaved road",
+        "a remote sensing crop of pale gravel roadway with continuous road surface and visible corridor width",
+        "an orthomosaic patch dominated by a gravel road, ranch road, farm road, or logging road that is wider than paired tire ruts",
+    ),
+
+    "rural_access_road": (
+        "an overhead aerial image of a rural access road, farm road, ranch road, service road, or logging road with full vehicle width",
+        "a remote sensing crop of a continuous rural road corridor used by vehicles, not just two thin wheel paths",
+        "an orthomosaic patch where the dominant feature is a maintained or semi-maintained road surface through fields, trees, or dirt",
+    ),
+
     # vehicle tracks
     "two_rut_vehicle_track": (
         "an overhead aerial image of a two-rut vehicle track with two parallel worn tire paths and vegetation or soil between them",
@@ -165,25 +193,37 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, tuple[str, ...]] = {
         "a top down aerial tile centered on tire tracks, rut scars, or vehicle passage marks",
         "an aerial image tile where tire-rut geometry is the dominant evidence, not crop rows, road pavement, or tornado damage marks",
     ),
-    "field_access_track": (
-        "an overhead aerial image of a farm field access track, service path, or narrow vehicle lane through a field",
-        "a remote sensing crop of an informal track crossing crop rows, grassland, pasture, or bare agricultural ground",
-        "an orthomosaic patch showing a narrow vehicle access route along a field edge or across cultivated land",
-        "a top down aerial tile dominated by a field vehicle track and not by the crop rows themselves",
-        "an aerial image tile where a vehicle path interrupts or crosses agricultural texture",
-    ),
-    "woodland_or_logging_track": (
-        "an overhead aerial image of a narrow dirt or gravel vehicle track through trees, brush, forest edge, or woodland",
-        "a remote sensing crop of a logging track, woodland access trail, or informal vehicle route partly covered by canopy",
-        "an orthomosaic patch showing a narrow linear vehicle path through woody vegetation",
-        "a top down aerial tile dominated by an unpaved access track between trees rather than tree canopy alone",
-        "an aerial image tile where the main feature is a narrow vehicle corridor through vegetation",
-    ),
+
     "vehicle_tracks_through_crops": (
         "an overhead aerial image of vehicle tire tracks crossing crop rows with paired wheel spacing different from the crop row pattern",
         "a remote sensing crop where vehicle ruts cut across or through agricultural rows rather than following the regular planting geometry",
         "an orthomosaic patch showing tractor or vehicle passage marks superimposed on crops",
         "a top down aerial tile where tire tracks are the main disturbance and crop rows are secondary background texture",
+    ),
+
+    "two_rut_vehicle_track": (
+    "an overhead aerial image of exactly two narrow parallel vehicle ruts with visible grass, dirt, mud, or crop texture between them",
+    "a submeter remote sensing crop centered on paired wheel tracks where each tire path is separate and the middle strip remains visible",
+    "an orthomosaic patch showing two thin tire lines rather than a continuous full-width vehicle surface",
+    "a top down aerial tile dominated by regular paired wheel spacing, not a dirt road, gravel road, access road, driveway, or road shoulder",
+    ),
+
+    "paired_tire_ruts_in_grass": (
+        "an overhead aerial image of two parallel tire ruts pressed through grass or pasture with grass visible between the ruts",
+        "a remote sensing crop where paired wheel paths cross herbaceous vegetation but do not form a full road surface",
+        "a top down aerial tile of narrow vehicle-caused rut lines in grass, excluding mowed paths, roads, and driveways",
+    ),
+
+    "paired_tire_ruts_in_dirt": (
+        "an overhead aerial image of two separated tire ruts in bare dirt, mud, or soil with undisturbed dirt visible between them",
+        "a remote sensing crop of paired wheel marks in soil that are narrower than a road and lack a continuous road surface",
+        "a top down aerial tile centered on tire-rut geometry rather than a full-width dirt road",
+    ),
+
+    "paired_tire_ruts_through_crops": (
+        "an overhead aerial image of paired vehicle tire ruts crossing crop rows with regular wheel spacing different from the crop-row spacing",
+        "a remote sensing crop where two vehicle wheel paths cut across or through agricultural rows",
+        "an orthomosaic patch showing paired tire disturbance superimposed on crops, not the crop rows themselves",
     ),
 
     # trees

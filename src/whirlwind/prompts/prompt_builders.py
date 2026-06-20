@@ -1,10 +1,6 @@
-import torch
 from dataclasses import dataclass, asdict 
 from typing import Mapping, Sequence
-from whirlwind.adapters.label.semantic_labels import SemanticLabel
-from whirlwind.bridges.specs.semclass import SCSpec
-from whirlwind.prompts.detailed_classes import DETAILED_TO_FINAL, FINAL_CLASSES, REVIEW_CLASS
-from whirlwind.prompts.tile_classes import CLASS_THRESHOLDS, DETAIL_AGREEMENT_MIN_MARGIN, DETAIL_AGREEMENT_MIN_SCORE, TIE_BREAK_ORDER, ClassThreshold
+from whirlwind.prompts.detailed_classes import DETAILED_TO_FINAL, FINAL_CLASSES
 
 @dataclass
 class PromptBank: 
@@ -57,7 +53,7 @@ def collapse(
     grouped: dict[str, list[float]] = {name: [] for name in final_classes}
 
     for detailed_name, score in detailed_scores.items():
-        class_name = detailed_to_final.get(detailed_name, REVIEW_CLASS)
+        class_name = detailed_to_final.get(detailed_name, "review")
         grouped.setdefault(class_name, []).append(float(score))
 
     collapsed = {

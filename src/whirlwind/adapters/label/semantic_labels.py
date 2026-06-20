@@ -35,10 +35,13 @@ class SemanticLabel:
     confidence_score: float 
 
     top_class: str
+    top_score: float
     second_class: str
+    second_score: float 
     margin: float
 
     top_detailed_class: str
+    top_detail_score: float 
     second_detailed_class: str
     detail_margin: float
     detail_agrees: bool 
@@ -60,10 +63,13 @@ class SemanticLabel:
                 "review_reasons": list(self.review_reasons),
 
                 "top_class": self.top_class,
+                "top_score": self.top_score, 
                 "second_class": self.second_class,
+                "second_score": self.second_score, 
                 "margin": self.margin,
                 
                 "top_detailed_class": self.top_detailed_class,
+                "top_detailed_score": self.top_detail_score, 
                 "second_detailed_class": self.second_detailed_class,
                 "detail_margin": self.detail_margin,
                 "detail_agrees": self.detail_agrees, 
@@ -105,9 +111,12 @@ class SemanticLabel:
                 confidence_score=decision.confidence_score,
 
                 top_class=top_class, 
+                top_score=top_score,
                 second_class=sec_class, 
+                second_score=sec_score, 
                 margin=(top_score-sec_score),
                 top_detailed_class=top_detail, 
+                top_detail_score=top_detail_score,
                 second_detailed_class=sec_detail,
                 detail_margin=(top_detail_score - sec_detail_score), 
                 detail_agrees=decision.detail_agrees, 
