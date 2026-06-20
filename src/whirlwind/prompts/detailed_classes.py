@@ -47,11 +47,6 @@ DETAILED_CLASSES: tuple[str, ...] = (
     # debris
     "rubble_or_scattered_debris",
 
-    # review-only
-    "deep_shadow",
-    "vehicle",
-    "edge_or_partial_object",
-    "mixed_landcover",
 )
 
 
@@ -100,11 +95,6 @@ DETAILED_TO_FINAL: dict[str, str] = {
     # debris
     "rubble_or_scattered_debris": "debris",
 
-    # review-only
-    "deep_shadow": REVIEW_CLASS,
-    "vehicle": REVIEW_CLASS,
-    "edge_or_partial_object": REVIEW_CLASS,
-    "mixed_landcover": REVIEW_CLASS,
 }
 
 
@@ -287,27 +277,6 @@ PROMPTS_BY_DETAILED_CLASS: dict[str, tuple[str, ...]] = {
         "a top down aerial tile centered on loose debris and fragmented material",
     ),
 
-    # review-only classes
-    "deep_shadow": (
-        "an overhead aerial image of deep shadow with very little visible structure or texture",
-        "a remote sensing crop dominated by dark cast shadow and uncertain class evidence",
-        "an orthomosaic patch where the true class is hidden by shadow",
-    ),
-    "vehicle": (
-        "an overhead aerial image of a vehicle, trailer, tractor, truck, or small transport object",
-        "a remote sensing crop centered on a car sized, truck sized, tractor sized, or trailer sized object rather than land cover",
-        "an orthomosaic patch dominated by a vehicle on pavement, dirt, grass, road, or track",
-    ),
-    "edge_or_partial_object": (
-        "an overhead aerial image where the main object is cut off by the tile edge",
-        "a remote sensing crop with only a partial roof, partial road, partial track, partial tree crown, or partial field pattern",
-        "an orthomosaic patch with insufficient spatial context for safe class assignment",
-    ),
-    "mixed_landcover": (
-        "an ambiguous overhead aerial image with several competing land cover classes",
-        "a remote sensing crop that mixes roof, road, track, tree, soil, grass, crop, water, or debris with no dominant class",
-        "an orthomosaic patch that should be reviewed instead of force assigned",
-    ),
 }
 
 

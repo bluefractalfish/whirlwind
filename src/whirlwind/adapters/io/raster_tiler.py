@@ -10,6 +10,11 @@ from whirlwind.adapters.io.write_shards import (
 
                 ShardWriter, WriteShardRequest, BinSplitShardWriter, RoutedShardWriter
             )
+from whirlwind.adapters.io.label_metadata import (
+        make_label_metadata_sink, 
+        make_review_sink, 
+        write_label_sidecar
+        )
 from whirlwind.adapters.label.label_protocol import Labeler
 from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
@@ -65,7 +70,11 @@ class TileRasterFromPlan:
         self.shard_size = shard_size 
         self.masked = masked 
         self.fill_value = fill_value
+
         self.manifest_path = branch.manifest_dir/manifest_name 
+        self.label_metadata_path = branch.metadata_dir / "label_metadata.csv"
+        self.review_path = branch.metadata_dir / "review.csv"
+
         self.manifest_kind = manifest_kind
         self.tile_plan_path = branch.staging_dir/plan_name
 
@@ -76,7 +85,10 @@ class TileRasterFromPlan:
     def build_sinks(self) -> int:
         return_code = 1 
         try:  
-            self.manifest_sink=make_sink(self.manifest_kind, self.manifest_path)
+            self.manifest_sink = make_sink(self.manifest_kind, self.manifest_path)
+            self.label_metadata_sink = make_label_metadata_sink(self.label_metadata_path)
+            self.review_sink = make_review_sink(self.review_path)
+
         except ValueError:
             return_code =  5 # cannot make manifest  
         try: 
@@ -98,33 +110,74 @@ class TileRasterFromPlan:
 
 
     
-    def run(self) -> TileSummary: 
+    def run(self, progress=None, task_id=None) -> TileSummary: 
+        tiles_to_process = self.plan_sink.count()
         planned_windows = self.plan_sink.read()
+        try:
+            with RoutedShardWriter(self.req) as writer: 
+                with RasterioWindowReader(
+                        self.p, self.masked, self.fill_value
+                        ) as reader:  
 
-        with RoutedShardWriter(self.req) as writer: 
-            with RasterioWindowReader(
-                    self.p, self.masked, self.fill_value
-                    ) as reader:  
-                n_tiles = 0 
-                for tile in reader.tiles_from_rows(planned_windows):
+                    n_tiles = 0  
+                    n_written = 0 
+                    n_skipped = 0 
 
-                    if not self.keep_empty: 
-                        stats = tile_content_stats(
-                                tile, 
-                                min_content_fraction=self.min_content_fraction, 
-                                zero_is_empty=self.zero_is_empty)
-                        if stats.mostly_empty:
-                            continue 
-                    label = self.labeler.label(tile)
-                    encoded = self.encoder.encode(tile,label)
-                    if self.dry:
-                        row = encoded.as_manifest_row(f"dry_{tile.tile_id}")
-                    else:
-                        placement = writer.write(encoded)
-                        row = encoded.as_manifest_row(placement.shard_path)
+                    for tile in reader.tiles_from_rows(planned_windows):
                         n_tiles += 1 
-                    self.manifest_sink.write(row)
-        return TileSummary(code=0, n_tiles=n_tiles)
+
+                        if progress is not None and task_id is not None: 
+                            progress.update(
+                                    task_id, 
+                                    description=(
+                                        f"tiling {Path(self.p).name} "
+                                        f"tile={n_tiles}/{tiles_to_process} "
+                                        f"written={n_written} "
+                                        f"skipped={n_skipped} "
+                                        )
+                                    )
+                        if not self.keep_empty: 
+                            stats = tile_content_stats(
+                                    tile, 
+                                    min_content_fraction=self.min_content_fraction, 
+                                    zero_is_empty=self.zero_is_empty)
+                            if stats.mostly_empty: 
+                                n_skipped += 1 
+                                if progress is not None and task_id is not None:
+                                    progress.advance(task_id, 1)
+                                continue 
+                        label = self.labeler.label(tile)
+                        encoded = self.encoder.encode(tile,label)
+                        if self.dry:
+                            shard_path = f"dry_{tile.tile_id}"
+                        else:
+                            placement = writer.write(encoded)
+                            shard_path = placement.shard_path
+                            n_written += 1 
+
+                        row = encoded.as_manifest_row(shard_path)
+
+                        # main tile manifest 
+                        self.manifest_sink.write(row)
+        
+                        # label metadata: 
+                        #   - real class tile -> label_metadata 
+                        #   - review/unknown -> review.csv
+                        write_label_sidecar(
+                                encoded=encoded, 
+                                shard=shard_path, 
+                                label_sink=self.label_metadata_sink, 
+                                review_sink=self.review_sink
+                                )
+                        if progress is not None and task_id is not None:
+                            progress.advance(task_id, 1)
+
+            return TileSummary(code=0, n_tiles=n_tiles)
+
+        finally: 
+            self.manifest_sink.close()
+            self.label_metadata_sink.close()
+            self.review_sink.close()
 
 
 

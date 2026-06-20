@@ -26,8 +26,13 @@ from whirlwind.prompts.detailed_classes import (
     REVIEW_CLASS,
 )
 from whirlwind.prompts.tile_classes import (
-        DETAIL_AGREEMENT_MIN_MARGIN, 
-        DETAIL_AGREEMENT_MIN_SCORE, 
+        REAL_CLASSES, 
+        REVIEW_CLASS, 
+        MIN_TOP_SCORE, 
+        LOW_EVIDENCE, 
+        TIE_MARGIN,
+        MEDIUM_CONFIDENCE_MIN_MARGIN, 
+        MEDIUM_CONFIDENCE_MIN_SCORE, 
         FINAL_CLASS_PROMPTS, 
         CLASS_THRESHOLDS, 
         TIE_BREAK_ORDER, 
@@ -67,7 +72,7 @@ class SemanticClassifier:
         self.logger = logger or LOGGER 
 
         self.class_bank = PromptBank.build(
-                classes=FINAL_CLASSES, 
+                classes=REAL_CLASSES, 
                 prompts_by_class=FINAL_CLASS_PROMPTS) 
 
         self.detailed_class_bank = PromptBank.build(
@@ -176,17 +181,19 @@ class SemanticClassifier:
 
         self.logger.debug(
             "semantic decision",
-            extra={
-                "tile_id": tile_id,
-                "bucket": label.bucket,
-                "dominant": label.dominant,
-                "accepted": label.accepted,
-                "top_class": label.top_class,
-                "second_class": label.second_class, 
-                "margin": label.margin,
-                "review_score": label.review_score,
-                "detail_top_class": label.top_detailed_class,
-                "review_reasons": label.review_reasons,
+            extra={ 
+            "tile_id": tile_id,
+            "bucket": label.bucket,
+            "dominant": label.dominant,
+            "accepted": label.accepted,
+            "confidence": label.confidence,
+            "confidence_score": label.confidence_score,
+            "top_class": label.top_class,
+            "second_class": label.second_class,
+            "margin": label.margin,
+            "detail_agrees": label.detail_agrees,
+            "top_detailed_class": label.top_detailed_class,
+            "review_reasons": label.review_reasons,
             },
         )
 

@@ -37,6 +37,14 @@ class WindowPlanCSV:
 
         return n
 
+    def count(self) -> int:
+            if not self.path.is_file() or not self.path.exists():
+                print("no window plan has been made")
+                raise FileNotFoundError
+
+            with self.path.open("r", newline="", encoding="utf-8") as f:
+                return max(0, sum(1 for _ in f) - 1)
+
     def read(self) -> Iterator[PlannedWindow]:
         if not self.path.is_file() or not self.path.exists():
             print("no window plan has been made")

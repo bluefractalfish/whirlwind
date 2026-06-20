@@ -68,6 +68,8 @@ class Result:
 class TesselationBridge:
 
     def run(self, request: Request) -> Result:
+        paths = tuple(request.paths)
+        total_rasters = len(paths)
         with face.phase(1,5,"locating manifest...", delay=0.5):
             if not request.manifest.exists():
                 face.error(f"no manifest found for request")
@@ -80,14 +82,13 @@ class TesselationBridge:
         summaries: list[Summary] = []
         n_tiles = 0 
         n_rasters = 0 
-        total_rasters = sum(1 for _ in request.paths)
         with face.phase(3,5,"building tesselation spec, referencing plan..."): pass 
         with face.progress() as pr:
             t1 = pr.add_task("walking manifest",total=total_rasters)
-            t2 = pr.add_task("")
-            for p in request.paths: 
+            t2 = pr.add_task("tiling", total=1)
+            for p in paths: 
                 pr.advance(t1,1)
-                pr.update(t2, description=f"tiling {RasterFile(p).mosaic_id}")
+                pr.update(t2, description=f"building tiler for {RasterFile(p).mosaic_id}")
                 
                 # confirm tile plan exists 
                 try:  
@@ -135,16 +136,21 @@ class TesselationBridge:
                 if sc != 1: 
                     summaries.append(Summary(error=1,code=sc))
                     continue 
-
+                tiles_to_process = tiler.plan_sink.count()
+                pr.update(
+                        t2, 
+                        description=f"tiling{RasterFile(p).mosaic_id}", 
+                        total=tiles_to_process, 
+                        completed=0
+                        )
                 tiler.make_shard_request()
-                tilesummary = tiler.run() 
+                tilesummary = tiler.run(progress=pr, task_id=t2) 
 
                 n_rasters += 1
                 n_tiles += tilesummary.n_tiles
                 summaries.append(Summary(error=0,
                                          code=tilesummary.code,
                                          n_tiles=n_tiles))
-                pr.advance(t2,1)
         
         face.phase(4,4,"assessing summaries...")
         skipped = sum(1 for s in summaries if s.code==7)

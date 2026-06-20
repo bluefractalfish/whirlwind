@@ -1,11 +1,14 @@
 
 
 from dataclasses import dataclass
+from typing import Literal
 from whirlwind.domain.config.schema import Config
+
 
 REVIEW_CLASS = "review"
 
-FINAL_CLASSES: tuple[str, ...] = (
+REAL_CLASSES: tuple[str, ...] = (
+
     "structures",
     "roads",
     "tracks",
@@ -15,18 +18,51 @@ FINAL_CLASSES: tuple[str, ...] = (
     "crops",
     "water",
     "debris",
-    REVIEW_CLASS,
+
 )
 
-TIE_BREAK_ORDER: tuple[str, ...] = FINAL_CLASSES
 
+FINAL_CLASSES: tuple[str, ...] = REAL_CLASSES + (REVIEW_CLASS,)
+
+TIE_BREAK_ORDER: tuple[str, ...] = REAL_CLASSES
+
+
+Confidence = Literal["high", "medium", "low"]
 
 @dataclass(frozen=True)
 class ClassThreshold:
     min_score: float
     min_margin: float
-    max_second_score: float
-    max_review_score: float
+    max_second_score: float 
+    
+    
+    def confidence(self, 
+             top_score, 
+             margin, 
+             second_score, 
+             top_detail_score, 
+             detail_margin, 
+             detail_agrees ) -> Confidence:
+
+         if (
+                top_score >= self.min_score
+                and margin >= self.min_margin 
+                and second_score <= self.max_second_score 
+                and top_detail_score >= DETAIL_AGREEMENT_MIN_SCORE
+                and detail_margin >= DETAIL_AGREEMENT_MIN_MARGIN
+                and detail_agrees
+                ): 
+             return "high"
+         if  (
+                top_score >= MEDIUM_CONFIDENCE_MIN_SCORE 
+                or margin >= MEDIUM_CONFIDENCE_MIN_MARGIN
+                ): 
+             return "medium" 
+
+         else: 
+             return "low" 
+
+
 
 def final_class_rule_from_config(class_name: str, config: Config) -> "ClassThreshold": 
     raw = config.parse("classification", "rules") 
@@ -35,70 +71,72 @@ def final_class_rule_from_config(class_name: str, config: Config) -> "ClassThres
         min_score = float(class_rule["min_score"])
         min_margin = float(class_rule["min_margin"]) 
         max_second = float(class_rule["max_second"]) 
-        max_review = float(class_rule["max_review"])
         
-        return ClassThreshold(min_score, min_margin, max_second, max_review)
-    return ClassThreshold(0.0, 0.0, 0.0, 0.0)
+        return ClassThreshold(min_score, min_margin, max_second)
+    return ClassThreshold(0.0, 0.0, 0.0)
+
+# model has almost no evidence if less than: 
+MIN_TOP_SCORE = 0.22
+
+# send to review if top score less than: 
+LOW_EVIDENCE = 0.30 
+# and classes are basically tied: 
+TIE_MARGIN = 0.01 
+
+MEDIUM_CONFIDENCE_MIN_SCORE = 0.34 
+MEDIUM_CONFIDENCE_MIN_MARGIN = 0.02 
+
+DETAIL_AGREEMENT_MIN_SCORE = 0.22
+DETAIL_AGREEMENT_MIN_MARGIN = 0.04
 
 CLASS_THRESHOLDS: dict[str, ClassThreshold] = {
     "structures": ClassThreshold(
         min_score=0.48,
-        min_margin=0.10,
-        max_second_score=0.30,
-        max_review_score=0.22,
+        min_margin=0.08,
+        max_second_score=0.38,
     ),
     "roads": ClassThreshold(
         min_score=0.40,
-        min_margin=0.12,
-        max_second_score=0.28,
-        max_review_score=0.22,
+        min_margin=0.06,
+        max_second_score=0.38,
     ),
     "tracks": ClassThreshold(
-        min_score=0.45,
-        min_margin=0.11,
-        max_second_score=0.29,
-        max_review_score=0.24,
+        min_score=0.42,
+        min_margin=0.06,
+        max_second_score=0.38,
     ),
     "trees": ClassThreshold(
-        min_score=0.52,
-        min_margin=0.10,
-        max_second_score=0.30,
-        max_review_score=0.24,
+        min_score=0.48,
+        min_margin=0.07,
+        max_second_score=0.40,
     ),
     "grass": ClassThreshold(
-        min_score=0.55,
-        min_margin=0.12,
-        max_second_score=0.26,
-        max_review_score=0.24,
+        min_score=0.45,
+        min_margin=0.05,
+        max_second_score=0.42,
     ),
     "dirt": ClassThreshold(
-        min_score=0.55,
-        min_margin=0.12,
-        max_second_score=0.26,
-        max_review_score=0.24,
+        min_score=0.45,
+        min_margin=0.05,
+        max_second_score=0.42,
     ),
     "crops": ClassThreshold(
-        min_score=0.58,
-        min_margin=0.12,
-        max_second_score=0.28,
-        max_review_score=0.24,
+        min_score=0.48,
+        min_margin=0.06,
+        max_second_score=0.40,
     ),
     "water": ClassThreshold(
-        min_score=0.62,
-        min_margin=0.10,
-        max_second_score=0.24,
-        max_review_score=0.24,
+        min_score=0.52,
+        min_margin=0.04,
+        max_second_score=0.38,
     ),
     "debris": ClassThreshold(
-        min_score=0.50,
-        min_margin=0.08,
-        max_second_score=0.32,
-        max_review_score=0.24,
+        min_score=0.40,
+        min_margin=0.04,
+        max_second_score=0.42,
     ),
 }
 
-DETAIL_AGREEMENT_MIN_SCORE = 0.22
-DETAIL_AGREEMENT_MIN_MARGIN = 0.04
 
 
 FINAL_CLASS_PROMPTS: dict[str, tuple[str, ...]] = {
@@ -164,14 +202,6 @@ FINAL_CLASS_PROMPTS: dict[str, tuple[str, ...]] = {
         "an overhead remote sensing tile of debris field, rubble pile, scattered wreckage, or broken material without a clear parent object",
         "a top down aerial image centered on loose debris and irregular fragments rather than a damaged but identifiable roof, road, or tree",
         "an aerial image tile where the dominant visual evidence is chaotic storm debris, not simply a dirty surface, crop rows, or tire tracks",
-    ),
-    REVIEW_CLASS: (
-        "an ambiguous overhead aerial tile with mixed land cover and no single dominant class",
-        "a heavily shadowed, occluded, overexposed, underexposed, or low evidence aerial tile that should be reviewed by a human",
-        "a partial object at the tile edge in top down imagery where the true class is uncertain",
-        "an overhead aerial tile containing several competing classes with no clearly dominant subject",
-        "a remote sensing crop that should be routed to review instead of forcing a best fit class",
-        "an aerial tile where road, track, dirt, crop rows, grass, trees, structures, or debris are too ambiguous to assign safely",
     ),
 }
 

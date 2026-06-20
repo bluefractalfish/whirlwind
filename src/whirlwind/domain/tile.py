@@ -97,8 +97,7 @@ class EncodedTile:
         window = meta["window"]
         bounds = meta["bounds"]
 
-        label_meta = meta.get("label", {})
-        bucket = meta.get("bucket", label_meta.get("bucket", "shards"))
+        bucket = meta.get("bucket","shards")
 
         return ManifestRow(
             tile_id=self.tile_id,
@@ -123,11 +122,6 @@ class EncodedTile:
             branch_id=meta.get("branch_id"),
             mosaic_id=meta.get("mosaic_id"),
 
-            label_json=json.dumps(
-                label_meta,
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ),
         )
 
 @dataclass(frozen=True)
@@ -154,7 +148,6 @@ class ManifestRow:
     branch_id: str | None = None
     mosaic_id: str | None = None
 
-    label_json: str = "{}"
 
 class TileEncoder: 
     """

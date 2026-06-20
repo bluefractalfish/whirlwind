@@ -69,7 +69,54 @@ classification:
     min_structure_score: 0.22
   checkpoints:
       cache_dir: /home/rhea/B/checkpoints
-
+  rules:
+    # used to create clear thresholds at which to consider a classification 
+    # likely to be accurate or in need of review
+    structures: 
+      min_score: 0.55
+      min_margin: 0.10 
+      max_second: 0.30 
+      max_review: 0.22
+    roads: 
+      min_score: 0.59
+      min_margin: 0.12
+      max_second: 0.28
+      max_review: 0.20 
+    tracks:
+      min_score: 0.57
+      min_margin: 0.11
+      max_second: 0.29
+      max_review: 0.21
+    trees:
+      min_score: 0.56
+      min_margin: 0.10
+      max_second: 0.30
+      max_review: 0.22
+    grass:
+      min_score: 0.60
+      min_margin: 0.12
+      max_second: 0.26
+      max_review: 0.20
+    dirt:
+      min_score: 0.60
+      min_margin: 0.12
+      max_second: 0.26
+      max_review: 0.20
+    crops: 
+      min_score: 0.58
+      min_margin: 0.12
+      max_second: 0.28
+      max_review: 0.20
+    water: 
+      min_score: 0.62
+      min_margin: 0.10
+      max_second: 0.24
+      max_review: 0.18
+    debris:  
+      min_score: 0.50
+      min_margin: 0.08
+      max_second: 0.32
+      max_review: 0.34 
 
 segmentation:
   params:
@@ -100,6 +147,3 @@ segmentation:
 
 
     
-heuristics: 
-  soil:
-  veg:

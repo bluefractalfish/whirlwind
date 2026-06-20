@@ -1,14 +1,23 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping, Sequence
 
-from whirlwind.prompts.tile_classes import DETAIL_AGREEMENT_MIN_MARGIN, DETAIL_AGREEMENT_MIN_SCORE, REVIEW_CLASS, TIE_BREAK_ORDER, ClassThreshold 
+from whirlwind.prompts.tile_classes import (
+
+        REAL_CLASSES, 
+        MIN_TOP_SCORE, 
+        LOW_EVIDENCE, 
+        TIE_MARGIN, 
+        MEDIUM_CONFIDENCE_MIN_MARGIN, 
+        DETAIL_AGREEMENT_MIN_SCORE, 
+        DETAIL_AGREEMENT_MIN_MARGIN, 
+        DETAIL_AGREEMENT_MIN_SCORE, 
+        REVIEW_CLASS, 
+        TIE_BREAK_ORDER, 
+        ClassThreshold 
+    )
 
 
-
-@dataclass 
-class BinScore: 
-    name: str 
-    score: float 
+Confidence = Literal["high","medium", "low","review"]
 
 
 
@@ -16,17 +25,23 @@ class BinScore:
 class SemanticLabel:
 
     bucket: str
-    dominant: str
+    dominant: str 
+
+    # assigned to a real class if true
     accepted: bool
+
+
+    confidence: Confidence 
+    confidence_score: float 
 
     top_class: str
     second_class: str
     margin: float
-    review_score: float
 
     top_detailed_class: str
     second_detailed_class: str
     detail_margin: float
+    detail_agrees: bool 
 
     review_reasons: tuple[str, ...] = field(default_factory=tuple)
 
@@ -39,16 +54,19 @@ class SemanticLabel:
                 "bucket": self.bucket,
                 "dominant": self.dominant,
                 "accepted": self.accepted,
+                "confidence": self.confidence, 
+                "confidence_score": self.confidence_score, 
+
                 "review_reasons": list(self.review_reasons),
 
                 "top_class": self.top_class,
                 "second_class": self.second_class,
                 "margin": self.margin,
-                "review_score": self.review_score,
                 
                 "top_detailed_class": self.top_detailed_class,
                 "second_detailed_class": self.second_detailed_class,
                 "detail_margin": self.detail_margin,
+                "detail_agrees": self.detail_agrees, 
 
                 "final_scores": self.final_scores,
                 "detailed_scores": self.detailed_scores,
@@ -57,30 +75,43 @@ class SemanticLabel:
 
     @classmethod
     def from_decision(cls, 
-                      decision: DecisionSummary,
+                      decision: "DecisionSummary",
                       class_scores: Mapping[str, float],
-                      detailed_scores: Mapping[str, float]) -> "SemanticLabel":
+                      detailed_scores: Mapping[str, float]
+                        ) -> "SemanticLabel":
+
        top_class, top_score = decision.coarse_ranked[0]
        sec_class, sec_score = (
-               decision.coarse_ranked[1] if len(decision.coarse_ranked) > 1 else ("none",0.0)
-               ) 
+               decision.coarse_ranked[1] 
+               if len(decision.coarse_ranked) > 1 
+               else ("none",0.0)
+
+            ) 
 
        top_detail, top_detail_score = decision.detail_ranked[0] 
        sec_detail, sec_detail_score = (
-               decision.detail_ranked[1] if len(decision.detail_ranked) > 1 else ("none",0.0)
-               )
+               decision.detail_ranked[1] 
+               if len(decision.detail_ranked) > 1 
+               else ("none",0.0)
 
-       return SemanticLabel(
+            )
+
+       return cls(
                 bucket = decision.bucket, 
                 dominant=decision.dominant,
                 accepted=decision.accepted,
+                
+                confidence=decision.confidence, 
+                confidence_score=decision.confidence_score,
+
                 top_class=top_class, 
                 second_class=sec_class, 
                 margin=(top_score-sec_score),
-                review_score=decision.review_score,
                 top_detailed_class=top_detail, 
-                second_detailed_class=sec_detail, 
+                second_detailed_class=sec_detail,
                 detail_margin=(top_detail_score - sec_detail_score), 
+                detail_agrees=decision.detail_agrees, 
+
                 review_reasons=decision.reasons, 
                 final_scores={k: float(v) for k, v in class_scores.items()}, 
                 detailed_scores={k: float(v) for k,v in detailed_scores.items()} 
@@ -93,11 +124,15 @@ class DecisionSummary:
     accepted: bool
     bucket: str
     dominant: str
+
+    confidence: Confidence 
+    confidence_score: float 
     
     reasons: tuple[str, ...]
     coarse_ranked: tuple[tuple[str, float], ...]
     detail_ranked: tuple[tuple[str, float], ...] 
-    review_score: float
+
+    detail_agrees: bool 
 
 
     @classmethod 
@@ -108,69 +143,105 @@ class DecisionSummary:
                class_thresholds: Mapping[str, ClassThreshold],
                ) -> "DecisionSummary":
         
-        coarse_ranked = tuple(stable_rank(coarse_scores, TIE_BREAK_ORDER))
+        # rank real classes. review is not a class, but a fallback 
+        real_scores = { 
+            name: float(score)
+            for name, score in coarse_scores.items()
+            if name in REAL_CLASSES
+            }
+
+        if not real_scores: 
+            return cls(
+                    accepted=False, 
+                    bucket=REVIEW_CLASS, 
+                    dominant=REVIEW_CLASS, 
+                    confidence="review",
+                    confidence_score=0.0, 
+                    reasons=("no_real_class: no evidence",), 
+                    coarse_ranked=((REVIEW_CLASS, 0.0),),
+                    detail_ranked=((REVIEW_CLASS, 0.0),),
+                    detail_agrees=False
+                    ) 
+        coarse_ranked = tuple(stable_rank(real_scores, TIE_BREAK_ORDER))
         detailed_ranked = tuple(stable_rank(detailed_scores, TIE_BREAK_ORDER))
         
-        top_coarse_bin, top_score = coarse_ranked[0] 
-        top_detailed_bin, top_detail_score = detailed_ranked[0]
-        _, sec_detail_score = (
+        top_class, top_score = coarse_ranked[0] 
+        second_class, second_score = (
+                coarse_ranked[1] if len(coarse_ranked) > 1 else ("none",0.0)
+        )
+
+
+        margin = float(top_score - second_score)
+
+        top_detail, top_detail_score = detailed_ranked[0]
+        second_detail, second_detail_score = (
                 detailed_ranked[1] if len(detailed_ranked) > 1 else ("none", 0.0)
             )
-        top_class = BinScore(name=top_coarse_bin, score=top_score)
-        top_detailed_class = BinScore(name=top_detailed_bin, score=top_detail_score)
 
-        review_score = float(coarse_scores.get(REVIEW_CLASS, 0.0))
+        detail_margin = float(top_detail_score - second_detail_score)
+        detail_agrees = top_detail == top_class  
+
         reasons: list[str] = []
 
-        if top_class.name == REVIEW_CLASS:
-            reasons.append("top_coarse_score_is_review")
-        else:
-            th = class_thresholds[top_class.name]
-            if top_class.score < th.min_score:
-                reasons.append(
-                    "top_score_below_min:"
-                    f"{top_class.score:.4f}<{th.min_score:.4f}"
-                        )
-            if review_score > th.max_review_score:
-                reasons.append(
-                    "review_score_too_high:"
-                    f"{review_score:.4f}>{th.max_review_score:.4f}"
-                        )
-            if top_detailed_class.name != top_class.name:
-                reasons.append(
-                    "coarse_detail_disagreement:"
-                    f"{top_class.name}!={top_detailed_class.name}"
-                        ) 
-            if top_detailed_class.score < DETAIL_AGREEMENT_MIN_SCORE:
-                reasons.append(
-                    "top_detailed_score_below_min:"
-                    f"{top_detailed_class.score:.4f}<{DETAIL_AGREEMENT_MIN_SCORE:.4f}"
-                        )
-            if (top_detailed_class.score - sec_detail_score) < DETAIL_AGREEMENT_MIN_MARGIN:
-                reasons.append(
-                    "detail_margin_below_min:"
-                    f"{(top_detailed_class.score - sec_detail_score):.4f}"
-                    f"<{DETAIL_AGREEMENT_MIN_MARGIN:.4f}"
-                )
+        # edge case 1: almost zero real class evidence 
+        if top_score < MIN_TOP_SCORE: 
+            reasons.append(
+                f"true_edge_low_evidence:{top_score:.4f}<{MIN_TOP_SCORE:.4f}"
+            )
 
-        accepted = not reasons 
-        bucket = top_class.name if accepted else REVIEW_CLASS 
-        dominant = top_detailed_class.name
-        
-        return DecisionSummary(
-                accepted=accepted, 
-                bucket=bucket, 
-                dominant=dominant, 
+        # edge case 2: weak score and nearly tied.
+        elif top_score < LOW_EVIDENCE and margin < TIE_MARGIN:
+            reasons.append(
+                "true_edge_weak_tie:"
+                f"score={top_score:.4f}<"
+                f"{LOW_EVIDENCE:.4f},"
+                f"margin={margin:.4f}<"
+                f"{TIE_MARGIN:.4f}"
+            )
+
+        if reasons:
+            return cls(
+                accepted=False,
+                bucket=REVIEW_CLASS,
+                dominant=top_class,
+                confidence="review",
+                confidence_score=float(top_score),
                 reasons=tuple(reasons),
+                coarse_ranked=coarse_ranked,
+                detail_ranked=detailed_ranked,
+                detail_agrees=detail_agrees,
+            )
+        
+        # if no edge cases, assign real class 
+
+        th = class_thresholds[top_class] 
+
+        confidence = th.confidence(top_score, 
+                      margin, 
+                      second_score, 
+                      top_detail_score, 
+                      detail_margin, 
+                      detail_agrees)  
+
+        confidence_score = float((top_score + max(margin, 0.0)) / 2.0)
+        
+        return cls(
+                accepted=True, 
+                bucket=top_class, 
+                dominant=top_class, 
+                confidence=confidence, 
+                confidence_score=confidence_score, 
+                reasons=tuple("real_class_assigned",),
                 coarse_ranked=coarse_ranked, 
                 detail_ranked=detailed_ranked, 
-                review_score=review_score
-            )
+                detail_agrees=detail_agrees
+                )
 
 def stable_rank(
     scores: Mapping[str, float],
     class_order: Sequence[str],
 ) -> list[tuple[str, float]]:
+    """assign real_class unless unclassifiable"""
     order_index = {name: idx for idx, name in enumerate(class_order)}
     return sorted(
         ((name, float(score)) for name, score in scores.items()),
