@@ -30,21 +30,26 @@ class Request:
     dpath_name: str 
     plan_name: str 
     manifest_name: str 
-    manifest_kind: str 
+    manifest_kind: str
+
     # for intersection with geometry based labels 
     intersection_label: bool 
     intersection_geom_name: str | None=None
+
     # specs for semantic classification 
     classification: bool = False
     device: str = "cpu" 
     model_name: str = "ViT-B-32"
     bands: tuple[int,int,int] = (0,1,2)
+    tile_limit: int = 999999
     # for masking, removing empty tiles 
     masked: bool = False
     fill_value: float = 0.0 
     min_content_fraction: float = 0.70
     keep_empty: bool = False 
     zero_is_empty: bool = True 
+    
+
 
 
 
@@ -121,10 +126,9 @@ class TesselationBridge:
                             masked=request.masked, 
                             fill_value=request.fill_value, 
                             dry=request.dry, 
-                            keep_empty=request.keep_empty,
                             min_content_fraction=request.min_content_fraction, 
                             zero_is_empty=request.zero_is_empty, 
-                            labeler=labeler
+                            labeler=labeler, 
                             ) 
 
                 except FileNotFoundError:
@@ -143,8 +147,11 @@ class TesselationBridge:
                         total=tiles_to_process, 
                         completed=0
                         )
-                tiler.make_shard_request()
-                tilesummary = tiler.run(progress=pr, task_id=t2) 
+                tiler.make_shard_request() 
+
+                # tiling operator is run here 
+                tilesummary = tiler.run(tile_limit=request.tile_limit, 
+                                        progress=pr, task_id=t2) 
 
                 n_rasters += 1
                 n_tiles += tilesummary.n_tiles

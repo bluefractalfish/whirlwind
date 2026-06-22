@@ -29,6 +29,8 @@ TESSELATE_HELP = """
           Attach binary intersection labels during tesselation.
       -c, --classify 
           attatch class labels using remoteclip 
+      -m, --limit=int 
+          only classify certain number of tiles 
       -d, --dry
           Dry run. Build request and walk plan without writing heavy outputs.
 
@@ -75,6 +77,8 @@ class BuildTesselationRequest(RequestBuilder[Request]):
         shard_cfg = ctx.section("operations", "tesselate")
         gpkg_name = shard_cfg["gpkg_name"]
         zero_is_empty = "--keep-zero" not in tv.flags
+        tile_limit = tv.values("--limit")
+        tile_limit = int(tile_limit[-1]) if tile_limit else None
         paths, manifest = pathset(tv, ctx)
 
         return Request(
@@ -94,9 +98,11 @@ class BuildTesselationRequest(RequestBuilder[Request]):
                 manifest_name="tile_manifest.csv",
                 manifest_kind="parquet" if "-p" in tv.flags or "--parquet" in tv.flags 
                                  else shard_cfg["manifest_kind"], 
-                zero_is_empty = zero_is_empty 
+                zero_is_empty = zero_is_empty,
+                tile_limit=tile_limit if tile_limit 
+                            else 999999
+                ) 
 
-                )
     def help(self) -> str: 
         return TESSELATE_HELP
 

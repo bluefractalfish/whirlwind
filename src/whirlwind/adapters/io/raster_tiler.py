@@ -49,20 +49,20 @@ class TileRasterFromPlan:
                  masked: bool, 
                  fill_value: float, 
                  dry: bool, 
-                 keep_empty: bool,  
                  min_content_fraction: float, 
                  zero_is_empty: bool, 
-                 labeler: Labeler | None = None
+                 labeler: Labeler | None = None, 
                  ) -> None: 
         self.p = p 
-        self.code = 0 
-        self.labeler = labeler or UnaryLabeler()
         f = RasterFile(p)
+        self.code = 0 
+
+        self.labeler = labeler or UnaryLabeler()
         self.encoder = TileEncoder(src=f)
         
         branch = tree.branchlook(manifest,p)
+
         self.dry = dry 
-        self.keep_empty=keep_empty
         self.min_content_fraction = min_content_fraction 
         self.zero_is_empty=zero_is_empty
         self.shard_dir = branch.shards_dir
@@ -71,14 +71,13 @@ class TileRasterFromPlan:
         self.masked = masked 
         self.fill_value = fill_value
 
+        self.manifest_kind = manifest_kind
         self.manifest_path = branch.manifest_dir/manifest_name 
         self.label_metadata_path = branch.metadata_dir / "label_metadata.csv"
         self.review_path = branch.metadata_dir / "review.csv"
-
-        self.manifest_kind = manifest_kind
         self.tile_plan_path = branch.staging_dir/plan_name
-
         self.branch = branch
+
         if not self.tile_plan_path.is_file() or not self.tile_plan_path.exists():
             raise FileNotFoundError
 
@@ -110,7 +109,7 @@ class TileRasterFromPlan:
 
 
     
-    def run(self, progress=None, task_id=None) -> TileSummary: 
+    def run(self, tile_limit: int, progress=None, task_id=None) -> TileSummary: 
         tiles_to_process = self.plan_sink.count()
         planned_windows = self.plan_sink.read()
         try:
@@ -124,7 +123,11 @@ class TileRasterFromPlan:
                     n_skipped = 0 
 
                     for tile in reader.tiles_from_rows(planned_windows):
+
                         n_tiles += 1 
+
+                        if tile_limit is not None and n_tiles >= tile_limit: 
+                            break
 
                         if progress is not None and task_id is not None: 
                             progress.update(
@@ -137,28 +140,27 @@ class TileRasterFromPlan:
                                         )
                                     )
 
-                        if not self.keep_empty:
-                            skip = should_skip_tile(
-                                tile,
-                                min_content_fraction=self.min_content_fraction,
-                                zero_is_empty=self.zero_is_empty,
+                        skip = should_skip_tile(
+                            tile,
+                            min_content_fraction=self.min_content_fraction,
+                            zero_is_empty=self.zero_is_empty,
+                        )
+
+                        if skip.skip:
+                            n_skipped += 1
+
+                            # Temporary debug. Remove once tuned.
+                            print(
+                                tile.tile_id,
+                                "SKIP",
+                                skip.reason,
+                                skip.stats,
                             )
 
-                            if skip.skip:
-                                n_skipped += 1
+                            if progress is not None and task_id is not None:
+                                progress.advance(task_id, 1)
 
-                                # Temporary debug. Remove once tuned.
-                                print(
-                                    tile.tile_id,
-                                    "SKIP",
-                                    skip.reason,
-                                    skip.stats,
-                                )
-
-                                if progress is not None and task_id is not None:
-                                    progress.advance(task_id, 1)
-
-                                continue
+                            continue
 
                         label = self.labeler.label(tile)
 
