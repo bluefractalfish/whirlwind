@@ -5,22 +5,17 @@ import geopandas as gpd
 
 from shapely.geometry import box, Point
 from shapely.strtree import STRtree
-from whirlwind.adapters.label.simple_label import SimpleLabel
+from whirlwind.adapters.label.labels.simple_label import SimpleLabel
 from whirlwind.domain.tile import Tile
 
 
 
-class LabelByIntersection:
+class SpatialRouter:
     """ 
     used to calculate a tile's binary intersection with some geometry, e.g. like damage_path 
 
     usage 
     ------ 
-    labeler = LabelByIntersection(
-        geometry_name="trees" 
-        geometry_areas=some_area_geoms,
-        geometry_lines=some_line_geoms,
-        )
 
     with WindowReader(raster_path) as reader:
         for tile in reader.tiles_from_rows(rows, masked=True, fill_value=0.0):
@@ -44,7 +39,7 @@ class LabelByIntersection:
             area_layer: str,
             line_layer: str,
             target_crs,
-        ) -> "LabelByIntersection":
+        ) -> "SpatialRouter":
 
             areas = gpd.read_file(gpkg_path, layer=area_layer)
             lines = gpd.read_file(gpkg_path, layer=line_layer)

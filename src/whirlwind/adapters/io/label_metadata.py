@@ -54,6 +54,33 @@ class ReviewRow:
     review_reasons: str
     label_json: str
 
+@dataclass(frozen=True)
+class DamageRouteRow:
+    tile_id: str
+    shard: str
+    key: str
+
+    bucket: str
+    dominant: str
+
+    damage_label: str
+    damage_likelihood: float
+    route_source: str
+
+    inside_damage_area: bool
+    intersects_damage_area: bool
+    distance_to_damage_line: str
+
+    review_required: bool
+    review_reason: str
+
+    semantic_top_class: str
+    semantic_confidence: str
+    semantic_top_score: float
+    semantic_second_class: str
+    semantic_margin: float
+
+    label_json: str
 
 class DataclassCsvSink:
     def __init__(
@@ -91,6 +118,12 @@ def make_label_metadata_sink(path: Path, append: bool = True) -> DataclassCsvSin
         append=append,
     )
 
+def make_damage_route_sink(path: Path, append: bool = True) -> DataclassCsvSink:
+    return DataclassCsvSink(
+        path,
+        fieldnames=list(DamageRouteRow.__dataclass_fields__.keys()),
+        append=append,
+    )
 
 def make_review_sink(path: Path, append: bool = True) -> DataclassCsvSink:
     return DataclassCsvSink(
@@ -109,6 +142,14 @@ def semantic_payload(encoded: EncodedTile) -> dict[str, Any]:
 
     return semantic
 
+def damage_payload(encoded: EncodedTile) -> dict[str, Any]:
+    label = encoded.metadata.get("label", {})
+    damage = label.get("damage", {})
+
+    if not damage:
+        return {}
+
+    return damage
 
 def label_json(encoded: EncodedTile) -> str:
     return json.dumps(
@@ -197,6 +238,72 @@ def build_review_row(
         label_json=label_json(encoded),
     )
 
+def build_damage_route_row(
+    encoded: EncodedTile,
+    shard: str,
+) -> DamageRouteRow:
+    d = damage_payload(encoded)
+
+    distance = d.get("distance_to_damage_line")
+    distance_text = "" if distance is None else str(distance)
+
+    damage_label = d.get("damage_label")
+    damage_label_text = "" if damage_label is None else str(bool(damage_label))
+
+    return DamageRouteRow(
+        tile_id=encoded.tile_id,
+        shard=str(shard),
+        key=encoded.key,
+
+        bucket=str(d.get("bucket", encoded.metadata.get("bucket", ""))),
+        dominant=str(d.get("dominant", "")),
+
+        damage_label=damage_label_text,
+        damage_likelihood=float(d.get("damage_likelihood", 0.0)),
+        route_source=str(d.get("route_source", "")),
+
+        inside_damage_area=bool(d.get("inside_damage_area", False)),
+        intersects_damage_area=bool(d.get("intersects_damage_area", False)),
+        distance_to_damage_line=distance_text,
+
+        review_required=bool(d.get("review_required", True)),
+        review_reason=str(d.get("review_reason", "")),
+
+        semantic_top_class=str(d.get("semantic_top_class", "")),
+        semantic_confidence=str(d.get("semantic_confidence", "")),
+        semantic_top_score=float(d.get("semantic_top_score") or 0.0),
+        semantic_second_class=str(d.get("semantic_second_class", "")),
+        semantic_margin=float(d.get("semantic_margin") or 0.0),
+
+        label_json=label_json(encoded),
+    )
+
+def build_review_row_from_damage(
+    encoded: EncodedTile,
+    shard: str,
+) -> ReviewRow:
+    d = damage_payload(encoded)
+
+    return ReviewRow(
+        tile_id=encoded.tile_id,
+        shard=str(shard),
+        key=encoded.key,
+
+        suggested_label=str(d.get("dominant", "")),
+        bucket=str(d.get("bucket", REVIEW_CLASS)),
+
+        confidence=str(d.get("route_source", "damage_review")),
+        confidence_score=float(d.get("damage_likelihood", 0.0)),
+
+        top_class=str(d.get("semantic_top_class", "")),
+        top_score=float(d.get("semantic_top_score") or 0.0),
+        second_class=str(d.get("semantic_second_class", "")),
+        second_score=float(d.get("semantic_second_score") or 0.0),
+        margin=float(d.get("semantic_margin") or 0.0),
+
+        review_reasons=str(d.get("review_reason", "")),
+        label_json=label_json(encoded),
+    ) 
 
 def write_label_sidecar(
     *,
@@ -204,7 +311,16 @@ def write_label_sidecar(
     shard: str,
     label_sink: DataclassCsvSink,
     review_sink: DataclassCsvSink,
+    damage_sink: DataclassCsvSink | None = None,
 ) -> None:
+    if damage_sink is not None and damage_payload(encoded):
+        damage_sink.write(build_damage_route_row(encoded, shard))
+
+        d = damage_payload(encoded)
+        if bool(d.get("review_required", True)):
+            review_sink.write(build_review_row_from_damage(encoded, shard))
+        return
+
     if is_review_tile(encoded):
         review_sink.write(build_review_row(encoded, shard))
     else:

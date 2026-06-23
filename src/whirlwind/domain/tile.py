@@ -43,6 +43,28 @@ from whirlwind.adapters.label.simple_label import SimpleLabel
 from whirlwind.filesystem.files import RasterFile, FileID
 from whirlwind.domain.plannedwindow import PlannedWindow
 from whirlwind.adapters.label.label_protocol import Label 
+from rasterio.crs import CRS
+
+
+def _crs_unit_name(crs_text: str | None) -> str | None:
+    if not crs_text:
+        return None
+
+    try:
+        crs = CRS.from_string(crs_text)
+    except Exception:
+        return None
+
+    if crs.is_projected:
+        try:
+            return crs.linear_units
+        except Exception:
+            return "projected_units"
+
+    if crs.is_geographic:
+        return "degrees"
+
+    return "map_units" 
 
 @dataclass(frozen=True)
 class TileRead: 
@@ -98,7 +120,6 @@ class EncodedTile:
         bounds = meta["bounds"]
 
         bucket = meta.get("bucket","shards")
-
         return ManifestRow(
             tile_id=self.tile_id,
             shard=str(shard),
@@ -122,6 +143,9 @@ class EncodedTile:
             branch_id=meta.get("branch_id"),
             mosaic_id=meta.get("mosaic_id"),
 
+            pixel_size_x=float(meta.get("pixel_size_x", 0.0)),
+            pixel_size_y=float(meta.get("pixel_size_y", 0.0)),
+            pixel_size_units=meta.get("pixel_size_units"),
         )
 
 @dataclass(frozen=True)
@@ -148,6 +172,9 @@ class ManifestRow:
     branch_id: str | None = None
     mosaic_id: str | None = None
 
+    pixel_size_x: float = 0.0
+    pixel_size_y: float = 0.0
+    pixel_size_units: str | None = None
 
 class TileEncoder: 
     """
@@ -193,6 +220,9 @@ class TileEncoder:
             return {}
 
         minx, miny, maxx, maxy = tile.geo.bounds
+        pixel_size_x = abs(float(tile.geo.transform.a))
+        pixel_size_y = abs(float(tile.geo.transform.e))
+        pixel_size_units = _crs_unit_name(tile.geo.crs)
 
         meta: dict[str, Any] = {
             "tile_id": tile_id,
@@ -210,6 +240,11 @@ class TileEncoder:
             "bands": int(tile.read.band_count),
             "dtype": str(tile.read.dtype),
             "crs": tile.geo.crs,
+
+            "pixel_size_x": pixel_size_x,
+            "pixel_size_y": pixel_size_y,
+            "pixel_size_units": pixel_size_units,
+
             "bounds": {
                 "minx": float(minx),
                 "miny": float(miny),

@@ -5,8 +5,7 @@ from pathlib import Path
 
 from whirlwind.adapters.io.idmanifest import IDManifest 
 from whirlwind.adapters.io.raster_tiler import TileRasterFromPlan  
-from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
-from whirlwind.adapters.classification.semantic import SemanticLabeler, SemanticClassifier
+from whirlwind.adapters.label.classifiers.semantic_triage import SemanticLabelTriage, SemanticClassTriage
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.bridges.specs.tiling import TSpec 
 from whirlwind.bridges.specs.semclass import SCSpec
@@ -15,6 +14,7 @@ from whirlwind.filesystem.runtree import RunTree
 from whirlwind.interface import face 
 
 
+LabelerType = Literal["null", "spatial","land_cover_triage","damage_review"]
 
 
 @dataclass(frozen=True)
@@ -31,13 +31,12 @@ class Request:
     plan_name: str 
     manifest_name: str 
     manifest_kind: str
-
+    
+    labeler_type: LabelerType
     # for intersection with geometry based labels 
-    intersection_label: bool 
     intersection_geom_name: str | None=None
 
     # specs for semantic classification 
-    classification: bool = False
     device: str = "cpu" 
     model_name: str = "ViT-B-32"
     bands: tuple[int,int,int] = (0,1,2)
@@ -46,7 +45,6 @@ class Request:
     masked: bool = False
     fill_value: float = 0.0 
     min_content_fraction: float = 0.70
-    keep_empty: bool = False 
     zero_is_empty: bool = True 
     
 
@@ -97,20 +95,12 @@ class TesselationBridge:
                 
                 # confirm tile plan exists 
                 try:  
-                    if request.intersection_label:
-                        labeler = LabelByIntersection.from_gpkg(
-                                gpkg_path=request.tree.branchlook(request.manifest, p).browse_dir / request.dpath_name,
-                                geometry_name=request.intersection_geom_name or "geom",
-                                area_layer=f"{request.intersection_geom_name}_area",
-                                line_layer=f"{request.intersection_geom_name}_line",
-                                target_crs=None,  # temporary problem: you currently need reader.ds.crs for this
-                            ) 
-                    elif request.classification: 
+                    if request.labeler_type == "land_cover_triage": 
                         semantic_classifier_spec = SCSpec(
                                 checkpoint_path=Path("~/.cache/whirlwind/remoteclip/RemoteCLIP-ViT-B-32.pt")
                                 )
-                        classifier = SemanticClassifier(semantic_classifier_spec) 
-                        labeler = SemanticLabeler(classifier)
+                        classifier = SemanticClassTriage(semantic_classifier_spec) 
+                        labeler = SemanticLabelTriage(classifier)
                     else:
                             labeler = UnaryLabeler()
 

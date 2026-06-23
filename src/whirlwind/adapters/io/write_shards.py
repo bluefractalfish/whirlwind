@@ -221,28 +221,50 @@ class RoutedShardWriter:
             shard_path=str(Path(bucket) / placement.shard_path),
         )
 
+    def close(self) -> None:
+        for writer in self.writers.values():
+            writer.close()
+
     def _writer_for(self, bucket: str) -> ShardWriter:
         if bucket not in self.writers:
+            prefix_bucket = bucket.replace("/", "_")
+
             child_request = replace(
                 self.request,
                 out_dir=self.request.out_dir / bucket,
-                prefix=f"{bucket}_{self.request.prefix}",
+                prefix=f"{prefix_bucket}_{self.request.prefix}",
             )
 
             self.writers[bucket] = ShardWriter(child_request)
 
         return self.writers[bucket]
 
-    def close(self) -> None:
-        for writer in self.writers.values():
-            writer.close()
-
     @staticmethod
     def _safe_bucket(bucket: str) -> str:
-        bucket = str(bucket).strip().lower()
-        bucket = re.sub(r"[^a-z0-9_.-]+", "_", bucket)
-        return bucket or "unknown"
+        """
+        Preserve nested review buckets like:
 
+            damage_review/01_likely_damage
+            hard_negative/vehicle_tracks
+
+        while preventing unsafe path components.
+        """
+        raw = str(bucket).strip().lower()
+
+        parts: list[str] = []
+        for part in raw.split("/"):
+            part = part.strip()
+
+            if not part or part in {".", ".."}:
+                continue
+
+            safe = re.sub(r"[^a-z0-9_.-]+", "_", part)
+            safe = safe.strip("._-")
+
+            if safe:
+                parts.append(safe)
+
+        return "/".join(parts) if parts else "unknown"
 
 @dataclass 
 class BinSplitShardWriter: 
