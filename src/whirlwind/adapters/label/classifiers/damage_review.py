@@ -308,8 +308,8 @@ class PODClassifier:
         nearest_damage_area_id: str | None,
         score: DamageScore,
         semantic: dict[str, Any],
-    ) -> DamageReviewBucket:
-       
+    ) -> "DamageReviewBucket": 
+
         return DamageReviewBucket(
             bucket=bucket,
             dominant=dominant,
@@ -319,17 +319,17 @@ class PODClassifier:
             review_required=review_required,
             review_reason=review_reason,
             has_master_damage_geometry=self.path_geometry.has_geometry,
-            intersects_damaged_area=intersects_damage_area,
+            intersects_damage_area=intersects_damage_area,
             tile_center_inside_damage_area=tile_center_inside_damage_area,
             distance_to_damage_centerline=distance_to_damage_centerline,
             distance_to_damage_area=distance_to_damage_area,
             nearest_damage_line_id=nearest_damage_line_id,
             nearest_damage_area_id=nearest_damage_area_id,
-            metamosaic_id=self.geometry.metamosaic_id,
-            master_gpkg_path=_path_text(self.path_geometry.master_gpkg_path),
-            damage_centerline=self.path_geometry.line_layer,
+            metamosaic_id=self.path_geometry.metamosaic_id,
+            master_gpkg_path=str(self.path_geometry.master_gpkg_path),
+            damage_line_layer=self.path_geometry.line_layer,
             damage_area_layer=self.path_geometry.area_layer,
-            mosaic_bounds=self.path_geometry.mosaic_bounds.to_record(),
+            mosaic_bounds=self.path_geometry.mosaic_bounds,
             mosaic_crs=self.path_geometry.mosaic_crs,
             geometry_clipped_to_mosaic_context=self.path_geometry.clipped_to_mosaic_context,
             score=score,

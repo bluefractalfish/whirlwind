@@ -37,6 +37,9 @@ TESSELATE_HELP = """
       -p, --parquet
           Write tile manifest as parquet.
 
+        --damage-review
+            Use the staged metamosaic damage GPKG referenced by each mosaic branch.
+
     config:
       operations.tesselate.shard_prefix
           Shard filename prefix.
@@ -79,29 +82,39 @@ class BuildTesselationRequest(RequestBuilder[Request]):
         zero_is_empty = "--keep-zero" not in tv.flags
         tile_limit = tv.values("--limit")
         tile_limit = int(tile_limit[-1]) if tile_limit else None
-        paths, manifest = pathset(tv, ctx)
+
+        paths, manifest = pathset(tv, ctx) 
+
+        # classification of tiles 
+        if "--damage-review" in tv.flags:
+            labeler_type = "damage_review"
+        elif "-c" in tv.flags or "--classify" in tv.flags:
+            labeler_type = "land_cover_triage"
+        else:
+            labeler_type = "null"
 
         return Request(
-                spec = spec, 
-                tree = tree, 
-                manifest = manifest, 
-                paths = paths, 
-                prefix = f"{spec.tile_size}_{shard_cfg["shard_prefix"]}", 
-                shard_size = shard_cfg["shard_size"],
-                overwrite = "-f" in tv.flags or "--overwrite" in tv.flags, 
-                intersection_label = "-l" in tv.flags or "--label" in tv.flags, 
-                classification="-c" in tv.flags or "--classify" in tv.flags,
-                dry = "-d" in tv.flags or "--dry" in tv.flags, 
-                dpath_name = f"{gpkg_name}", 
-                intersection_geom_name="geom",
-                plan_name = "tile_plan.csv",
-                manifest_name="tile_manifest.csv",
-                manifest_kind="parquet" if "-p" in tv.flags or "--parquet" in tv.flags 
-                                 else shard_cfg["manifest_kind"], 
-                zero_is_empty = zero_is_empty,
-                tile_limit=tile_limit if tile_limit 
-                            else 999999
-                ) 
+            spec=spec,
+            tree=tree,
+            manifest=manifest,
+            paths=paths,
+            prefix=f"{spec.tile_size}_{shard_cfg['shard_prefix']}",
+            shard_size=shard_cfg["shard_size"],
+            overwrite="-f" in tv.flags or "--overwrite" in tv.flags,
+            dry="-d" in tv.flags or "--dry" in tv.flags,
+            dpath_name=shard_cfg.get("gpkg_name", "geom"),
+            intersection_geom_name="geom",
+            labeler_type=labeler_type,
+            plan_name="tile_plan.csv",
+            manifest_name="tile_manifest.csv",
+            manifest_kind=(
+                "parquet"
+                if "-p" in tv.flags or "--parquet" in tv.flags
+                else shard_cfg["manifest_kind"]
+            ),
+            zero_is_empty=zero_is_empty,
+            tile_limit=tile_limit if tile_limit else 999999,
+            ) 
 
     def help(self) -> str: 
         return TESSELATE_HELP

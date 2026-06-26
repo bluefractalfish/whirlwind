@@ -67,8 +67,10 @@ class PathPlan:
         meta = self.meta() 
         with self.metadata_path.open("w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
-        return self.metadata_path
+        return self.metadata_path 
 
+    def ensure(self) -> None: 
+        self.branch.ensure()
 
     def field_defaults(self, layer_name: str) -> dict[str, object]:
             """
@@ -95,6 +97,79 @@ class PathPlan:
                 "source_uri": "",
                 "notes": "",
             }
+
+@dataclass(frozen=True)
+class MetamosaicPathPlan:
+    metamosaic_id: str
+    gpkg_path: Path
+    metadata_path: Path
+    crs_wkt: str
+    spec: PathSpec
+
+    @classmethod
+    def from_metamosaic(
+        cls,
+        *,
+        tree,
+        metamosaic_id: str,
+        crs_wkt: str,
+        name: str,
+        spec: Optional[PathSpec] = None,
+    ) -> "MetamosaicPathPlan":
+        mtree = tree.metamosaic_tree(metamosaic_id).ensure()
+
+        return cls(
+            metamosaic_id=metamosaic_id,
+            gpkg_path=mtree.labels_dir / f"{name}.gpkg",
+            metadata_path=mtree.staging_dir / f"{name}.json",
+            crs_wkt=crs_wkt,
+            spec=spec or PathSpec.default(name),
+        )
+
+    def ensure(self) -> None:
+        self.gpkg_path.parent.mkdir(parents=True, exist_ok=True)
+        self.metadata_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def meta(self) -> dict[str, object]:
+        return {
+            "scope": "metamosaic",
+            "metamosaic_id": self.metamosaic_id,
+            "gpkg_path": str(self.gpkg_path),
+            "metadata_path": str(self.metadata_path),
+            "crs_wkt": self.crs_wkt,
+            "layers": [
+                {
+                    "name": lyr.name,
+                    "geometry_type": lyr.geometry,
+                    "fields": [f.__dict__ for f in lyr.fields],
+                }
+                for lyr in self.spec.layers
+            ],
+        }
+
+    def dump_meta(self) -> Path:
+        meta = self.meta()
+        with self.metadata_path.open("w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
+        return self.metadata_path
+
+    def field_defaults(self, layer_name: str) -> dict[str, object]:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+        return {
+            "path_id": f"{self.metamosaic_id}-{layer_name}",
+            "mosaic_id": "",
+            "metamosaic_id": self.metamosaic_id,
+            "browse_uri": "",
+            "gpkg_path": str(self.gpkg_path),
+            "metadata_path": str(self.metadata_path),
+            "label_type": str(layer_name),
+            "created_at": str(now),
+            "updated_at": str(now),
+            "event_date": "",
+            "source_uri": "",
+            "notes": "",
+        } 
 
 class GeomPathPlanner: 
     """ 
@@ -162,9 +237,9 @@ class GeomPathPlanner:
         return "'" + text.replace("'","''") + "'"
 
     @classmethod 
-    def stage(cls, plan: PathPlan, overwrite: bool = False, set_defaults: bool = True) -> int:
+    def stage(cls, plan: PathPlan | MetamosaicPathPlan, overwrite: bool = False, set_defaults: bool = True) -> int:
         # make sure this mosaic branch exists  
-        plan.branch.ensure()
+        plan.ensure()
         driver = ogr.GetDriverByName("GPKG") 
         if driver is None:
             raise RuntimeError("GPKG driver not available")
@@ -223,3 +298,40 @@ class GeomPathPlanner:
                         f"failed to create field: {fld.name} on {layer_spec.name}")
         finally:
             ds = None
+
+
+@dataclass(frozen=True)
+class DamagePathRef:
+    scope: str
+    metamosaic_id: str | None
+    mosaic_id: str
+    gpkg_path: Path
+    metadata_path: Path | None
+    line_layer: str
+    area_layer: str
+
+    @classmethod
+    def load(cls, path: Path) -> "DamagePathRef":
+        with path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        return cls(
+            scope=str(raw.get("scope") or ""),
+            metamosaic_id=raw.get("metamosaic_id") or None,
+            mosaic_id=str(raw.get("mosaic_id") or ""),
+            gpkg_path=Path(raw["gpkg_path"]).expanduser().resolve(),
+            metadata_path=Path(raw["metadata_path"]).expanduser().resolve()
+            if raw.get("metadata_path")
+            else None,
+            line_layer=str(raw.get("line_layer") or "geom_line"),
+            area_layer=str(raw.get("area_layer") or "geom_area"),
+        )
+
+
+def resolve_damage_path_ref(branch, name: str = "geom") -> DamagePathRef:
+    ref_path = branch.staging_dir / f"{name}_ref.json"
+
+    if not ref_path.exists():
+        raise FileNotFoundError(f"missing damage path ref: {ref_path}")
+
+    return DamagePathRef.load(ref_path)

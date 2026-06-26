@@ -9,6 +9,8 @@ class MetamosaicTree:
     branches_dir: Path
     manifest_dir: Path
     metadata_dir: Path
+    labels_dir: Path 
+    staging_dir: Path 
 
     @classmethod
     def plant(cls, root: Path, metamosaic_id: str) -> "MetamosaicTree":
@@ -19,6 +21,8 @@ class MetamosaicTree:
             branches_dir=root / "branches",
             manifest_dir=root / "manifest",
             metadata_dir=root / "metadata",
+            labels_dir=root / "labels", 
+            staging_dir=root / "staging"
         )
 
     def ensure(self) -> "MetamosaicTree":

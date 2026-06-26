@@ -23,6 +23,7 @@ class PathSpec:
         common_fields = [
                 LabelField("path_id", "str"),
                 LabelField("mosaic_id", "str"),
+                LabelField("metamosaic_id", "str"),
                 LabelField("source_uri", "str"),
                 LabelField("browse_uri", "str"),
                 LabelField("label_type", "str"),

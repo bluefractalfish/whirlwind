@@ -12,7 +12,9 @@ from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile
 from whirlwind.filesystem.runtree import RunTree 
 from whirlwind.interface import face 
-
+from whirlwind.adapters.geo.stage_gpkg import resolve_damage_path_ref
+from whirlwind.adapters.label.classifiers.damage_review import PODClassifier, DamageReviewLabeler
+from whirlwind.bridges.specs.review_route_spec import DRRoutingSpec
 
 LabelerType = Literal["null", "spatial","land_cover_triage","damage_review"]
 
@@ -48,9 +50,6 @@ class Request:
     zero_is_empty: bool = True 
     
 
-
-
-
 @dataclass(frozen=True)
 class Summary:
     error: int 
@@ -66,7 +65,6 @@ class Result:
     summaries: tuple[Summary,...]
     rasters_skipped: int 
     code: int 
-
 
 class TesselationBridge:
 
@@ -95,14 +93,31 @@ class TesselationBridge:
                 
                 # confirm tile plan exists 
                 try:  
-                    if request.labeler_type == "land_cover_triage": 
+                    if request.labeler_type == "land_cover_triage":
                         semantic_classifier_spec = SCSpec(
-                                checkpoint_path=Path("~/.cache/whirlwind/remoteclip/RemoteCLIP-ViT-B-32.pt")
-                                )
-                        classifier = SemanticClassTriage(semantic_classifier_spec) 
+                            checkpoint_path=Path("~/.cache/whirlwind/remoteclip/RemoteCLIP-ViT-B-32.pt")
+                        )
+                        classifier = SemanticClassTriage(semantic_classifier_spec)
                         labeler = SemanticLabelTriage(classifier)
+
+                    elif request.labeler_type == "damage_review":
+                        branch = request.tree.branchlook(request.manifest, p)
+                        ref = resolve_damage_path_ref(branch, request.dpath_name.removesuffix(".gpkg"))
+
+                        classifier = PODClassifier.from_gpkg(
+                            master_gpkg_path=ref.gpkg_path,
+                            mosaic_path=p,
+                            line_layer=ref.line_layer,
+                            area_layer=ref.area_layer,
+                            spec=DRRoutingSpec(),
+                            semantic_labeler=None,
+                            metamosaic_id=ref.metamosaic_id,
+                        )
+
+                        labeler = DamageReviewLabeler(classifier)
+
                     else:
-                            labeler = UnaryLabeler()
+                        labeler = UnaryLabeler()
 
                     tiler = TileRasterFromPlan(
                             p,

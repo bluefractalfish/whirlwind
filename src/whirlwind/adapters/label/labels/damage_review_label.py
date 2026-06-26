@@ -32,6 +32,7 @@ class DamageScore:
             "water_score": self.water_score, 
         }
 
+@dataclass 
 class DamageReviewBucket:
     """
 
