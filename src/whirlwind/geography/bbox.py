@@ -5,7 +5,8 @@ PURPOSE:
 """
 
 from dataclasses import dataclass
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Any
+from shapely.geometry import Point, box
 
 
 def _as_float(value: object, *, field_name: str) -> float:
@@ -31,6 +32,15 @@ class BBox:
     miny: float
     maxx: float
     maxy: float
+    
+    @classmethod
+    def from_bounds(cls, bounds: Any) -> "BBox": 
+        return cls(
+                minx = float(bounds.left), 
+                miny = float(bounds.bottom), 
+                maxx = float(bounds.right), 
+                maxy = float(bounds.top)
+                ) 
 
     @classmethod
     def from_wgs84_row(cls, row: Mapping[str, object]) -> "BBox":
@@ -72,7 +82,16 @@ class BBox:
 
     def center_lonlat(self) -> tuple[float, float]:
         return self.center_lon, self.center_lat
-
+   
+    @property
+    def as_tuple(self) -> tuple[float,float,float,float]: 
+        return (
+                self.minx, 
+                self.maxx, 
+                self.miny, 
+                self.maxy
+                )
+    
     def to_record(self, prefix: str = "") -> dict[str, str]:
         return {
             f"{prefix}minx_wgs84": f"{self.minx:.12f}",

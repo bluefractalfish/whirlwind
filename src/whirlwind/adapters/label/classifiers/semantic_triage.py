@@ -41,7 +41,34 @@ class SemanticLabelTriage:
         return self.classifier.classify(
             tile.read.array,
             tile_id=tile.tile_id,
-        )
+        ) 
+
+    def metadata(self, tile: Tile) -> dict[str, Any]:  
+        semantic_label = self.label(tile)
+
+        payload = semantic_label.metadata()
+        semantic = payload.get("semantic", {})
+
+        return {
+            "bucket": semantic.get("bucket"),
+            "dominant": semantic.get("dominant"),
+            "accepted": semantic.get("accepted"),
+            "confidence": semantic.get("confidence"),
+            "confidence_score": semantic.get("confidence_score"),
+            "top_class": semantic.get("top_class"),
+            "top_score": semantic.get("top_score"),
+            "second_class": semantic.get("second_class"),
+            "second_score": semantic.get("second_score"),
+            "margin": semantic.get("margin"),
+            "top_detailed_class": semantic.get("top_detailed_class"),
+            "top_detailed_score": semantic.get("top_detailed_score"),
+            "second_detailed_class": semantic.get("second_detailed_class"),
+            "detail_margin": semantic.get("detail_margin"),
+            "detail_agrees": semantic.get("detail_agrees"),
+            "review_reasons": semantic.get("review_reasons", []),
+            "final_scores": semantic.get("final_scores", {}),
+            "detailed_scores": semantic.get("detailed_scores", {}),
+        }
 
 class SemanticClassTriage: 
     def __init__(
@@ -145,21 +172,6 @@ class SemanticClassTriage:
         self._log_decision(tile_id=tile_id, label=label)
         return label 
 
-    def bulk_classify(self, 
-                      tiles: Sequence[np.ndarray],
-                      *, 
-                      tile_ids: Sequence[str | None] | None = None, 
-                      ) -> list[SemanticLabel]:
-        ... 
-    def record_decision(self, 
-                        *, 
-                        tile_id: str | None, 
-                        label: SemanticLabel, 
-                        coarse_scores: Mapping[str, float], 
-                        detail_scores: Mapping[str, float], 
-                        detail_class_scores: Mapping[str, float]
-                        ) -> None: 
-        ... 
     def _log_decision(self, tile_id: str | None, label: SemanticLabel) -> None:
         if not self.spec.log_decisions:
             return

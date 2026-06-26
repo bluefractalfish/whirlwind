@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Sequence
@@ -38,5 +37,4 @@ class PathSpec:
                     LayerSpec(f"{geom_name}_area", "Polygon", common_fields)
                     ]
                 )
-
 

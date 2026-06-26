@@ -21,7 +21,7 @@ Confidence = Literal["high","medium", "low","review"]
 
 
 
-@dataclass(frozen=True)
+@dataclass
 class SemanticLabel:
 
     bucket: str

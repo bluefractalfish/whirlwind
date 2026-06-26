@@ -39,10 +39,10 @@ import numpy as np
 from rasterio import Affine 
 from pathlib import Path 
 
-from whirlwind.adapters.label.simple_label import SimpleLabel
 from whirlwind.filesystem.files import RasterFile, FileID
 from whirlwind.domain.plannedwindow import PlannedWindow
 from whirlwind.adapters.label.label_protocol import Label 
+from whirlwind.geography.bbox import BBox
 from rasterio.crs import CRS
 
 
@@ -91,7 +91,10 @@ class TileGeoData:
     transform: Affine 
     bounds: tuple[float, float, float, float]
     crs: str 
-
+    
+    @property 
+    def bbox(self) -> "BBox": 
+        return BBox.from_bounds(self.bounds)
 
 @dataclass(frozen=True)
 class Tile:
