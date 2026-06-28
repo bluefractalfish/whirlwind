@@ -91,7 +91,7 @@ class CroppedPathGeometry:
         return bool(self.lines or self.areas)
 
 
-    def spatial_status(self, tile: Tile ) -> dict[str, Any]: 
+    def intersection_stats(self, tile: Tile ) -> dict[str, Any]: 
         assert tile.geo is not None
         
         minx, miny, maxx, maxy = tile.geo.bounds

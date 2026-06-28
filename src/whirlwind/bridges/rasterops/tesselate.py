@@ -37,7 +37,7 @@ class Request:
     labeler_type: LabelerType
     # for intersection with geometry based labels 
     intersection_geom_name: str | None=None
-
+    use_semantic: bool = True
     # specs for semantic classification 
     device: str = "cpu" 
     model_name: str = "ViT-B-32"
@@ -101,6 +101,13 @@ class TesselationBridge:
                         labeler = SemanticLabelTriage(classifier)
 
                     elif request.labeler_type == "damage_review":
+                        semantic_labeler = None 
+                        if request.use_semantic: 
+                            semantic_classifier_spec = SCSpec(
+                                checkpoint_path=Path("~/.cache/whirlwind/remoteclip/RemoteCLIP-ViT-B-32.pt")
+                            )
+                            semantic_classifier = SemanticClassTriage(semantic_classifier_spec)
+                            semantic_labeler = SemanticLabelTriage(semantic_classifier)
                         branch = request.tree.branchlook(request.manifest, p)
                         ref = resolve_damage_path_ref(branch, request.dpath_name.removesuffix(".gpkg"))
 
@@ -110,7 +117,7 @@ class TesselationBridge:
                             line_layer=ref.line_layer,
                             area_layer=ref.area_layer,
                             spec=DRRoutingSpec(),
-                            semantic_labeler=None,
+                            semantic_labeler=semantic_labeler,
                             metamosaic_id=ref.metamosaic_id,
                         )
 
@@ -134,10 +141,12 @@ class TesselationBridge:
                             min_content_fraction=request.min_content_fraction, 
                             zero_is_empty=request.zero_is_empty, 
                             labeler=labeler, 
+                            overwrite=request.overwrite
                             ) 
 
-                except FileNotFoundError:
-                    with face.phase(4,5,"no tiling plan found"): pass 
+                except FileNotFoundError as e:
+                    face.error(str(e))
+                    with face.phase(4,5,"something went wrong"): pass 
                     summaries.append(Summary(error=1,code=3))
                     continue
                 # get sink code (sc): 1 -> ok, else error 

@@ -1,19 +1,15 @@
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import geopandas as gpd
-import rasterio
-from pyproj import CRS
-from shapely.geometry import Point, box
-from shapely.geometry.base import BaseGeometry
-from shapely.ops import unary_union
 
 from whirlwind.adapters.label.label_protocol import Labeler 
 from whirlwind.adapters.label.classifiers.semantic_triage import SemanticLabelTriage
 from whirlwind.domain.tile import Tile
-from whirlwind.bridges.specs.review_route_spec import DRRoutingSpec, DRScoreSpec
+from whirlwind.bridges.specs.review_route_spec import DRRoutingSpec
 from whirlwind.geography.damage_path import CroppedPathGeometry, DamagePath
 from whirlwind.adapters.label.labels.damage_review_label import DamageReviewBucket, DamageScore
 from whirlwind.operators.scoring_operators import ( 
@@ -22,7 +18,6 @@ from whirlwind.operators.scoring_operators import (
                                 noisy_or
                  )
 
-from whirlwind.geography.bbox import BBox
 
 DAMAGE_REVIEW_ROOT = "damage_review"
 
@@ -62,9 +57,6 @@ class PODClassifier:
         ) -> None: 
 
             self.path_geometry = cropped_geometry 
-            if not self.path_geometry.has_geometry:
-                raise ValueError("no path gpkg found")
-
             self.spec = spec or DRRoutingSpec() 
             self.semantic_labeler = semantic_labeler 
 
@@ -105,6 +97,42 @@ class PODClassifier:
     def classify(self, tile: Tile) -> DamageReviewBucket: 
         if tile.geo is None: 
             raise ValueError("tile.geo is None; cannot route spatially")
+
+        if not self.path_geometry.has_geometry:
+            return DamageReviewBucket(
+                bucket="damage_review/no_damage_geometry",
+                dominant="no_damage_geometry",
+                damage_likelihood=0.0,
+                damage_label=None,
+                route_source="no_damage_geometry",
+                review_required=True,
+                review_reason="master damage GPKG exists but contains no usable geometry",
+                has_master_damage_geometry=False,
+                intersects_damage_area=False,
+                tile_center_inside_damage_area=False,
+                distance_to_damage_centerline=None,
+                distance_to_damage_area=None,
+                nearest_damage_line_id=None,
+                nearest_damage_area_id=None,
+                metamosaic_id=self.path_geometry.metamosaic_id,
+                master_gpkg_path=str(self.path_geometry.master_gpkg_path),
+                damage_line_layer=self.path_geometry.line_layer,
+                damage_area_layer=self.path_geometry.area_layer,
+                mosaic_bounds=self.path_geometry.mosaic_bounds,
+                mosaic_crs=self.path_geometry.mosaic_crs,
+                geometry_clipped_to_mosaic_context=self.path_geometry.clipped_to_mosaic_context,
+                score=DamageScore(
+                    p_damage=0.0,
+                    area_intersection_score=0.0,
+                    area_distance_score=0.0,
+                    centerline_distance_score=0.0,
+                    semantic_score=0.0,
+                    debris_score=0.0,
+                    structure_score=0.0,
+                    tree_score=0.0,
+                ),
+                semantic={},
+            )
 
         semantic_data = self._semantic_metadata(tile)
         spatial_data = self._spatial_metadata(tile)
@@ -153,7 +181,7 @@ class PODClassifier:
         
         score_spec = self.spec.score_config
 
-        w_area_intersection = score_spec.area_distance_weight 
+        w_area_intersection = score_spec.area_intersection_weight 
         w_area_distance = score_spec.area_distance_weight 
         w_centerline_distance = score_spec.centerline_distance_weight 
         w_semantic = score_spec.semantic_weight
@@ -201,7 +229,6 @@ class PODClassifier:
             debris_score=semantic_parts["debris_score"],
             structure_score=semantic_parts["structure_score"],
             tree_score=semantic_parts["tree_score"],
-            water_score=semantic_parts["water_score"]
         )
 
         

@@ -17,7 +17,6 @@ class DamageScore:
     debris_score: float
     structure_score: float
     tree_score: float
-    water_score: float 
 
     def metadata(self) -> dict[str, Any]:
         return {
@@ -29,7 +28,6 @@ class DamageScore:
             "debris_score": self.debris_score,
             "structure_score": self.structure_score,
             "tree_score": self.tree_score,
-            "water_score": self.water_score, 
         }
 
 @dataclass 

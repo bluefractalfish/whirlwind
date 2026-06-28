@@ -1,8 +1,6 @@
 
-from dataclasses import dataclass, field
-from typing import Any
 from whirlwind.domain.tile import Tile
-from whirlwind.adapters.label.simple_label import SimpleLabel
+from whirlwind.adapters.label.labels.simple_label import SimpleLabel
 
 class UnaryLabeler:
     """

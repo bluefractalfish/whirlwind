@@ -82,6 +82,54 @@ class DamageRouteRow:
 
     label_json: str
 
+@dataclass(frozen=True)
+class LabelJsonRow:
+    tile_id: str
+    shard: str
+    key: str
+
+    bucket: str
+    dominant: str
+
+    damage_likelihood: float
+    damage_label: str
+    route_source: str
+
+    review_required: bool
+    review_reason: str
+
+    has_master_damage_geometry: bool
+    intersects_damage_area: bool
+    tile_center_inside_damage_area: bool
+
+    distance_to_damage_centerline: str
+    distance_to_damage_area: str
+
+    nearest_damage_line_id: str
+    nearest_damage_area_id: str
+
+    metamosaic_id: str
+    master_gpkg_path: str
+    damage_line_layer: str
+    damage_area_layer: str
+
+    mosaic_crs: str
+    geometry_clipped_to_mosaic_context: bool
+
+    area_intersection_score: float
+    area_distance_score: float
+    centerline_distance_score: float
+    semantic_score: float
+
+    debris_score: float
+    structure_score: float
+    tree_score: float
+
+    router_version: str
+    geometry_context_distance: str
+    sigma_centerline: str
+    sigma_area: str 
+
 class DataclassCsvSink:
     def __init__(
         self,
@@ -132,6 +180,12 @@ def make_review_sink(path: Path, append: bool = True) -> DataclassCsvSink:
         append=append,
     )
 
+def make_label_json_sink(path: Path, append: bool = True) -> DataclassCsvSink:
+    return DataclassCsvSink(
+        path,
+        fieldnames=list(LabelJsonRow.__dataclass_fields__.keys()),
+        append=append,
+    )
 
 def semantic_payload(encoded: EncodedTile) -> dict[str, Any]:
     label = encoded.metadata.get("label", {})
@@ -144,7 +198,7 @@ def semantic_payload(encoded: EncodedTile) -> dict[str, Any]:
 
 def damage_payload(encoded: EncodedTile) -> dict[str, Any]:
     label = encoded.metadata.get("label", {})
-    damage = label.get("damage", {})
+    damage = label.get("damage_review", {})
 
     if not damage:
         return {}
@@ -238,6 +292,80 @@ def build_review_row(
         label_json=label_json(encoded),
     )
 
+def _text(value: Any) -> str:
+    return "" if value is None else str(value)
+
+
+def _float(value: Any) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def build_label_json_row(
+    encoded: EncodedTile,
+    shard: str,
+) -> LabelJsonRow:
+    d = damage_payload(encoded)
+    score = d.get("score") or {}
+
+    return LabelJsonRow(
+        tile_id=encoded.tile_id,
+        shard=str(shard),
+        key=encoded.key,
+
+        bucket=str(d.get("bucket", encoded.metadata.get("bucket", ""))),
+        dominant=str(d.get("dominant", "")),
+
+        damage_likelihood=_float(d.get("damage_likelihood")),
+        damage_label=_text(d.get("damage_label")),
+        route_source=str(d.get("route_source", "")),
+
+        review_required=bool(d.get("review_required", True)),
+        review_reason=str(d.get("review_reason", "")),
+
+        has_master_damage_geometry=bool(d.get("has_master_damage_geometry", False)),
+        intersects_damage_area=bool(d.get("intersects_damage_area", False)),
+        tile_center_inside_damage_area=bool(
+            d.get("tile_center_inside_damage_area", False)
+        ),
+
+        distance_to_damage_centerline=_text(
+            d.get("distance_to_damage_centerline")
+        ),
+        distance_to_damage_area=_text(
+            d.get("distance_to_damage_area")
+        ),
+
+        nearest_damage_line_id=_text(d.get("nearest_damage_line_id")),
+        nearest_damage_area_id=_text(d.get("nearest_damage_area_id")),
+
+        metamosaic_id=_text(d.get("metamosaic_id")),
+        master_gpkg_path=_text(d.get("master_gpkg_path")),
+        damage_line_layer=str(d.get("damage_line_layer", "")),
+        damage_area_layer=str(d.get("damage_area_layer", "")),
+
+        mosaic_crs=_text(d.get("mosaic_crs")),
+        geometry_clipped_to_mosaic_context=bool(
+            d.get("geometry_clipped_to_mosaic_context", False)
+        ),
+
+        area_intersection_score=_float(score.get("area_intersection_score")),
+        area_distance_score=_float(score.get("area_distance_score")),
+        centerline_distance_score=_float(score.get("centerline_distance_score")),
+        semantic_score=_float(score.get("semantic_score")),
+
+        debris_score=_float(score.get("debris_score")),
+        structure_score=_float(score.get("structure_score")),
+        tree_score=_float(score.get("tree_score")),
+
+        router_version=str(d.get("router_version", "")),
+        geometry_context_distance=_text(d.get("geometry_context_distance")),
+        sigma_centerline=_text(d.get("sigma_centerline")),
+        sigma_area=_text(d.get("sigma_area")),
+   )
+
 def build_damage_route_row(
     encoded: EncodedTile,
     shard: str,
@@ -325,3 +453,21 @@ def write_label_sidecar(
         review_sink.write(build_review_row(encoded, shard))
     else:
         label_sink.write(build_label_metadata_row(encoded, shard))
+
+def write_review_sidecar( 
+    *,
+    encoded: EncodedTile,
+    shard: str,
+    review_sink: DataclassCsvSink,
+    ) -> None:
+    review_sink.write(build_review_row(encoded, shard))
+
+
+def write_label_json_row(
+    *,
+    encoded: EncodedTile,
+    shard: str,
+    sink: DataclassCsvSink,
+) -> None:
+    if damage_payload(encoded):
+        sink.write(build_label_json_row(encoded, shard))

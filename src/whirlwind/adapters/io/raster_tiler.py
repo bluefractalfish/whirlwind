@@ -7,20 +7,20 @@ from whirlwind.adapters.io.windowplan_io import WindowPlanCSV
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.adapters.io.shard_manifest import make_sink  
 from whirlwind.adapters.io.write_shards import ( 
-
                 ShardWriter, WriteShardRequest, BinSplitShardWriter, RoutedShardWriter
             )
+
 from whirlwind.adapters.io.label_metadata import (
-        make_label_metadata_sink, 
-        make_review_sink, 
-        write_label_sidecar
-        )
+    write_label_json_row,
+    make_review_sink,
+    make_label_json_sink,
+    write_review_sidecar,
+)
 from whirlwind.adapters.label.label_protocol import Labeler
-from whirlwind.adapters.label.binary_label_by_intersection import LabelByIntersection
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
 from whirlwind.domain.tile import TileEncoder
-from whirlwind.adapters.classification.filters import should_skip_tile
+from whirlwind.adapters.display.filters import should_skip_tile
                 
 from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile 
@@ -52,6 +52,7 @@ class TileRasterFromPlan:
                  min_content_fraction: float, 
                  zero_is_empty: bool, 
                  labeler: Labeler | None = None, 
+                 overwrite: bool = False
                  ) -> None: 
         self.p = p 
         f = RasterFile(p)
@@ -63,6 +64,7 @@ class TileRasterFromPlan:
         branch = tree.branchlook(manifest,p)
 
         self.dry = dry 
+        self.overwrite = overwrite 
         self.min_content_fraction = min_content_fraction 
         self.zero_is_empty=zero_is_empty
         self.shard_dir = branch.shards_dir
@@ -74,7 +76,8 @@ class TileRasterFromPlan:
         self.manifest_kind = manifest_kind
         self.manifest_path = branch.manifest_dir/manifest_name 
         self.label_metadata_path = branch.metadata_dir / "label_metadata.csv"
-        self.review_path = branch.metadata_dir / "review.csv"
+        self.review_path = branch.metadata_dir / "review.csv" 
+
         self.tile_plan_path = branch.staging_dir/plan_name
         self.branch = branch
 
@@ -82,23 +85,33 @@ class TileRasterFromPlan:
             raise FileNotFoundError
 
     def build_sinks(self) -> int:
-        return_code = 1 
-        try:  
+        return_code = 1
+
+        if self.overwrite:
+            for path in (
+                self.manifest_path,
+                self.label_metadata_path,
+                self.review_path,
+            ):
+                if path is not None and path.exists():
+                    path.unlink()
+
+        try:
             self.manifest_sink = make_sink(self.manifest_kind, self.manifest_path)
-            self.label_metadata_sink = make_label_metadata_sink(self.label_metadata_path)
+            self.label_metadata_sink = make_label_json_sink(self.label_metadata_path)
             self.review_sink = make_review_sink(self.review_path)
 
-        except ValueError:
-            return_code =  5 # cannot make manifest  
-        try: 
-            self.plan_sink = WindowPlanCSV(self.tile_plan_path)
-        except FileNotFoundError: 
-            return_code = return_code*7 # tile plan cannot be found or isnt written 
-        # return_code == 1 -> no errors, sinks exist 
-        # return_code == 5 -> manifest_sink couldnt be made, plan_sink could 
-        # return_code == 35 -> neither could be made, skip raster 
+            self.label_json_sink = make_label_json_sink(self.label_metadata_path)
 
-        return return_code  
+        except ValueError:
+            return_code = 5
+
+        try:
+            self.plan_sink = WindowPlanCSV(self.tile_plan_path)
+        except FileNotFoundError:
+            return_code = return_code * 7
+
+        return return_code
 
     def make_shard_request(self) -> None: 
         # create shard request from request configuration and this mosaics shard_dir
@@ -149,14 +162,6 @@ class TileRasterFromPlan:
                         if skip.skip:
                             n_skipped += 1
 
-                            # Temporary debug. Remove once tuned.
-                            print(
-                                tile.tile_id,
-                                "SKIP",
-                                skip.reason,
-                                skip.stats,
-                            )
-
                             if progress is not None and task_id is not None:
                                 progress.advance(task_id, 1)
 
@@ -180,12 +185,16 @@ class TileRasterFromPlan:
                         # label metadata: 
                         #   - real class tile -> label_metadata 
                         #   - review/unknown -> review.csv
-                        write_label_sidecar(
+                        write_review_sidecar(
                                 encoded=encoded, 
                                 shard=shard_path, 
-                                label_sink=self.label_metadata_sink, 
                                 review_sink=self.review_sink
-                                )
+                                ) 
+                        write_label_json_row(
+                            encoded=encoded,
+                            shard=shard_path,
+                            sink=self.label_metadata_sink,
+                        )
                         if progress is not None and task_id is not None:
                             progress.advance(task_id, 1)
 
@@ -197,75 +206,3 @@ class TileRasterFromPlan:
             self.review_sink.close()
 
 
-
-    def tile(self) -> TileSummary:
-        planned_windows = self.plan_sink.read() 
-        with ShardWriter(self.req) as writer:
-            with RasterioWindowReader(
-                    self.p, self.masked, self.fill_value
-                    ) as reader:  
-
-                labeler = UnaryLabeler()
-                n_tiles = 0 
-
-                for tile in reader.tiles_from_rows(planned_windows):
-                    # get tile stats to determine content amounts 
-                    stats = tile_content_stats(
-                        tile,
-                        min_content_fraction=self.min_content_fraction,
-                        zero_is_empty=self.zero_is_empty,
-                        )
-
-                    if stats.mostly_empty and not self.keep_empty: 
-                        continue
-                    
-                    label = labeler.label(tile)
-                    encoded = self.encoder.encode(tile, label)
-
-                    if self.dry:
-                        row = encoded.as_manifest_row(f"dry_run_{tile.tile_id}") 
-                    else:
-                        placement = writer.write(encoded)
-                        n_tiles += 1 
-                        row = encoded.as_manifest_row(placement.shard_path)
-
-                    self.manifest_sink.write(row)
-        
-        return TileSummary(code=0,n_tiles=n_tiles)
-    
-    def tile_by_intersection(self, geometry_name, gpkg_path) -> TileSummary: 
-
-        planned_windows = self.plan_sink.read() 
-        #
-        gpkg_path = self.branch.browse_dir / gpkg_path
-        
-        with BinSplitShardWriter(self.req, split_on=geometry_name) as writer:
-            with RasterioWindowReader(
-                    self.p, masked=self.masked, fill=self.fill_value
-                    ) as reader: 
-        
-                if not gpkg_path.exists():
-                    return TileSummary(code=3)
-
-                labeler = LabelByIntersection.from_gpkg(
-                            gpkg_path=gpkg_path, 
-                            geometry_name=geometry_name,
-                            area_layer=f"{geometry_name}_area",
-                            line_layer=f"{geometry_name}_line",
-                            target_crs=reader.ds.crs )
-                n_tiles = 0  
-                for tile in reader.tiles_from_rows(planned_windows): 
-                    label = labeler.label(tile)
-                    encoded = self.encoder.encode(tile, label)
-                    if self.dry:
-                        row = encoded.as_manifest_row(f"dry_run_{tile.tile_id}")
-                    else:
-                        placement = writer.write(encoded)
-                        n_tiles += 1 
-                        row = encoded.as_manifest_row(placement.shard_path)
-                    self.manifest_sink.write(row)
-
-        return TileSummary(code=0,n_tiles=n_tiles)
-    
-    def tile_by_bucket(self, spec: SCSpec) -> TileSummary:
-        ...

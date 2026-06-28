@@ -26,6 +26,12 @@ class MetamosaicTree:
         )
 
     def ensure(self) -> "MetamosaicTree":
-        for p in (self.root, self.branches_dir, self.manifest_dir, self.metadata_dir):
+        for p in (self.root, 
+                  self.branches_dir, 
+                  self.manifest_dir, 
+                  self.metadata_dir, 
+                  self.labels_dir, 
+                  self.staging_dir, 
+                  ):
             p.mkdir(parents=True, exist_ok=True)
         return self

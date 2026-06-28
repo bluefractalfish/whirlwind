@@ -34,7 +34,7 @@ class PathPlan:
                 gpkg_path=gpkg_path,
                 metadata_path=meta_path, 
                 crs_wkt = crs_wkt,
-                spec = spec or PathSpec.default()
+                spec = spec or PathSpec.default(name)
                 )
 
     def record(self) -> dict[str, object]:

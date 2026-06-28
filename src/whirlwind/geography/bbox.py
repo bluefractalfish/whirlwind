@@ -87,8 +87,8 @@ class BBox:
     def as_tuple(self) -> tuple[float,float,float,float]: 
         return (
                 self.minx, 
-                self.maxx, 
                 self.miny, 
+                self.maxx, 
                 self.maxy
                 )
     
