@@ -51,6 +51,7 @@ class TileRasterFromPlan:
                  dry: bool, 
                  min_content_fraction: float, 
                  zero_is_empty: bool, 
+                 route_shard_by_label: bool = False, 
                  labeler: Labeler | None = None, 
                  overwrite: bool = False
                  ) -> None: 
@@ -72,7 +73,7 @@ class TileRasterFromPlan:
         self.shard_size = shard_size 
         self.masked = masked 
         self.fill_value = fill_value
-
+        self.route_shard_by_label = route_shard_by_label
         self.manifest_kind = manifest_kind
         self.manifest_path = branch.manifest_dir/manifest_name 
         self.label_metadata_path = branch.metadata_dir / "label_metadata.csv"
@@ -126,7 +127,10 @@ class TileRasterFromPlan:
         tiles_to_process = self.plan_sink.count()
         planned_windows = self.plan_sink.read()
         try:
-            with RoutedShardWriter(self.req) as writer: 
+            # routes shards into <bucket> if route_shards_by label is true 
+            writer_class = RoutedShardWriter if self.route_shard_by_label else ShardWriter
+
+            with writer_class(self.req) as writer: 
                 with RasterioWindowReader(
                         self.p, self.masked, self.fill_value
                         ) as reader:  
