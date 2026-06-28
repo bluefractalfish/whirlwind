@@ -5,7 +5,8 @@ from typing import Literal
 from whirlwind.domain.config.schema import Config
 
 
-REVIEW_CLASS = "review"
+# legacy
+REVIEW_CLASS = "review" 
 
 TARGET_CLASSES: tuple[str, ...] = (
     "structures",
