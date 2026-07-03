@@ -55,8 +55,8 @@ class FileID:
     
 
     uid: str
-    ID_SCHEME = "id_scheme_05"
-    ID_VERSION = "2"
+    ID_SCHEME = "id_scheme_06"
+    ID_VERSION = "3"
     UUID_LEN: int = 4
 
     def __init__(self, uri: Path | str, ext: str = ""):
@@ -74,7 +74,7 @@ class FileID:
         variant = _variant_from_path(path)
         date = _date_from_path(path) 
         h = _short_hash(uri, size=6) 
-        return f"M-{date}-{variant.variant_id}-{h}"
+        return f"M{date}{variant.variant_id}{h}"
     
     @staticmethod 
     def metamosaic(
@@ -86,14 +86,14 @@ class FileID:
         """ 
         construct a deterministic metamosaic ID from a group of mosaic IDs 
         
-        metamosaic_id = MM-<stem>-<hash_of_members> 
+        metamosaic_id = MM<stem><hash_of_members> 
         
         """
 
-        clean_stem = FileID.slug(stem) 
+        clean_stem = FileID.slug(stem).upper()
         canonical = "|".join(sorted(str(mid) for mid in member_ids if str(mid))) 
         h = _short_hash(canonical, size=hash_len)
-        return f"MM-{clean_stem}-{h}" 
+        return f"MM_{clean_stem}_{h}" 
 
     @staticmethod 
     def branch(mosaic_id: str) -> str: 
@@ -102,15 +102,15 @@ class FileID:
     
     @staticmethod 
     def tile(mosaic_id: str, row_i: int, col_i: int, sigfig: int=4) -> str: 
-        return f"{mosaic_id}_r{row_i:04d}_c{col_i:04d}" 
+        return f"{mosaic_id}r{row_i:04d}c{col_i:04d}" 
 
     @staticmethod 
     def shard(branch_id: str, shard_index: int, prefix: str = "S") -> str:
-        return f"{prefix}-{branch_id}-{shard_index:06d}.tar"
+        return f"{prefix}{branch_id}{shard_index:06d}.tar"
 
     @staticmethod 
     def slug(value: str) -> str: 
-        slug = re.sub(r"[^A-Za-z0-9]+", "-", value.strip()).strip("-").lower()
+        slug = re.sub(r"[^A-Za-z0-9]+", "", value.strip()).strip("-").lower()
         return slug or "locale"
 
     def gen_uid(self, pref: str) -> str:

@@ -41,7 +41,7 @@ class GeoMetadataExtractor:
         _import_osgeo()
         self.path = Path(path).expanduser().resolve()
         self.f = RasterFile(path)  
-        self.ds = gdal.Open(path, gdal.GA_ReadOnly)
+        self.ds = gdal.Open(str(self.path), gdal.GA_ReadOnly)
         self.mode = mode 
         if self.ds is None:
             raise RuntimeError(f"GDAL failed to open: {self.f.uri}")
