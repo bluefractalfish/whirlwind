@@ -56,7 +56,7 @@ class WriteShardRequest:
 
     # Keep this much free on the target filesystem.
     # Default: 5 GiB reserve.
-
+    min_free_bytes: int = 10 * 1024**3
 
     # Extra safety multiplier for tar overhead and filesystem behavior.
     write_safety_factor: float = 1.25
