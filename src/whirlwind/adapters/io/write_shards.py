@@ -35,6 +35,8 @@ import time
 import json
 import numpy as np
 import rasterio
+import errno
+import shutil
 from dataclasses import dataclass, field, replace 
 from pathlib import Path
 from typing import Optional, Any, Iterator 
@@ -47,34 +49,53 @@ from whirlwind.domain.tile import  EncodedTile
 
 @dataclass
 class WriteShardRequest: 
-    """ 
-    purpose 
-    --------
-    configuration for shard reading/writing 
-    
-    usage 
-    -------- 
-    request = WriteShardRequest(MosaicBranch, Config) 
-
-    behavior 
-    -------- 
-    builds prefix, shard_size, out_dir from config
-
-    """
     out_dir: Path 
     prefix: str
     shard_size: int 
-    start_index: int = 1 
+    start_index: int = 1
+
+    # Keep this much free on the target filesystem.
+    # Default: 5 GiB reserve.
+
+
+    # Extra safety multiplier for tar overhead and filesystem behavior.
+    write_safety_factor: float = 1.25
 
     @classmethod
-    def defaults(cls, out_path: Path | str, prefix: str="tile", 
-                 size: int = 2048, start_index: int = 1) -> "WriteShardRequest":
-        return cls(out_dir=Path(out_path), prefix=prefix, shard_size=size, start_index=start_index )
+    def defaults(
+        cls,
+        out_path: Path | str,
+        prefix: str = "tile",
+        size: int = 2048,
+        start_index: int = 1,
+        min_free_bytes: int = 10 * 1024**3,
+    ) -> "WriteShardRequest":
+        return cls(
+            out_dir=Path(out_path),
+            prefix=prefix,
+            shard_size=size,
+            start_index=start_index,
+            min_free_bytes=min_free_bytes,
+        )
 
     @classmethod
-    def from_path(cls, out_path: Path | str, prefix: str, size: int) -> "WriteShardRequest": 
-        return cls(prefix=prefix, shard_size=size, out_dir=Path(out_path))
+    def from_path(
+        cls,
+        out_path: Path | str,
+        prefix: str,
+        size: int,
+        min_free_bytes: int = 10 * 1024**3,
+    ) -> "WriteShardRequest": 
+        return cls(
+            prefix=prefix,
+            shard_size=size,
+            out_dir=Path(out_path),
+            min_free_bytes=min_free_bytes,
+        )
     
+class DiskSpaceError(RuntimeError):
+    """Raised when the target filesystem does not have enough free space."""
+    pass
 
 @dataclass(frozen=True)
 class ShardPlacement: 
@@ -131,14 +152,25 @@ class ShardWriter:
         self.close()
     
     def _current_shard_name(self) -> str: 
-        return f"{self.request.prefix}-{self.shard_index:03d}.tar"
-    
+        return f"S{self.request.prefix}{self.shard_index:03d}.tar"
+
     def _open_next(self) -> None:
         if self.tar is not None:
             self.tar.close()
 
+        self._require_free_space(0)
+
         self.tar_path = self.request.out_dir / self._current_shard_name()
-        self.tar = tarfile.open(self.tar_path, "w")
+
+        try:
+            self.tar = tarfile.open(self.tar_path, "w")
+        except OSError as e:
+            if e.errno == errno.ENOSPC:
+                raise DiskSpaceError(
+                    f"no space left while opening shard: {self.tar_path}"
+                ) from e
+            raise
+
         self.samples_in_shard = 0 
         self.shard_index += 1 
 
@@ -149,6 +181,7 @@ class ShardWriter:
         if self.samples_in_shard >= self.request.shard_size: 
             self._open_next()
 
+
     def _write_member(self, name: str, payload: bytes) -> None: 
         if self.tar is None:
             raise RuntimeError("tar shard is not open; cannot write")
@@ -156,8 +189,44 @@ class ShardWriter:
         info = tarfile.TarInfo(name)
         info.size = len(payload)
         info.mtime = int(time.time())
-        self.tar.addfile(info, io.BytesIO(payload))
 
+        try:
+            self.tar.addfile(info, io.BytesIO(payload))
+        except OSError as e:
+            if e.errno == errno.ENOSPC:
+                raise DiskSpaceError(
+                    f"no space left while writing tar member: "
+                    f"shard={self.tar_path} member={name}"
+                ) from e
+            raise
+
+    def _free_bytes(self) -> int:
+        """
+        Return free bytes on the filesystem containing request.out_dir.
+        request.out_dir must exist before this is called.
+        """
+        usage = shutil.disk_usage(self.request.out_dir)
+        return int(usage.free)
+
+
+    def _require_free_space(self, incoming_bytes: int = 0) -> None:
+        """
+        Fail before writing if the target filesystem is too full.
+        """
+        free = self._free_bytes()
+
+        required_for_write = int(incoming_bytes * self.request.write_safety_factor)
+        required_total = self.request.min_free_bytes + required_for_write
+
+        if free < required_total:
+            raise DiskSpaceError(
+                "not enough free space for shard write: "
+                f"out_dir={self.request.out_dir} "
+                f"free={free} "
+                f"required={required_total} "
+                f"reserve={self.request.min_free_bytes} "
+                f"incoming={incoming_bytes}"
+            )
     def write(self, tile: EncodedTile) -> ShardPlacement:
         """
         Write one encoded tile into the current shard.
@@ -169,6 +238,9 @@ class ShardWriter:
         self._ensure_open()
 
         assert self.tar_path is not None
+
+        incoming_bytes = len(tile.npy_bytes) + len(tile.json_bytes)
+        self._require_free_space(incoming_bytes)
 
         self._write_member(f"{tile.key}.npy", tile.npy_bytes)
         self._write_member(f"{tile.key}.json", tile.json_bytes)

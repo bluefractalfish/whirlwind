@@ -171,9 +171,8 @@ class TileRasterFromPlan:
 
                             continue
 
-                        label = self.labeler.label(tile)
 
-                        encoded = self.encoder.encode(tile,label)
+                        encoded = self.encoder.encode(tile)
                         if self.dry:
                             shard_path = f"dry_{tile.tile_id}"
                         else:

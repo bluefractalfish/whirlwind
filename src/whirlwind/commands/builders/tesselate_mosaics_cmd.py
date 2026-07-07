@@ -98,7 +98,7 @@ class BuildTesselationRequest(RequestBuilder[Request]):
             tree=tree,
             manifest=manifest,
             paths=paths,
-            prefix=f"{spec.tile_size}_{shard_cfg['shard_prefix']}",
+            prefix=f"{spec.tile_size}",
             shard_size=shard_cfg["shard_size"],
             overwrite="-f" in tv.flags or "--overwrite" in tv.flags,
             dry="-d" in tv.flags or "--dry" in tv.flags,

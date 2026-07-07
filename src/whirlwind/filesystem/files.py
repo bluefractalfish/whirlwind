@@ -102,7 +102,7 @@ class FileID:
     
     @staticmethod 
     def tile(mosaic_id: str, row_i: int, col_i: int, sigfig: int=4) -> str: 
-        return f"{mosaic_id}r{row_i:04d}c{col_i:04d}" 
+        return f"T{mosaic_id[1:]}r{row_i:04d}c{col_i:04d}" 
 
     @staticmethod 
     def shard(branch_id: str, shard_index: int, prefix: str = "S") -> str:

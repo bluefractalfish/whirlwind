@@ -36,8 +36,15 @@ from typing import Any
 import io 
 import json 
 import numpy as np 
+import rasterio 
 from rasterio import Affine 
 from pathlib import Path 
+from dataclasses import dataclass, replace
+from typing import Any
+import hashlib
+import math
+import os
+import datetime as dt
 
 from whirlwind.filesystem.files import RasterFile, FileID
 from whirlwind.domain.plannedwindow import PlannedWindow
@@ -151,8 +158,14 @@ class EncodedTile:
             pixel_size_units=meta.get("pixel_size_units"),
         )
 
+
 @dataclass(frozen=True)
-class ManifestRow:
+class ManifestRow:   
+    """
+    a more minimal metadata object for manifest. comprehensive tile 
+    metadata is written to TileMetadataRow
+
+    """ 
     tile_id: str
     shard: str
     key: str
@@ -179,6 +192,369 @@ class ManifestRow:
     pixel_size_y: float = 0.0
     pixel_size_units: str | None = None
 
+@dataclass(frozen=True)
+class TileMetadataRow: 
+    """ 
+        comprehensive immutable tile metadata 
+        
+        contains 
+        ---------- 
+        - tile identity 
+        - source providence 
+        - window/plan 
+
+    """ 
+    # identity
+    tile_id: str
+    key: str
+    schema_name: str
+    schema_version: str
+    mosaic_id: str
+    source_uri: str
+
+    # source provenance
+    source_name: str
+    source_size_bytes: int | None
+    source_mtime_ns: int | None
+    source_fingerprint: str | None
+    source_driver: str | None
+    source_width: int | None
+    source_height: int | None
+    source_count: int | None
+    source_dtypes: list[str]
+    source_colorinterp: list[str]
+    source_nodata: list[float | int | None]
+
+    # plan/window
+    row_i: int | None
+    col_i: int | None
+    x_off: int
+    y_off: int
+    w: int
+    h: int
+    stride_x: int | None
+    stride_y: int | None
+    is_partial: bool
+
+    # raster payload
+    bands: int
+    dtype: str
+    array_shape: list[int]
+    npy_sha256: str | None
+
+    # geospatial
+    crs: str | None
+    pixel_size_x: float
+    pixel_size_y: float
+    pixel_size_units: str | None
+    transform: list[float]
+    minx: float
+    miny: float
+    maxx: float
+    maxy: float
+    centroid_x: float
+    centroid_y: float
+    footprint: dict[str, Any]
+
+    # quality/content
+    content: dict[str, Any]
+    image_stats: dict[str, Any]
+    
+    # where it will be written 
+    bucket: str
+
+    def record(self) -> dict[str, Any]:
+        """
+         JSON-ready nested representation.
+         its written to <key>.json in the tar shard.
+        """
+        return {
+            "schema": {
+                "name": self.schema_name,
+                "version": self.schema_version,
+            },
+            "identity": {
+                "tile_id": self.tile_id,
+                "key": self.key,
+                "mosaic_id": self.mosaic_id,
+            }, 
+
+            # top-level fields for compatibility with ManifestRow.
+            "tile_id": self.tile_id,
+            "key": self.key,
+            "mosaic_id": self.mosaic_id,
+            "source_uri": self.source_uri,
+            "row_i": self.row_i,
+            "col_i": self.col_i,
+            "window": {
+                "x_off": self.x_off,
+                "y_off": self.y_off,
+                "w": self.w,
+                "h": self.h,
+                "stride_x": self.stride_x,
+                "stride_y": self.stride_y,
+                "is_partial": self.is_partial,
+            },
+            "bands": self.bands,
+            "dtype": self.dtype,
+            "crs": self.crs,
+            "pixel_size_x": self.pixel_size_x,
+            "pixel_size_y": self.pixel_size_y,
+            "pixel_size_units": self.pixel_size_units,
+            "bounds": {
+                "minx": self.minx,
+                "miny": self.miny,
+                "maxx": self.maxx,
+                "maxy": self.maxy,
+            },
+            "transform": self.transform,
+
+            "source": {
+                "source_uri": self.source_uri,
+                "source_name": self.source_name,
+                "source_size_bytes": self.source_size_bytes,
+                "source_mtime_ns": self.source_mtime_ns,
+                "source_fingerprint": self.source_fingerprint,
+                "source_driver": self.source_driver,
+                "source_width": self.source_width,
+                "source_height": self.source_height,
+                "source_count": self.source_count,
+                "source_dtypes": self.source_dtypes,
+                "source_colorinterp": self.source_colorinterp,
+                "source_nodata": self.source_nodata,
+            },
+            "raster": {
+                "array_shape": self.array_shape,
+                "bands": self.bands,
+                "dtype": self.dtype,
+                "npy_sha256": self.npy_sha256,
+            },
+            "geo": {
+                "crs": self.crs,
+                "pixel_size_x": self.pixel_size_x,
+                "pixel_size_y": self.pixel_size_y,
+                "pixel_size_units": self.pixel_size_units,
+                "transform": self.transform,
+                "bounds": {
+                    "minx": self.minx,
+                    "miny": self.miny,
+                    "maxx": self.maxx,
+                    "maxy": self.maxy,
+                },
+                "centroid": {
+                    "x": self.centroid_x,
+                    "y": self.centroid_y,
+                },
+                "footprint": self.footprint,
+            },
+            "content": self.content,
+            "image_stats": self.image_stats,
+            "hashes": {
+                "npy_sha256": self.npy_sha256,
+            },
+            "bucket": self.bucket,
+        }
+
+def _safe_float(v: Any) -> float | None:
+    try:
+        f = float(v)
+    except Exception:
+        return None
+    if not math.isfinite(f):
+        return None
+    return f
+
+
+def _sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _file_fingerprint(path: Path) -> tuple[int | None, int | None, str | None]:
+    """
+    Cheap source identity.
+
+    Avoid hashing giant 100GB mosaics during tiling.
+    Full source SHA can be computed later if needed.
+    """
+    try:
+        st = path.stat()
+    except OSError:
+        return None, None, None
+
+    size = int(st.st_size)
+    mtime_ns = int(st.st_mtime_ns)
+    fp = hashlib.sha256(f"{path.as_uri()}|{size}|{mtime_ns}".encode("utf-8")).hexdigest()
+    return size, mtime_ns, fp
+
+
+def _source_record(path: Path) -> dict[str, Any]:
+    """
+    Metadata-only raster open. No pixel reads.
+    Called once per tile for now, but can be cached in TileEncoder.
+    """
+    size, mtime_ns, fingerprint = _file_fingerprint(path)
+
+    rec: dict[str, Any] = {
+        "source_name": path.name,
+        "source_size_bytes": size,
+        "source_mtime_ns": mtime_ns,
+        "source_fingerprint": fingerprint,
+        "source_driver": None,
+        "source_width": None,
+        "source_height": None,
+        "source_count": None,
+        "source_dtypes": [],
+        "source_colorinterp": [],
+        "source_nodata": [],
+    }
+
+    try:
+        with rasterio.open(path) as ds:
+            rec["source_driver"] = ds.driver
+            rec["source_width"] = int(ds.width)
+            rec["source_height"] = int(ds.height)
+            rec["source_count"] = int(ds.count)
+            rec["source_dtypes"] = [str(d) for d in ds.dtypes]
+            rec["source_colorinterp"] = [str(c).split(".")[-1].lower() for c in ds.colorinterp]
+            rec["source_nodata"] = [
+                _safe_float(v) if v is not None else None
+                for v in ds.nodatavals
+            ]
+    except Exception:
+        # Do not make metadata enrichment fatal.
+        pass
+
+    return rec
+
+
+def _footprint_from_transform(
+    transform: Affine,
+    width: int,
+    height: int,
+) -> dict[str, Any]:
+    """
+    GeoJSON footprint from exact transformed pixel corners.
+    Better than bounds if the raster ever has rotation/skew.
+    """
+    ul = transform * (0, 0)
+    ur = transform * (width, 0)
+    lr = transform * (width, height)
+    ll = transform * (0, height)
+
+    return {
+        "type": "Polygon",
+        "coordinates": [[
+            [float(ul[0]), float(ul[1])],
+            [float(ur[0]), float(ur[1])],
+            [float(lr[0]), float(lr[1])],
+            [float(ll[0]), float(ll[1])],
+            [float(ul[0]), float(ul[1])],
+        ]],
+    }
+
+
+def _image_stats(tile: Tile) -> dict[str, Any]:
+    """
+    Cheap stats from the tile array while it is already in memory.
+    No extra raster reads.
+    """
+    if tile.read is None:
+        return {}
+
+    arr = tile.read.array
+
+    if arr.ndim == 2:
+        arr = arr[np.newaxis, :, :]
+
+    if arr.ndim != 3:
+        return {}
+
+    if np.ma.isMaskedArray(arr):
+        data = np.ma.filled(arr, np.nan).astype("float32", copy=False)
+    else:
+        data = np.asarray(arr).astype("float32", copy=False)
+
+    per_band: list[dict[str, Any]] = []
+
+    for i in range(data.shape[0]):
+        b = data[i]
+        finite = b[np.isfinite(b)]
+
+        if finite.size == 0:
+            per_band.append({
+                "band": i + 1,
+                "min": None,
+                "max": None,
+                "mean": None,
+                "std": None,
+                "p01": None,
+                "p02": None,
+                "p05": None,
+                "p50": None,
+                "p95": None,
+                "p98": None,
+                "p99": None,
+            })
+            continue
+
+        qs = np.percentile(finite, [1, 2, 5, 50, 95, 98, 99])
+
+        per_band.append({
+            "band": i + 1,
+            "min": float(np.min(finite)),
+            "max": float(np.max(finite)),
+            "mean": float(np.mean(finite)),
+            "std": float(np.std(finite)),
+            "p01": float(qs[0]),
+            "p02": float(qs[1]),
+            "p05": float(qs[2]),
+            "p50": float(qs[3]),
+            "p95": float(qs[4]),
+            "p98": float(qs[5]),
+            "p99": float(qs[6]),
+        })
+
+    rgb_stats: dict[str, Any] = {}
+
+    if data.shape[0] >= 3:
+        rgb = data[:3]
+        brightness = np.nanmean(rgb, axis=0)
+        finite_brightness = brightness[np.isfinite(brightness)]
+
+        if finite_brightness.size:
+            rgb_stats["brightness_mean"] = float(np.mean(finite_brightness))
+            rgb_stats["brightness_std"] = float(np.std(finite_brightness))
+            rgb_stats["dark_fraction"] = float(np.mean(finite_brightness <= 5.0))
+            rgb_stats["bright_fraction"] = float(np.mean(finite_brightness >= 250.0))
+
+        # crude but useful vegetation-ish heuristic for review sampling
+        r = rgb[0]
+        g = rgb[1]
+        b = rgb[2]
+        denom = np.maximum(r + g + b, 1.0)
+        green_ratio = g / denom
+        rgb_stats["green_fraction"] = float(np.nanmean(green_ratio > 0.40))
+
+    return {
+        "per_band": per_band,
+        "rgb": rgb_stats,
+    }
+
+
+def _content_record(tile: Tile) -> dict[str, Any]:
+    """
+    Reuse existing content stats. Use conservative defaults.
+    """
+    stats = tile_content_stats(
+        tile,
+        min_content_fraction=0.60,
+        zero_is_empty=True,
+        max_black_fraction=0.40,
+        max_white_fraction=0.40,
+    )
+    return stats.record()
+
+
 class TileEncoder: 
     """
     init 
@@ -199,15 +575,24 @@ class TileEncoder:
     """
 
     def __init__(self, src: RasterFile) -> None:
-        parent_id = src.fid 
+        self.src = src 
+        self.source_path = src.path
         self.file_id = src.raster_id 
-        self.source_uri = parent_id.uri 
+        self.source_uri = src.uri 
+        self._source_record: dict[str, Any] | None = None 
+
+    def source_record(self) -> dict[str, Any]: 
+        """ 
+        cache source metadata once per mosaic 
+        """
+
+        if self._source_record is None: 
+            self._source_record = _source_record(self.source_path) 
+        return self._source_record
 
     def gen_tile_id(self, tile: Tile) -> str: 
         row = tile.plan
         return FileID.tile(self.file_id, row.row_i, row.col_i )
-
-        return f"{self.file_id}_r{row.row_i:03d}_c{row.col_i:03d}"
 
     def gen_key(self, tile: Tile) -> str: 
         return self.gen_tile_id(tile) 
@@ -218,62 +603,112 @@ class TileEncoder:
         np.save(bio, arr, allow_pickle=False)
         return bio.getvalue()
     
-    def to_metadata(self, tile: Tile, tile_id: str, label: Label | None=None) -> dict[str, Any]:
-        if tile.read is None or tile.geo is None:
-            return {}
+    def to_metadata(self, 
+                    tile: Tile, 
+                    tile_id: str, 
+                    key: str, 
+                    *, 
+                    npy_sha256: str | None=None, 
+                    ) -> dict[str, Any]:
+        """ 
+        generates the comprehensive metadata row package given a tile 
+        """
 
-        minx, miny, maxx, maxy = tile.geo.bounds
+        if tile.read is None or tile.geo is None: 
+            return {}
+        
+        minx, miny, maxx, maxy = tile.geo.bounds 
         pixel_size_x = abs(float(tile.geo.transform.a))
         pixel_size_y = abs(float(tile.geo.transform.e))
         pixel_size_units = _crs_unit_name(tile.geo.crs)
 
-        meta: dict[str, Any] = {
-            "tile_id": tile_id,
-            "mosaic_id": self.file_id,
-            "branch_id": FileID.branch(self.file_id),
-            "source_uri": str(self.source_uri),
-            "row_i": tile.plan.row_i,
-            "col_i": tile.plan.col_i,
-            "window": {
-                "x_off": int(tile.plan.x),
-                "y_off": int(tile.plan.y),
-                "w": int(tile.plan.w),
-                "h": int(tile.plan.h),
-            },
-            "bands": int(tile.read.band_count),
-            "dtype": str(tile.read.dtype),
-            "crs": tile.geo.crs,
+        src = self.source_record()
 
-            "pixel_size_x": pixel_size_x,
-            "pixel_size_y": pixel_size_y,
-            "pixel_size_units": pixel_size_units,
-
-            "bounds": {
-                "minx": float(minx),
-                "miny": float(miny),
-                "maxx": float(maxx),
-                "maxy": float(maxy),
-            },
-            "transform": [
-                tile.geo.transform.a,
-                tile.geo.transform.b,
-                tile.geo.transform.c,
-                tile.geo.transform.d,
-                tile.geo.transform.e,
-                tile.geo.transform.f,
-            ],
-        }
-
-        if label is not None:
-            meta["bucket"] = label.bucket
-            meta["label"] = dict(label.metadata())
+        arr = tile.read.array 
+        if arr.ndim == 2: 
+            array_shape = [1, int(arr.shape[0]), int(arr.shape[1])]
         else:
-            meta["bucket"] = "shards"
+            array_shape = [int(v) for v in arr.shape]
+
+        bucket = "shards"
+
+        transform = [
+                float(tile.geo.transform.a),
+                float(tile.geo.transform.b),
+                float(tile.geo.transform.c),
+                float(tile.geo.transform.d), 
+                float(tile.geo.transform.e),
+                float(tile.geo.transform.f)
+                ]
+
+        centroid_x = float((minx + maxx) / 2.0)
+        centroid_y = float((miny + maxy) / 2.0)
+
+        row = TileMetadataRow(
+                tile_id=tile_id,
+                key=key,
+                schema_name="whirlwind.tile",
+                schema_version="1.0",
+                mosaic_id=self.file_id,
+                source_uri=str(self.source_uri),
+
+                source_name=str(src.get("source_name") or self.source_path.name),
+                source_size_bytes=src.get("source_size_bytes"),
+                source_mtime_ns=src.get("source_mtime_ns"),
+                source_fingerprint=src.get("source_fingerprint"),
+                source_driver=src.get("source_driver"),
+                source_width=src.get("source_width"),
+                source_height=src.get("source_height"),
+                source_count=src.get("source_count"),
+                source_dtypes=list(src.get("source_dtypes") or []),
+                source_colorinterp=list(src.get("source_colorinterp") or []),
+                source_nodata=list(src.get("source_nodata") or []),
+
+                row_i=tile.plan.row_i,
+                col_i=tile.plan.col_i,
+                x_off=int(tile.plan.x),
+                y_off=int(tile.plan.y),
+                w=int(tile.plan.w),
+                h=int(tile.plan.h),
+                stride_x=None,
+                stride_y=None,
+                is_partial=False,
+
+                bands=int(tile.read.band_count),
+                dtype=str(tile.read.dtype),
+                array_shape=array_shape,
+                npy_sha256=npy_sha256,
+
+                crs=tile.geo.crs,
+                pixel_size_x=pixel_size_x,
+                pixel_size_y=pixel_size_y,
+                pixel_size_units=pixel_size_units,
+                transform=transform,
+                minx=float(minx),
+                miny=float(miny),
+                maxx=float(maxx),
+                maxy=float(maxy),
+                centroid_x=centroid_x,
+                centroid_y=centroid_y,
+                footprint=_footprint_from_transform(
+                    tile.geo.transform,
+                    int(tile.plan.w),
+                    int(tile.plan.h),
+                ),
+
+                content=_content_record(tile),
+                image_stats=_image_stats(tile),
+
+                bucket=bucket,
+            )
+
+        meta = row.record()
 
         if tile.tile_id is not None:
             meta["tile_ref_id"] = tile.tile_id
-
         return meta
+
+
 
     def to_json_bytes(self, metadata: dict[str, Any]) -> bytes:
         return json.dumps(
@@ -282,11 +717,19 @@ class TileEncoder:
             separators=(",", ":"),
         ).encode("utf-8")
 
-    def encode(self, tile: Tile, label: Label | None=None) -> EncodedTile: 
+    def encode(self, tile: Tile) -> EncodedTile: 
         tile_id = self.gen_tile_id(tile)
         key = self.gen_key(tile)
-        metadata = self.to_metadata(tile, tile_id, label)
+
         npy = self.to_npy_bytes(tile)
+        npy_sha256 = _sha256_bytes(npy)
+
+        metadata = self.to_metadata(tile, 
+                                    tile_id,
+                                    key, 
+                                    npy_sha256=npy_sha256, 
+                                ) 
+
         js = self.to_json_bytes(metadata)
 
         return EncodedTile(
