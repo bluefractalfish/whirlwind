@@ -1,0 +1,78 @@
+[workspace]
+name = "whirlwind"
+version = "0.6.0"
+description = "Geospatial raster tiling, labeling, and shard generation"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+# Stay on a well-supported Python version.
+python = "3.12.*"
+
+# Geospatial compiled stack.
+gdal = ">=3.9,<4"
+rasterio = ">=1.4,<2"
+shapely = ">=2.0,<3"
+pyproj = ">=3.7,<4"
+geopandas = ">=1.0,<2"
+fiona = ">=1.10,<2"
+
+# Numerical/data stack.
+numpy = ">=2.0,<3"
+scipy = ">=1.14,<2"
+pandas = ">=2.2,<3"
+pyarrow = ">=18,<24"
+
+# Image and ML stack.
+pillow = ">=11,<13"
+pytorch = ">=2.6,<3"
+torchvision = ">=0.21,<1"
+
+# CLI and configuration.
+rich = ">=13,<15"
+pyyaml = ">=6,<7"
+tqdm = ">=4.67,<5"
+click = ">=8,<9"
+cmd2 = ">=2.5,<3"
+
+# Development and testing.
+pytest = ">=8,<10"
+ruff = ">=0.9,<1"
+
+[pypi-dependencies]
+# Install the cloned repository itself into the Pixi environment.
+whirlwind = { path = ".", editable = true }
+
+# Packages unavailable or more convenient through PyPI.
+open-clip-torch = ">=2.30,<3"
+transformers = ">=4.48,<6"
+safetensors = ">=0.5,<1"
+
+[tasks]
+whirlwind = "W"
+test = "pytest"
+lint = "ruff check ."
+format = "ruff format ."
+
+verify = """
+python -c "
+import sys
+import numpy
+import shapely
+import rasterio
+import pyarrow
+import torch
+from osgeo import gdal
+import whirlwind
+
+print('Python:', sys.version)
+print('NumPy:', numpy.__version__)
+print('GDAL:', gdal.VersionInfo('--version'))
+print('Rasterio:', rasterio.__version__)
+print('Shapely:', shapely.__version__)
+print('PyArrow:', pyarrow.__version__)
+print('PyTorch:', torch.__version__)
+print('CUDA available:', torch.cuda.is_available())
+print('Whirlwind:', whirlwind.__file__)
+"
+"""

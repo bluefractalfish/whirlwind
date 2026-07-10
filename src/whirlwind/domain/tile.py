@@ -123,7 +123,7 @@ class EncodedTile:
     json_bytes: bytes 
     metadata: dict[str, Any]
 
-    def as_manifest_row(self, shard: str) -> ManifestRow:
+    def as_manifest_row(self, shard: str) -> "ManifestRow":
         meta: dict[str, Any] = self.metadata
 
         window = meta["window"]

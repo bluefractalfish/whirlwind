@@ -7,7 +7,7 @@ from whirlwind.geography.bbox import BBox
 from whirlwind.geography.location import * 
 
 
-def read_georows(path: Path) -> list[GeoRow]:
+def read_georows(path: Path) -> list["GeoRow"]:
     rows: list[GeoRow] = []
 
     with path.open("r", newline="", encoding="utf-8") as f: 

@@ -55,25 +55,27 @@ class FileID:
     
 
     uid: str
-    ID_SCHEME = "id_scheme_06"
-    ID_VERSION = "3"
+    ID_SCHEME = "file_name_scheme"
+    ID_VERSION = "4"
     UUID_LEN: int = 4
 
     def __init__(self, uri: Path | str, ext: str = ""):
-        self.uri = str(uri)
-        pref = next((k for k, v in EXT2ID.items() if ext in v), "")
-        self.uid = self.gen_uid(pref)
+        self.uri = Path(uri) 
+        self.uid = _short_hash(self.uri.name, size=6)
     
     @staticmethod 
     def _hash(value: str, size: int = 6) -> str: 
         return _short_hash(value, size=size)
     
     @staticmethod
-    def mosaic (path: str | Path) -> str: 
+    def mosaic (path: str | Path, use_uri: bool = False) -> str: 
         uri = _as_uri(path) 
         variant = _variant_from_path(path)
         date = _date_from_path(path) 
-        h = _short_hash(uri, size=6) 
+        if use_uri:
+            h = _short_hash(uri, size=6) 
+        else: 
+            h = _short_hash(Path(path).name, size=6)
         return f"M{date}{variant.variant_id}{h}"
     
     @staticmethod 
@@ -343,6 +345,8 @@ class RasterFile:
         return {
             
             # canonical identity fields 
+
+            "alias": self.fid.uid,
             "mosaic_id": self.mosaic_id,
             "source_uri": self.uri, 
             "path": str(self.path),

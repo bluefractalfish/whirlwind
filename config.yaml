@@ -1,9 +1,9 @@
 global:
   version: "V5"
-  run_id: labeland
+  run_id: 2606
   io:
-    in_dir: /home/rhea/C/
-    dest_dir: /home/rhea/B/artifacts/
+    in_dir: /home/rhea/dev/legacy/
+    dest_dir: /home/rhea/A/artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -25,10 +25,10 @@ metamosaic:
 
 operations: 
   downsample:
-    scale_factor: 0.50
-    resampling: bilinear
+    scale_factor: 0.125
+    resampling: nearest
     dtype: Byte
-    compression: LZW
+    compression: NONE
     tiled: true
     nodata: 0
 
@@ -39,8 +39,8 @@ operations:
       p_high: 98.0
       dst_min: 0
       dst_max: 255
-      sample_windows: 512
-      sample_size: 256
+      sample_windows: 128
+      sample_size: 128
 
   tesselate: 
     shard_size: 2048

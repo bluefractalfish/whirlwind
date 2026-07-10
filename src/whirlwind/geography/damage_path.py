@@ -39,7 +39,7 @@ class DamagePath:
         self.area_id_field = area_id_field
         self.metamosaic_id = metamosaic_id 
     
-    def crop_to(self, mosaic_path, context_distance: float) -> CroppedPathGeometry: 
+    def crop_to(self, mosaic_path, context_distance: float) -> "CroppedPathGeometry": 
  
         with rasterio.open(mosaic_path) as ds: 
             mosaic_bounds = BBox.from_bounds(ds.bounds) 

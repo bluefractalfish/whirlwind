@@ -10,7 +10,7 @@ from whirlwind.domain.mosaic import MosaicRecord
 
 
 
-def selector(tv: TokenView, context: CommandContext) -> MosaicSelector:
+def selector(tv: TokenView, context: CommandContext) -> "MosaicSelector":
     limit_values = tv.values("--limit")
     limit = int(limit_values[-1]) if limit_values else None
     

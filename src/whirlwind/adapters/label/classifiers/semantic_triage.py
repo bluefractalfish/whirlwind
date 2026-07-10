@@ -32,10 +32,10 @@ TOP_K_CLASSES = 2
 class SemanticLabelTriage:
     """Adapter from classifier to the existing Labeler shape."""
 
-    def __init__(self, classifier: SemanticClassTriage) -> None:
+    def __init__(self, classifier: "SemanticClassTriage") -> None:
         self.classifier = classifier
 
-    def label(self, tile: Tile) -> SemanticLabel:
+    def label(self, tile: "Tile") -> "SemanticLabel":
         if tile.read is None:
             raise ValueError("cannot classify tile with tile.read is None")
         return self.classifier.classify(
@@ -43,7 +43,7 @@ class SemanticLabelTriage:
             tile_id=tile.tile_id,
         ) 
 
-    def metadata(self, tile: Tile) -> dict[str, Any]:  
+    def metadata(self, tile: "Tile") -> dict[str, Any]:  
         semantic_label = self.label(tile)
 
         payload = semantic_label.metadata()
