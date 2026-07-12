@@ -1,3 +1,4 @@
+from whirlwind.commands.base import Command
 from whirlwind.commands.router import CommandRouter 
 from whirlwind.commands.builders.downsample_cmd import DownsampleCommand 
 from whirlwind.commands.builders.write_id_manifest_cmd import WriteIDManifestCommand
@@ -11,6 +12,35 @@ from whirlwind.commands.builders.init_database_cmd import DatabaseInitCommand
 from whirlwind.commands.builders.build_metamosaics_cmd import BuildMetamosaicCommand
 
 #from whirlwind.commands.fronts.database import DatabaseBuildCommand 
+
+BuildOperators = CommandRouter(
+        name = "make", 
+        aliases= ("b",),
+        routes={
+            ("m", "manifest"): WriteIDManifestCommand, 
+            ("md", "meta"): DiscoverMetadataCommand,
+            ("mm", "metamosaics"): BuildMetamosaicCommand,
+            ("tp", "tileplan"): StageTesselationCommand, 
+            ("gp", "geopackages"): StagePathsCommand
+            }
+        )
+
+ShardOperators = CommandRouter(
+        name = "shards", 
+        aliases = ("s", ), 
+        routes = {
+            ("tt", "totiff"): ExportShardsCommand, 
+            ("st", "stitch"): StitchCommand, 
+            }
+        )
+
+RunOperators = CommandRouter(
+        name = "run", 
+        routes = {
+            ("tp", "tileplan"): TesselationCommand, 
+            ("ds", "downsample"): DownsampleCommand
+            }
+        )
 
 DiscoverOperators = CommandRouter(
         name="discover",

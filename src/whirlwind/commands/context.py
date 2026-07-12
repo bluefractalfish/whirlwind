@@ -39,7 +39,6 @@ class CommandContext:
         section(*keys: str) -> dict[str, Any]
         value(self, *keys: str, default: Any=None) -> Any 
 
-
     """
 
     config: Config 

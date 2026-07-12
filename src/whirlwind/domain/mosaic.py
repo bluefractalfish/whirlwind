@@ -6,6 +6,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class MosaicRecord: 
     mosaic_id: str 
+    alias: str 
     path: Path 
     source_uri: str 
     date: str 
@@ -22,15 +23,19 @@ class MosaicRecord:
     
         # for legacy, added file_id, id 
         mosaic_id = row.get("mosaic_id") or row.get("file_id") or row.get("id")
+        alias = row.get("alias")
+
         if not mosaic_id:
             raise ValueError(f"manifest row missing mosaic id: {row}")
-
+        if not alias: 
+            raise ValueError(f"manifest row missing alias: {row}")
         path_raw = row.get("path") or ""
         if not path_raw:
             raise ValueError(f"manifest row missing path: {row}")
 
         return cls(
             mosaic_id=mosaic_id,
+            alias=alias,
             path=Path(path_raw),
             source_uri=row.get("source_uri") or row.get("uri") or "",
             date=row.get("date") or "",

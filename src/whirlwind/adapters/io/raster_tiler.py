@@ -123,7 +123,7 @@ class TileRasterFromPlan:
 
 
     
-    def run(self, tile_limit: int, progress=None, task_id=None) -> TileSummary: 
+    def run(self, tile_limit: int | None = None, progress=None, task_id=None) -> TileSummary: 
         tiles_to_process = self.plan_sink.count()
         planned_windows = self.plan_sink.read()
         try:

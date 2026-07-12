@@ -42,7 +42,7 @@ class Request:
     device: str = "cpu" 
     model_name: str = "ViT-B-32"
     bands: tuple[int,int,int] = (0,1,2)
-    tile_limit: int = 999999
+    tile_limit: int | None = None
     # for masking, removing empty tiles 
     masked: bool = False
     fill_value: float = 0.0 

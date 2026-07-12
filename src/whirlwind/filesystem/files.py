@@ -328,6 +328,10 @@ class RasterFile:
     @property
     def mosaic_id(self) -> str:
         return self.raster_id
+    
+    @property 
+    def alias(self) -> str: 
+        return self.fid.uid
 
     def record(self) -> Dict[str, Any]:
         """ 
@@ -346,7 +350,7 @@ class RasterFile:
             
             # canonical identity fields 
 
-            "alias": self.fid.uid,
+            "alias": self.alias,
             "mosaic_id": self.mosaic_id,
             "source_uri": self.uri, 
             "path": str(self.path),
@@ -393,7 +397,7 @@ class FileRef:
 
     def record(self) -> dict[str, Any]:
         return {
-            "id": self.fid.get_uid(),
+            "alias": self.fid.uid,
             "uri": self.uri,
             "path": self.path,
             "id_scheme": FileID.ID_SCHEME, 

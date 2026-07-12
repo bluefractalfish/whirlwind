@@ -8,8 +8,18 @@ def bootstrapp(config: Config) -> int:
 
     from whirlwind.commands import Test
     from whirlwind.commands.fronts.operators import (
-            MosaicOperators, TileOperators, StagingOperators, DatabaseInitOperator, DiscoverOperators, MetamosaicOperators
-            )
+            RunOperators, 
+            BuildOperators, 
+            ShardOperators, 
+
+            MosaicOperators, 
+            TileOperators, 
+            StagingOperators, 
+            DatabaseInitOperator, 
+            DiscoverOperators, 
+            MetamosaicOperators
+            ) 
+
     from whirlwind.commands.shell.shell_nav_cmds import (
             CdCommand, 
             LsCommand, 
@@ -24,6 +34,12 @@ def bootstrapp(config: Config) -> int:
                               ViewCommand(), 
 
                               Test(), 
+                                
+                              RunOperators, 
+                              BuildOperators,
+                              ShardOperators, 
+                                
+                            # legacy 
                               DiscoverOperators, 
                               MosaicOperators, 
                               TileOperators, 

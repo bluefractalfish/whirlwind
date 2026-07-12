@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import Iterator
 
 from whirlwind.adapters.io.idmanifest import IDManifest
-from whirlwind.domain.geometry.mosaics.mosaic import MosaicRecord
-from whirlwind.domain.geometry.mosaics.mosaic import MosaicSelector
+from whirlwind.domain.mosaic import MosaicRecord
+from whirlwind.commands.selector import MosaicSelector
 
 @dataclass(frozen=True)
 class MosaicCatalog:

@@ -80,6 +80,9 @@ class IDManifest:
 
     def ids(self) -> Iterator[str]:
         yield from self.mosaic_ids()
+    
+    def aliases(self) -> Iterator[str]:
+        yield from self._column("alias")
 
     def mids(self) -> Iterator[str]:
         yield from self.mosaic_ids()
