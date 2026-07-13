@@ -22,13 +22,8 @@ from whirlwind.adapters.geo.window_read import RasterioWindowReader
 from whirlwind.domain.tile import TileEncoder
 from whirlwind.adapters.display.filters import should_skip_tile
                 
-from whirlwind.bridges.specs.semclass import SCSpec
 from whirlwind.filesystem.files import RasterFile 
 from whirlwind.filesystem.runtree import RunTree
-
-
-
-
 
 @dataclass(frozen=True)
 class TileSummary: 
@@ -77,7 +72,7 @@ class TileRasterFromPlan:
         self.manifest_kind = manifest_kind
         self.manifest_path = branch.manifest_dir/manifest_name 
         self.label_metadata_path = branch.metadata_dir / "label_metadata.csv"
-        self.review_path = branch.metadata_dir / "review.csv" 
+        self.review_path = branch.metadata_dir / "shard_metadata.csv" 
 
         self.tile_plan_path = branch.staging_dir/plan_name
         self.branch = branch
@@ -101,8 +96,6 @@ class TileRasterFromPlan:
             self.manifest_sink = make_sink(self.manifest_kind, self.manifest_path)
             self.label_metadata_sink = make_label_json_sink(self.label_metadata_path)
             self.review_sink = make_review_sink(self.review_path)
-
-            self.label_json_sink = make_label_json_sink(self.label_metadata_path)
 
         except ValueError:
             return_code = 5
@@ -170,9 +163,12 @@ class TileRasterFromPlan:
                                 progress.advance(task_id, 1)
 
                             continue
-
+                        
 
                         encoded = self.encoder.encode(tile)
+
+                        placement = None 
+
                         if self.dry:
                             shard_path = f"dry_{tile.tile_id}"
                         else:
@@ -180,7 +176,12 @@ class TileRasterFromPlan:
                             shard_path = placement.shard_path
                             n_written += 1 
 
-                        row = encoded.as_manifest_row(shard_path)
+                        row = encoded.as_manifest_row(
+                            shard_path,
+                            shard_uri=placement.shard_uri if placement else None,
+                            tile_uri=placement.tile_uri if placement else None,
+                            tile_json_uri=placement.tile_json_uri if placement else None,
+                        ) 
 
                         # main tile manifest 
                         self.manifest_sink.write(row)

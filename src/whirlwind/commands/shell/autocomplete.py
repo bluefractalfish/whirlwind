@@ -68,7 +68,12 @@ class CompletionMixin:
         )
 
     def _known_scope_ids(self) -> list[str]:
-        return [*self._metamosaic_ids(), *self._mosaic_ids()]
+        return [
+                *self._metamosaic_ids(), 
+                *self._mosaic_ids(), 
+                *self._metamosaic_aliases(), 
+                *self._mosaic_aliases(), 
+                ]
 
     def _run_ids(self) -> list[str]:
         try:
@@ -285,3 +290,23 @@ class CompletionMixin:
         endidx: int,
     ) -> list[str]:
         return self.complete_metamosaic(text, line, begidx, endidx)
+
+
+
+    def _mosaic_aliases(self) -> list[str]:
+        return sorted(
+            {
+                str(record.alias)
+                for record in self._all_records()
+                if getattr(record, "alias", None)
+            }
+        )
+
+    def _metamosaic_aliases(self) -> list[str]:
+        return sorted(
+            {
+                str(record.metamosaic_alias)
+                for record in self._all_records()
+                if getattr(record, "metamosaic_alias", None)
+            }
+        )

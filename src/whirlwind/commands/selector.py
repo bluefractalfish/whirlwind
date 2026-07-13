@@ -15,6 +15,7 @@ def selector(tv: TokenView, context: CommandContext) -> "MosaicSelector":
     limit = int(limit_values[-1]) if limit_values else None
     
 
+    mosaic_alias=tv.values("--alias","--a")
     mosaic_ids=tv.values("--mosaic", "--mosaic-id","--mid")
     metamosaic_ids = tv.values("--metamosaic","--metamosaic_id","--mmid")
     
@@ -30,6 +31,7 @@ def selector(tv: TokenView, context: CommandContext) -> "MosaicSelector":
         variants=tuple(tv.values("--variant")),
         dates=tuple(tv.values("--date")),
         metamosaic_ids=tuple(metamosaic_ids),
+        aliases=tuple(mosaic_alias),
         limit=limit,
     )
 
@@ -52,7 +54,8 @@ class MosaicSelector:
     mosaic_ids: tuple[str, ...] = ()
     variants: tuple[str, ...] = ()
     dates: tuple[str, ...] = ()
-    metamosaic_ids: tuple[str, ...] = ()
+    metamosaic_ids: tuple[str, ...] = () 
+    aliases: tuple[str, ...] = ()
     limit: int | None = None
 
     def matches(self, record: MosaicRecord) -> bool:
@@ -64,6 +67,13 @@ class MosaicSelector:
             return False
         if self.metamosaic_ids and record.metamosaic_id not in self.metamosaic_ids:
             return False
+        if self.aliases: 
+            record_aliases = {
+                    record.alias, 
+                    record.metamosaic_alias or ""
+                    }
+            if not record_aliases.intersection(self.aliases):
+                return False
         return True
 
     def paths_from(self, manifest: IDManifest) -> Iterable[Path]: 

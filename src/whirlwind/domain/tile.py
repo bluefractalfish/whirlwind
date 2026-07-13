@@ -123,7 +123,14 @@ class EncodedTile:
     json_bytes: bytes 
     metadata: dict[str, Any]
 
-    def as_manifest_row(self, shard: str) -> "ManifestRow":
+    def as_manifest_row(self, 
+                        shard: str,  
+                        *,
+                        shard_uri: str | None = None,
+                        tile_uri: str | None = None,
+                        tile_json_uri: str | None = None,
+                        ) -> "ManifestRow":
+
         meta: dict[str, Any] = self.metadata
 
         window = meta["window"]
@@ -155,7 +162,10 @@ class EncodedTile:
 
             pixel_size_x=float(meta.get("pixel_size_x", 0.0)),
             pixel_size_y=float(meta.get("pixel_size_y", 0.0)),
-            pixel_size_units=meta.get("pixel_size_units"),
+            pixel_size_units=meta.get("pixel_size_units"), 
+            shard_uri=shard_uri or meta.get("shard_uri"), 
+            tile_uri=tile_uri or meta.get("tile_uri"), 
+            tile_json_uri=tile_json_uri or meta.get("tile_json_uri")
         )
 
 
@@ -191,6 +201,10 @@ class ManifestRow:
     pixel_size_x: float = 0.0
     pixel_size_y: float = 0.0
     pixel_size_units: str | None = None
+
+    shard_uri: str | None = None
+    tile_uri: str | None = None
+    tile_json_uri: str | None = None
 
 @dataclass(frozen=True)
 class TileMetadataRow: 
@@ -266,7 +280,7 @@ class TileMetadataRow:
     def record(self) -> dict[str, Any]:
         """
          JSON-ready nested representation.
-         its written to <key>.json in the tar shard.
+         its written to <id>.json in the tar shard.
         """
         return {
             "schema": {
@@ -577,7 +591,11 @@ class TileEncoder:
     def __init__(self, src: RasterFile) -> None:
         self.src = src 
         self.source_path = src.path
+        # whole mosaic id 
         self.file_id = src.raster_id 
+        # mosaic alias 
+        self.uid = src.fid.uid
+        # location in user system 
         self.source_uri = src.uri 
         self._source_record: dict[str, Any] | None = None 
 
@@ -595,7 +613,8 @@ class TileEncoder:
         return FileID.tile(self.file_id, row.row_i, row.col_i )
 
     def gen_key(self, tile: Tile) -> str: 
-        return self.gen_tile_id(tile) 
+        row = tile.plan 
+        return FileID.tile_key(self.uid, row.row_i, row.col_i)
     
     def to_npy_bytes(self, tile: Tile) -> bytes: 
         arr = tile.read.array 

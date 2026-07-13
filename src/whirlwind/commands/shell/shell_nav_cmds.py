@@ -111,6 +111,95 @@ def _list_scope_dirs(ctx: CommandContext) -> int:
 
     return 0
 
+def _cd_alias(ctx: CommandContext, alias: str) -> int:
+    records = _records(ctx)
+
+    mosaic_matches = [
+        record for record in records
+        if record.alias == alias
+    ]
+
+    metamosaic_matches = sorted(
+        {
+            record.metamosaic_id
+            for record in records
+            if record.metamosaic_alias == alias and record.metamosaic_id
+        }
+    )
+
+    total = len(mosaic_matches) + len(metamosaic_matches)
+
+    if total == 0:
+        face.error(f"unknown alias: {alias}")
+        return 3
+
+    if total > 1:
+        face.error(f"ambiguous alias: {alias}")
+        return 3
+
+    if mosaic_matches:
+        record = mosaic_matches[0]
+        ctx.scope.cd_mosaic(record.mosaic_id, metamosaic_id=record.metamosaic_id)
+        face.info(f"scope: {ctx.scope.working_dir()}")
+        return 0
+
+    ctx.scope.cd_metamosaic(metamosaic_matches[0])
+    face.info(f"scope: {ctx.scope.working_dir()}")
+    return 0
+
+def _cd_known_scope(ctx: CommandContext, target: str) -> int:
+    records = _records(ctx)
+
+    # 1. Exact canonical IDs win over aliases.
+    for record in records:
+        if record.mosaic_id == target:
+            ctx.scope.cd_mosaic(record.mosaic_id, record.metamosaic_id)
+            face.info(f"scope: {ctx.scope.working_dir()}")
+            return 0
+
+        if record.metamosaic_id == target:
+            ctx.scope.cd_metamosaic(str(record.metamosaic_id))
+            face.info(f"scope: {ctx.scope.working_dir()}")
+            return 0
+
+    # 2. Then try mosaic aliases.
+    mosaic_matches = [
+        record
+        for record in records
+        if getattr(record, "alias", None) == target
+    ]
+
+    # 3. Then try metamosaic aliases.
+    metamosaic_matches = sorted(
+        {
+            record.metamosaic_id
+            for record in records
+            if getattr(record, "metamosaic_alias", None) == target
+            and record.metamosaic_id
+        }
+    )
+
+    total = len(mosaic_matches) + len(metamosaic_matches)
+
+    if total == 0:
+        face.error(f"unknown scope target: {target}")
+        return 3
+
+    if total > 1:
+        face.error(f"ambiguous scope target: {target}")
+        face.info("Use full mosaic_id/metamosaic_id or make aliases longer.")
+        return 3
+
+    if mosaic_matches:
+        record = mosaic_matches[0]
+        ctx.scope.cd_mosaic(record.mosaic_id, record.metamosaic_id)
+        face.info(f"scope: {ctx.scope.working_dir()}")
+        return 0
+
+    ctx.scope.cd_metamosaic(metamosaic_matches[0])
+    face.info(f"scope: {ctx.scope.working_dir()}")
+    return 0 
+
 class CdCommand(Command):
     name = "cd"
 
@@ -119,6 +208,10 @@ class CdCommand(Command):
         tv = TokenView.parse(tokens)
 
         target = tv.arg(0)
+        
+        alias_values = tv.values("--alias","--a")
+        if alias_values: 
+            return _cd_alias(ctx, alias_values[-1])
 
         if target in (None, "/", "root"):
             ctx.scope.clear()
@@ -152,21 +245,9 @@ class CdCommand(Command):
 
             face.info(f"scope: {ctx.scope.working_dir()}")
             return 0
-
-        # Convenience: allow `cd <known_id>`.
-        for record in _records(ctx):
-            if record.mosaic_id == target:
-                ctx.scope.cd_mosaic(record.mosaic_id, record.metamosaic_id)
-                face.info(f"scope: {ctx.scope.working_dir()}")
-                return 0
-
-            if record.metamosaic_id == target:
-                ctx.scope.cd_metamosaic(str(record.metamosaic_id))
-                face.info(f"scope: {ctx.scope.working_dir()}")
-                return 0
-
-        face.error(f"unknown scope target: {target}")
-        return 3
+        # Convenience: allow `cd <mosaic_id>`, `cd <metamosaic_id>`,
+        # `cd <mosaic_alias>`, or `cd <metamosaic_alias>`.
+        return _cd_known_scope(ctx, target)
 
 
 class EnvCommand(Command):
@@ -266,8 +347,10 @@ class LsCommand(Command):
 
         if what in ("m", "mosaic", "mosaics"):
             rows = [
-                [
+                [ 
+                    record.alias,
                     record.mosaic_id,
+                    record.metamosaic_alias or "",
                     record.metamosaic_id or "",
                     record.date,
                     record.variant_id,
@@ -277,7 +360,7 @@ class LsCommand(Command):
             ]
 
             face.table(
-                ["mosaic_id", "metamosaic_id", "date", "variant", "path"],
+                ["alias","mosaic_id", "metamosaic_alias", "metamosaic_id", "date", "variant", "path"],
                 rows,
                 title="mosaics",
             )

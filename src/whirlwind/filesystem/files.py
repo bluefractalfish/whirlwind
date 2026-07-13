@@ -34,7 +34,7 @@ import re
 import datetime as dt 
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict
 
 from osgeo import gdal
@@ -66,24 +66,26 @@ class FileID:
     @staticmethod 
     def _hash(value: str, size: int = 6) -> str: 
         return _short_hash(value, size=size)
-    
+    @staticmethod 
+    def mosaic_alias(path: str | Path) -> str: 
+        uri = _as_uri(path)
+        return _short_hash(uri)
+
     @staticmethod
     def mosaic (path: str | Path, use_uri: bool = False) -> str: 
         uri = _as_uri(path) 
         variant = _variant_from_path(path)
         date = _date_from_path(path) 
         if use_uri:
-            h = _short_hash(uri, size=6) 
+            h = _short_hash(uri) 
         else: 
-            h = _short_hash(Path(path).name, size=6)
+            h = _short_hash(Path(path).name)
         return f"M{date}{variant.variant_id}{h}"
-    
+     
     @staticmethod 
     def metamosaic(
-            member_ids: tuple[str, ...] | list [str], 
+            member_ids: tuple[str, ...] | list[str], 
             stem: str = "locale",
-            *,
-            hash_len: int = 6
             ) -> str: 
         """ 
         construct a deterministic metamosaic ID from a group of mosaic IDs 
@@ -94,8 +96,15 @@ class FileID:
 
         clean_stem = FileID.slug(stem).upper()
         canonical = "|".join(sorted(str(mid) for mid in member_ids if str(mid))) 
-        h = _short_hash(canonical, size=hash_len)
+        h = _short_hash(canonical)
         return f"MM_{clean_stem}_{h}" 
+
+    @staticmethod 
+    def metamosaic_alias(
+            member_ids: tuple[str, ...] | list[str], 
+            ) -> str: 
+        canonical = "|".join(sorted(str(mid) for mid in member_ids if str(mid))) 
+        return _short_hash(canonical)
 
     @staticmethod 
     def branch(mosaic_id: str) -> str: 
@@ -103,12 +112,16 @@ class FileID:
         return str(mosaic_id)
     
     @staticmethod 
-    def tile(mosaic_id: str, row_i: int, col_i: int, sigfig: int=4) -> str: 
+    def tile(mosaic_id: str, row_i: int, col_i: int) -> str: 
         return f"T{mosaic_id[1:]}r{row_i:04d}c{col_i:04d}" 
 
     @staticmethod 
+    def tile_key(fid: str, row_i: int, col_i: int) -> str:
+        return f"{fid}r{row_i:04d}c{col_i:04d}"
+
+    @staticmethod 
     def shard(branch_id: str, shard_index: int, prefix: str = "S") -> str:
-        return f"{prefix}{branch_id}{shard_index:06d}.tar"
+        return f"{prefix}{branch_id}{shard_index:04d}.tar"
 
     @staticmethod 
     def slug(value: str) -> str: 
@@ -302,7 +315,7 @@ class RasterFile:
             
         # semantic raster ID for mosaics 
         self.raster_id = FileID.mosaic(self.path)
-
+        
         if georefs:
             ds = gdal.Open(str(self.path), gdal.GA_ReadOnly)
             if ds is None:
@@ -408,3 +421,17 @@ class FileRef:
         return self.path
 
 
+def path_from_marker(path: str | Path, marker: str = "artifacts") -> str:
+    path = Path(path).expanduser().resolve()
+    parts = path.parts
+
+    try:
+        i = parts.index(marker)
+    except ValueError:
+        raise ValueError(f"path does not contain {marker!r}: {path}")
+
+    return PurePosixPath(*parts[i:]).as_posix()
+
+def logical_file_uri(path: str | Path, marker: str = "artifacts", scheme: str = "file") -> str:
+    rel = path_from_marker(path, marker=marker)
+    return f"{scheme}://{rel}"

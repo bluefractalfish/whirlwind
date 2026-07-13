@@ -85,7 +85,8 @@ class BuildMetamosaicBridge:
             groups, pairs = self._intersect_groups(geo_rows)
 
         with face.phase(3, 4, "assigning metamosaic ids..."):
-            mm_by_mid: dict[str, str] = {}
+            mm_by_mid: dict[str, str] = {} 
+            mm_alias_by_mid: dict[str, str] = {}
             geo_groups: list[GeoGroup] = []
             
             resolver = request.location_resolver or FolderHintLocationResolver()
@@ -102,11 +103,13 @@ class BuildMetamosaicBridge:
                         requested_stem=request.stem, 
                         resolver=resolver
                         )
-
+                
+                mm_alias = FileID.metamosaic_alias(member_ids)
                 mmid = FileID.metamosaic(member_ids, stem=stem)
 
                 for mid in member_ids:
                     mm_by_mid[mid] = mmid
+                    mm_alias_by_mid[mid] = mm_alias
                 
                 geo_groups.append(
                         GeoGroup.from_members(
@@ -122,6 +125,7 @@ class BuildMetamosaicBridge:
             enriched_manifest_rows = self._enrich_manifest_rows(
                 manifest_rows,
                 mm_by_mid,
+                mm_alias_by_mid
             )
 
             root_manifest_path = request.run_tree.get_manifest_path_csv(
@@ -205,6 +209,7 @@ class BuildMetamosaicBridge:
         self,
         rows: list[dict[str, str]],
         mm_by_mid: dict[str, str],
+        mm_alias_by_mid: dict[str, str],
     ) -> list[dict[str, str]]:
         out: list[dict[str, str]] = []
 
@@ -214,6 +219,7 @@ class BuildMetamosaicBridge:
 
             enriched = dict(row)
             enriched["metamosaic_id"] = mmid
+            enriched["metamosaic_alias"] = mm_alias_by_mid.get(mid,"")
             enriched["branch_id"] = FileID.branch(mid)
 
             out.append(enriched)

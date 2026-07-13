@@ -15,6 +15,7 @@ class MosaicRecord:
     spectral_id: str = ""
     branch_id: str | None=None 
     metamosaic_id: str | None=None 
+    metamosaic_alias: str | None=None
     id_scheme: str = ""
     id_version: str = ""
 
@@ -44,6 +45,7 @@ class MosaicRecord:
             spectral_id=row.get("spectral_id") or "",
             branch_id=row.get("branch_id") or None,
             metamosaic_id=row.get("metamosaic_id") or None,
+            metamosaic_alias=row.get("metamosaic_alias") or None,
             id_scheme=row.get("id_scheme") or "",
             id_version=row.get("id_version") or "",
         )

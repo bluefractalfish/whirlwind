@@ -40,12 +40,11 @@ def bootstrapp(config: Config) -> int:
                               ShardOperators, 
                                 
                             # legacy 
-                              DiscoverOperators, 
-                              MosaicOperators, 
-                              TileOperators, 
-                              StagingOperators, 
-                              DatabaseInitOperator, 
-                              MetamosaicOperators
+                            # DiscoverOperators,   
+                            # MosaicOperators, 
+                            # TileOperators, 
+                            # DatabaseInitOperator, 
+                            # MetamosaicOperators
                                
                               ],
         config=config )

@@ -42,10 +42,8 @@ from pathlib import Path
 from typing import Optional, Any, Iterator 
 from rasterio import Affine
 
-
-
 from whirlwind.domain.tile import  EncodedTile
-
+from whirlwind.filesystem.files import logical_file_uri
 
 @dataclass
 class WriteShardRequest: 
@@ -59,7 +57,10 @@ class WriteShardRequest:
     min_free_bytes: int = 5 * 1024**3
 
     # Extra safety multiplier for tar overhead and filesystem behavior.
-    write_safety_factor: float = 1.25
+    write_safety_factor: float = 1.25 
+
+    uri_marker = "artifacts"
+    uri_scheme = "file"
 
     @classmethod
     def defaults(
@@ -104,6 +105,9 @@ class ShardPlacement:
     key: str 
     shard_path: str 
     shard_index: int 
+    shard_uri: str | None = None
+    tile_uri: str | None = None
+    tile_json_uri: str | None = None
 
 @dataclass
 class ShardWriter:
@@ -226,7 +230,8 @@ class ShardWriter:
                 f"required={required_total} "
                 f"reserve={self.request.min_free_bytes} "
                 f"incoming={incoming_bytes}"
-            )
+            ) 
+
     def write(self, tile: EncodedTile) -> ShardPlacement:
         """
         Write one encoded tile into the current shard.
@@ -239,12 +244,35 @@ class ShardWriter:
 
         assert self.tar_path is not None
 
-        incoming_bytes = len(tile.npy_bytes) + len(tile.json_bytes)
+        npy_member = f"{tile.tile_id}.npy"
+        json_member = f"{tile.tile_id}.json"
+
+        shard_uri = logical_file_uri( 
+                                     self.tar_path.resolve().as_uri(), 
+                                     marker = self.request.uri_marker, 
+                                     scheme = self.request.uri_scheme)
+
+        metadata = _resolve_storage(tile, 
+                                    shard_uri, 
+                                    npy_member, 
+                                    json_member, 
+                                    self.tar_path.name
+                                    )
+
+        json_bytes = json.dumps(
+            metadata,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    
+        # check amount of available space 
+        incoming_bytes = len(tile.npy_bytes) + len(json_bytes)
         self._require_free_space(incoming_bytes)
-
-        self._write_member(f"{tile.key}.npy", tile.npy_bytes)
-        self._write_member(f"{tile.key}.json", tile.json_bytes)
-
+        
+        # write npy/json 
+        self._write_member(npy_member, tile.npy_bytes)
+        self._write_member(json_member, json_bytes)
+        
         self.samples_in_shard += 1
         self.total_written += 1
 
@@ -252,7 +280,11 @@ class ShardWriter:
             tile_id=tile.tile_id,
             key=tile.key,
             shard_path=self.tar_path.name,
-            shard_index=self.shard_index - 1,
+            shard_index=self.shard_index - 1, 
+            shard_uri= metadata["shard_uri"], 
+            tile_uri = metadata["tile_uri"], 
+            tile_json_uri = metadata["tile_json_uri"]
+
         )
 
     def close(self) -> None:
@@ -393,13 +425,37 @@ class BinSplitShardWriter:
             self.ndmg_writer.close()
 
 
+def _resolve_storage(tile: EncodedTile, 
+                     shard_uri: str | Path, 
+                     npy_member: str, 
+                     json_member: str, 
+                     shard_path: str):
+        tile_uri = f"{shard_uri}!/{npy_member}"
+        tile_json_uri = f"{shard_uri}!/{json_member}"
+
+        metadata = dict(tile.metadata)
+        metadata["shard_uri"] = shard_uri
+        metadata["tile_uri"] = tile_uri
+        metadata["tile_json_uri"] = tile_json_uri
+
+        metadata.setdefault("storage", {})
+        metadata["storage"].update({
+            "shard_path": shard_path,
+            "shard_uri": shard_uri,
+            "tile_member": npy_member,
+            "tile_json_member": json_member,
+            "tile_uri": tile_uri,
+            "tile_json_uri": tile_json_uri,
+        }) 
+
+        return metadata
+
+
 #########################################
 #### SHARD READING ######################
 
 class ReadShardRequest: 
     pass 
-
-
 
 def _list_to_affine(v: list[float]) -> Affine:
     return Affine(v[0], v[1], v[2], v[3], v[4], v[5])
