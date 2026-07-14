@@ -13,10 +13,12 @@ from rasterio.windows import Window
 from rasterio.windows import bounds as window_bounds
 from rasterio.windows import transform as window_transform
 
+from rasterio.enums import Resampling
+from rasterio.vrt import WarpedVRT
+
 from whirlwind.filesystem.files import RasterFile
 from whirlwind.domain.tile import TileGeoData, Tile, TileRead
 from whirlwind.domain.plannedwindow import PlannedWindow
-
 
 class RasterioWindowReader:
     """ given a path to a raster and a set of PlannedWindows to describe intended windows, 
@@ -41,28 +43,117 @@ class RasterioWindowReader:
         
 
     """
+    def __init__(self,
+            path: str | Path,
+            masked: bool,
+            fill: float,
+            *,
+            canonical_path: str | Path | None = None,
+            resampling: Resampling = Resampling.bilinear,
+        ) -> None:
+            self.path = Path(path).expanduser().resolve()
 
-    def __init__(self, path: str | Path, masked: bool, fill: float) -> None:
-        self.path = Path(path).expanduser().resolve()
-        self.source = RasterFile(self.path,georefs=True)
-        self.masked = masked 
-        self.fill = fill 
-        self._ds: DatasetReader | None = None
+            self.canonical_path = (
+                Path(canonical_path).expanduser().resolve()
+                if canonical_path is not None
+                else self.path
+            )
+
+            self.source = RasterFile(
+                self.path,
+                georefs=True,
+            )
+
+            self.masked = masked
+            self.fill = fill
+            self.resampling = resampling
+
+            self._source_ds: DatasetReader | None = None
+            self._canonical_ds: DatasetReader | None = None
+            self._vrt: WarpedVRT | None = None
+            self._ds: DatasetReader | WarpedVRT | None = None
+
 
     def __enter__(self) -> "RasterioWindowReader":
-        self._ds = rasterio.open(self.path)
+        self._source_ds = rasterio.open(self.path)
+
+        if self.canonical_path == self.path:
+            self._canonical_ds = self._source_ds
+        else:
+            self._canonical_ds = rasterio.open(
+                self.canonical_path
+            )
+
+        if self._same_grid(
+            self._source_ds,
+            self._canonical_ds,
+        ):
+            self._ds = self._source_ds
+            return self
+
+        vrt_options: dict[str, object] = {
+            "crs": self._canonical_ds.crs,
+            "transform": self._canonical_ds.transform,
+            "width": self._canonical_ds.width,
+            "height": self._canonical_ds.height,
+            "nodata": self.fill,
+            "resampling": self.resampling,
+        }
+
+        if self._source_ds.nodata is not None:
+            vrt_options["src_nodata"] = (
+                self._source_ds.nodata
+            )
+
+        self._vrt = WarpedVRT(
+            self._source_ds,
+            **vrt_options,
+        )
+
+        self._ds = self._vrt
         return self
 
+
     def __exit__(self, exc_type, exc, tb) -> None:
-        if self._ds is not None:
-            self._ds.close()
-            self._ds = None
+        if self._vrt is not None:
+            self._vrt.close()
+            self._vrt = None
+
+        if (
+            self._canonical_ds is not None
+            and self._canonical_ds is not self._source_ds
+        ):
+            self._canonical_ds.close()
+
+        if self._source_ds is not None:
+            self._source_ds.close()
+
+        self._source_ds = None
+        self._canonical_ds = None
+        self._ds = None
+
 
     @property
-    def ds(self) -> DatasetReader:
+    def ds(self) -> DatasetReader | WarpedVRT:
         if self._ds is None:
             raise RuntimeError("dataset is not open")
+
         return self._ds
+
+
+    @staticmethod
+    def _same_grid(
+        source: DatasetReader,
+        canonical: DatasetReader,
+    ) -> bool:
+        return (
+            source.crs == canonical.crs
+            and source.transform.almost_equals(
+                canonical.transform
+            )
+            and source.width == canonical.width
+            and source.height == canonical.height
+        )
 
     @staticmethod
     def to_window(row: PlannedWindow) -> Window:
@@ -162,3 +253,4 @@ class RasterioWindowReader:
                 yield self.tile_from_row(row, masked = self.masked, fill_value = self.fill)
             except ValueError:
                 continue 
+

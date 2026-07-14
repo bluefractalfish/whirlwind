@@ -39,7 +39,7 @@ from whirlwind.filesystem.mosaicbranch import MosaicBranch
 from whirlwind.filesystem.metamosaictree import MetamosaicTree
 from whirlwind.domain.mosaic import MosaicRecord
 from whirlwind.filesystem.files import RasterFile 
-
+from whirlwind.filesystem.spatialbranch import SpatialBranch
 from whirlwind.domain.config import Config 
 
 @dataclass
@@ -144,22 +144,45 @@ class RunTree:
         """ plant a MosaicBranch at RunTree root, with file_id"""
         mosaic = MosaicBranch.plant(self.root, file_id)
         return mosaic 
-    
-    def branch_for(self, record: MosaicRecord) -> MosaicBranch: 
-        if record.metamosaic_id: 
-            branch_dir = self.layout.metamosaic_branch_dir(
-                    self.root, 
-                    record.metamosaic_id, 
-                    record.mosaic_id 
-                    )
-        else:
-            branch_dir = self.layout.mosaic_branch_dir(
-                    self.root, 
-                    record.mosaic_id 
-                )
-        
-        return MosaicBranch.plant_at(branch_dir, record.mosaic_id)
-    
+
+    def branch_for(self, record: MosaicRecord,) -> "MosaicBranch":
+        if record.metamosaic_id:
+            return self.spatial_branch_for(
+                record
+            ).mosaic_branch(
+                record.mosaic_id
+            )
+
+        branch_dir = self.layout.mosaic_branch_dir(
+            self.root,
+            record.mosaic_id,
+        )
+
+        return MosaicBranch.plant_at(
+            branch_dir,
+            record.mosaic_id,
+        )
+
+    def spatial_branch_for( self, record: MosaicRecord) -> "SpatialBranch":
+        if not record.metamosaic_id:
+            raise ValueError(
+                f"{record.mosaic_id} has no metamosaic_id"
+            )
+
+        if not record.branch_id:
+            raise ValueError(
+                f"{record.mosaic_id} has no branch_id"
+            )
+
+        return SpatialBranch.plant_at(
+            self.layout.metamosaic_branch_dir(
+                self.root,
+                record.metamosaic_id,
+                record.branch_id,
+            ),
+            record.branch_id,
+        )
+
     def metamosaic_tree(self, metamosaic_id: str) -> MetamosaicTree: 
         return MetamosaicTree.plant(
                 self.layout.metamosaic_dir(self.root, metamosaic_id),
@@ -229,10 +252,17 @@ class TreeLayout:
     def metamosaic_branches_dir(self, root: Path, metamosaic_id: str) -> Path: 
         return self.metamosaic_dir(root, metamosaic_id) / "branches" 
 
-    def metamosaic_branch_dir(
-            self, 
-            root: Path, 
-            metamosaic_id: str, 
-            mosaic_id: str, 
-            ) -> Path: 
-        return self.metamosaic_branches_dir(root, metamosaic_id) / mosaic_id 
+    def metamosaic_branch_dir(self,root: Path, metamosaic_id: str,branch_id: str,) -> Path:
+        return (
+            self.metamosaic_branches_dir(root,metamosaic_id) / branch_id
+        )
+
+    def metamosaic_mosaic_branch_dir(self,
+                                     root: Path,
+                                     metamosaic_id: str,
+                                     branch_id: str,
+                                     mosaic_id: str,
+                                     ) -> Path:
+        return (
+            self.metamosaic_branch_dir(root,metamosaic_id,branch_id)/ "mosaics" / mosaic_id
+            )

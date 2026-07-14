@@ -759,7 +759,27 @@ class TileEncoder:
                 metadata=metadata
             )
 
+class CanonicalTileEncoder(TileEncoder):
+    """
+    Generate the same tile identity for every source mosaic using one
+    spatial branch plan.
+    """
 
+    def __init__( self,*, src: RasterFile, branch_id: str,) -> None:
+        super().__init__(src)
+        self.branch_id = branch_id
+
+    def gen_tile_id(self, tile: Tile) -> str:
+        row = tile.plan
+
+        return FileID.tile(
+            self.branch_id,
+            row.row_i,
+            row.col_i,
+        )
+
+    def gen_key(self, tile: Tile) -> str:
+        return self.gen_tile_id(tile)
 
 @dataclass(frozen=True)
 class EncodedPair: 

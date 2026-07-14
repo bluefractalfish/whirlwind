@@ -11,6 +11,11 @@ from whirlwind.geography.geogroup import (
 )
 from whirlwind.geography.location import (
         FolderHintLocationResolver, LocationResolver
+) 
+
+from whirlwind.filesystem.spatialbranch import (
+    BuildSpatialBranch,
+    SpatialBranchSummary,
 )
 from whirlwind.filesystem.files import FileID
 from whirlwind.filesystem.runtree import RunTree
@@ -27,6 +32,8 @@ class Request:
     metamosaic_manifest_name: str = "metamosaic.csv"
     metamosaic_summary_name: str = "metamosaic_summary.csv"
     root_manifest_name: str = "manifest.csv"
+    spatial_branch_manifest_name: str = "branches.csv"
+    overlap_threshold: float = 0.97
     force: bool = False
     location_resolver: LocationResolver | None = None 
 
@@ -49,6 +56,9 @@ class Result:
     mosaics_seen: int
     intersections: int
     summaries: tuple[Summary,...]
+    spatial_branch_manifest_path: Path
+    spatial_branches_written: int
+    branch_summaries: tuple[SpatialBranchSummary, ...]
     code: int = 0
 
 
@@ -77,14 +87,14 @@ class UnionFind:
 
 class BuildMetamosaicBridge:
     def run(self, request: Request) -> Result:
-        with face.phase(1, 4, "loading metadata and manifest from request..."):
+        with face.phase(1, 5, "loading metadata and manifest from request..."):
             geo_rows = read_georows(request.metadata_path)
             manifest_rows = self._read_manifest_rows(request.manifest.path)
 
-        with face.phase(2, 4, "building footprint intersection graph..."):
+        with face.phase(2, 5, "building footprint intersection graph..."):
             groups, pairs = self._intersect_groups(geo_rows)
 
-        with face.phase(3, 4, "assigning metamosaic ids..."):
+        with face.phase(3, 5, "assigning metamosaic ids..."):
             mm_by_mid: dict[str, str] = {} 
             mm_alias_by_mid: dict[str, str] = {}
             geo_groups: list[GeoGroup] = []
@@ -117,15 +127,46 @@ class BuildMetamosaicBridge:
                             members=members, 
                             resolver=resolver,
                             )
-                        )
+                        ) 
+        rows_with_metamosaic_ids = self._add_metamosaic_fields(
+            manifest_rows,
+            mm_by_mid,
+            mm_alias_by_mid,
+        )
+
+        with face.phase(4, 5,"building canonical spatial branches...",):
+
+            branch_builder = BuildSpatialBranch()
+
+            branch_summaries, branch_assignments = (
+                branch_builder.build(
+                    manifest_rows=rows_with_metamosaic_ids,
+                    geo_rows=geo_rows,
+                    threshold=request.overlap_threshold,
+                )
+            )
+
+            enriched_manifest_rows = (
+                branch_builder.enrich_manifest(
+                    rows_with_metamosaic_ids,
+                    branch_assignments,
+                )
+            ) 
 
         summaries = self._summary_rows_from_groups(geo_groups)
+        
+        with face.phase(5, 5, "writing metamosaic tree and manifests..."):
+            
+            spatial_branch_manifest_path = (
+                request.run_tree.manifest_dir / request.spatial_branch_manifest_name
+            )
 
-        with face.phase(4, 4, "writing metamosaic tree and manifests..."):
-            enriched_manifest_rows = self._enrich_manifest_rows(
-                manifest_rows,
-                mm_by_mid,
-                mm_alias_by_mid
+            write_dict_csv(
+                spatial_branch_manifest_path,
+                [
+                    summary.record()
+                    for summary in branch_summaries
+                ],
             )
 
             root_manifest_path = request.run_tree.get_manifest_path_csv(
@@ -182,7 +223,12 @@ class BuildMetamosaicBridge:
             metamosaics_written=len(set(mm_by_mid.values())),
             summaries=summaries,
             mosaics_seen=len(geo_rows),
-            intersections=len(pairs),
+            intersections=len(pairs), 
+
+            spatial_branch_manifest_path=spatial_branch_manifest_path,
+            spatial_branches_written=len(branch_summaries),
+            branch_summaries=tuple(branch_summaries),
+
             code=0,
         )
 
@@ -205,7 +251,7 @@ class BuildMetamosaicBridge:
 
         return uf.groups(), pairs
 
-    def _enrich_manifest_rows(
+    def _add_metamosaic_fields(
         self,
         rows: list[dict[str, str]],
         mm_by_mid: dict[str, str],
@@ -214,17 +260,27 @@ class BuildMetamosaicBridge:
         out: list[dict[str, str]] = []
 
         for row in rows:
-            mid = row.get("mosaic_id") or row.get("file_id") or row.get("id") or ""
-            mmid = mm_by_mid.get(mid, "")
+            mid = (
+                row.get("mosaic_id")
+                or row.get("file_id")
+                or row.get("id")
+                or ""
+            )
 
             enriched = dict(row)
-            enriched["metamosaic_id"] = mmid
-            enriched["metamosaic_alias"] = mm_alias_by_mid.get(mid,"")
-            enriched["branch_id"] = FileID.branch(mid)
+            enriched["metamosaic_id"] = mm_by_mid.get(mid, "")
+            enriched["metamosaic_alias"] = (
+                mm_alias_by_mid.get(mid, "")
+            )
+
+            # These are assigned by BuildSpatialBranch afterward.
+            enriched.pop("branch_id", None)
+            enriched.pop("canonical_mosaic_id", None)
 
             out.append(enriched)
 
         return out
+
 
     def _membership_rows(
         self,
@@ -232,6 +288,8 @@ class BuildMetamosaicBridge:
     ) -> list[dict[str, str]]:
         return [
             {
+                "canonical_mosaic_id": row.get(
+                    "canonical_mosaic_id","",),
                 "metamosaic_id": row.get("metamosaic_id", ""),
                 "mosaic_id": row.get("mosaic_id", ""),
                 "branch_id": row.get("branch_id", ""),
@@ -269,11 +327,10 @@ class BuildMetamosaicBridge:
         return tuple(summaries)
 
 
-
     def _plant_trees(
-        self,
-        tree: RunTree,
-        rows: list[dict[str, str]],
+    self,
+    tree: RunTree,
+    rows: list[dict[str, str]],
     ) -> None:
         metamosaic_ids = sorted(
             {
@@ -288,9 +345,11 @@ class BuildMetamosaicBridge:
 
         for row in rows:
             record = MosaicRecord.from_row(row)
+
+            if record.metamosaic_id:
+                tree.spatial_branch_for(record).ensure()
+
             tree.branch_for(record).ensure()
-
-
 
     def _metamosaic_stem(
         self,

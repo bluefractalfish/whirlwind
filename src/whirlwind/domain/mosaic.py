@@ -13,8 +13,11 @@ class MosaicRecord:
     variant_id: str 
     variant_type: str = ""
     spectral_id: str = ""
+
+    canonical_mosaic_id: str | None=None 
     branch_id: str | None=None 
     metamosaic_id: str | None=None 
+
     metamosaic_alias: str | None=None
     id_scheme: str = ""
     id_version: str = ""
@@ -40,7 +43,8 @@ class MosaicRecord:
             path=Path(path_raw),
             source_uri=row.get("source_uri") or row.get("uri") or "",
             date=row.get("date") or "",
-            variant_id=row.get("variant_id") or "",
+            variant_id=row.get("variant_id") or "", 
+            canonical_mosaic_id=(row.get("canonical_mosaic_id") or None),
             variant_type=row.get("variant_type") or "",
             spectral_id=row.get("spectral_id") or "",
             branch_id=row.get("branch_id") or None,

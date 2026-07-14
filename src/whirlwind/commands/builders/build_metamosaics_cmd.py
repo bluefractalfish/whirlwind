@@ -129,7 +129,25 @@ class BuildMetamosaicRequest(RequestBuilder[Request]):
             cfg.get("manifest_name", "metamosaic.csv")
         )
 
-        summary_name = cfg.get("summary_name", "metamosaic_summary.csv")
+        summary_name = cfg.get("summary_name", "metamosaic_summary.csv") 
+
+        branch_manifest_name = str(cfg.get(
+            "branch_manifest_name",
+            "branches.csv",
+            )
+        )
+
+        overlap_threshold = float(tv.value(
+                "--overlap",
+                str(
+                    cfg.get(
+                        "overlap_threshold",
+                        0.97,
+                    )
+                ),
+            )
+            or 0.97
+        ) 
 
         manifest = IDManifest(
             ctx.run_tree.get_manifest_path_csv(root_manifest_name)
@@ -144,6 +162,8 @@ class BuildMetamosaicRequest(RequestBuilder[Request]):
             metamosaic_summary_name=summary_name, 
             root_manifest_name=root_manifest_name,
             force=tv.has("-f", "--force"),
+            spatial_branch_manifest_name=branch_manifest_name,
+            overlap_threshold=overlap_threshold,
         )
 
     def help(self) -> str: 
@@ -190,6 +210,16 @@ class BuildMetamosaicReporter(ResultReporter[Result]):
                     member_ids=s.members,
                 )
             )
+
+        face.info(
+                "spatial branch manifest: "
+                 f"{result.spatial_branch_manifest_path}"
+        )
+
+        face.info(
+            "spatial branches written: "
+            f"{result.spatial_branches_written}"
+        )
 
         return result.code
 

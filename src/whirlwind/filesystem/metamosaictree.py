@@ -1,6 +1,8 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from whirlwind.filesystem.spatialbranch import SpatialBranch
+
 
 @dataclass(frozen=True)
 class MetamosaicTree:
@@ -23,6 +25,11 @@ class MetamosaicTree:
             metadata_dir=root / "metadata",
             labels_dir=root / "labels", 
             staging_dir=root / "staging"
+        )
+    def spatial_branch(self,branch_id: str,) -> "SpatialBranch":
+        return SpatialBranch.plant_at(
+            self.branches_dir / branch_id,
+            branch_id,
         )
 
     def ensure(self) -> "MetamosaicTree":

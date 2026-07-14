@@ -2,7 +2,8 @@
 from pathlib import Path 
 from dataclasses import dataclass, replace 
 
-from whirlwind.adapters.geo.window_read import RasterioWindowReader
+from rasterio.enums import Resampling
+
 from whirlwind.adapters.io.windowplan_io import WindowPlanCSV 
 from whirlwind.adapters.io.idmanifest import IDManifest
 from whirlwind.adapters.io.shard_manifest import make_sink  
@@ -10,6 +11,7 @@ from whirlwind.adapters.io.write_shards import (
                 ShardWriter, WriteShardRequest, BinSplitShardWriter, RoutedShardWriter
             )
 
+from whirlwind.domain.mosaic import MosaicRecord
 from whirlwind.adapters.io.label_metadata import (
     write_label_json_row,
     make_review_sink,
@@ -19,11 +21,22 @@ from whirlwind.adapters.io.label_metadata import (
 from whirlwind.adapters.label.label_protocol import Labeler
 from whirlwind.adapters.label.null_labeler import UnaryLabeler
 from whirlwind.adapters.geo.window_read import RasterioWindowReader
-from whirlwind.domain.tile import TileEncoder
+from whirlwind.domain.tile import TileEncoder, CanonicalTileEncoder
 from whirlwind.adapters.display.filters import should_skip_tile
                 
 from whirlwind.filesystem.files import RasterFile 
 from whirlwind.filesystem.runtree import RunTree
+
+def _record_for_path(  manifest: IDManifest, path: str | Path) -> "MosaicRecord":
+    target = Path(path).expanduser().resolve()
+
+    for record in manifest.records():
+        if record.path.expanduser().resolve() == target:
+            return record
+
+    raise ValueError(
+        f"mosaic path not found in manifest: {target}"
+    ) 
 
 @dataclass(frozen=True)
 class TileSummary: 
@@ -48,34 +61,111 @@ class TileRasterFromPlan:
                  zero_is_empty: bool, 
                  route_shard_by_label: bool = False, 
                  labeler: Labeler | None = None, 
-                 overwrite: bool = False
+                 overwrite: bool = False, 
+                 skip_empty: bool = False 
                  ) -> None: 
-        self.p = p 
-        f = RasterFile(p)
-        self.code = 0 
+        self.p = Path(p).expanduser().resolve()
 
+        source_file = RasterFile(self.p)
+        record = _record_for_path(
+            manifest,
+            self.p,
+        )
+
+        if not record.branch_id:
+            raise ValueError(
+                f"{record.mosaic_id} has no spatial branch"
+            )
+
+        records_by_id = {
+            current.mosaic_id: current
+            for current in manifest.records()
+        }
+
+        canonical_id = (
+            record.canonical_mosaic_id
+            or record.mosaic_id
+        )
+
+        canonical_record = records_by_id.get(
+            canonical_id
+        )
+
+        if canonical_record is None:
+            raise ValueError(
+                f"canonical mosaic is missing: {canonical_id}"
+            )
+
+        self.code = 0
         self.labeler = labeler or UnaryLabeler()
-        self.encoder = TileEncoder(src=f)
-        
-        branch = tree.branchlook(manifest,p)
 
-        self.dry = dry 
-        self.overwrite = overwrite 
-        self.min_content_fraction = min_content_fraction 
-        self.zero_is_empty=zero_is_empty
+        self.encoder = CanonicalTileEncoder(
+            src=source_file,
+            branch_id=record.branch_id,
+        )
+
+        self.record = record
+        self.canonical_path = canonical_record.path
+        self.skip_empty = skip_empty
+
+        categorical_variants = {
+            "MASK",
+            "LABEL",
+            "CLASS",
+            "CLASSES",
+            "SEGMENTATION",
+            "CATEGORICAL",
+        }
+
+        variant_name = (
+            record.variant_type
+            or record.variant_id
+            or ""
+        ).upper()
+
+        self.resampling = (
+            Resampling.nearest
+            if variant_name in categorical_variants
+            else Resampling.bilinear
+        )
+
+        branch = tree.branch_for(record).ensure()
+        spatial_branch = (
+            tree.spatial_branch_for(record).ensure()
+        )
+
+        self.dry = dry
+        self.overwrite = overwrite
+        self.min_content_fraction = min_content_fraction
+        self.zero_is_empty = zero_is_empty
         self.shard_dir = branch.shards_dir
-        self.shard_prefix = shard_prefix 
-        self.shard_size = shard_size 
-        self.masked = masked 
+        self.shard_prefix = shard_prefix
+        self.shard_size = shard_size
+        self.masked = masked
         self.fill_value = fill_value
         self.route_shard_by_label = route_shard_by_label
         self.manifest_kind = manifest_kind
-        self.manifest_path = branch.manifest_dir/manifest_name 
-        self.label_metadata_path = branch.metadata_dir / "label_metadata.csv"
-        self.review_path = branch.metadata_dir / "shard_metadata.csv" 
+        self.manifest_path = (
+            branch.manifest_dir / manifest_name
+        )
+        self.label_metadata_path = (
+            branch.metadata_dir
+            / "label_metadata.csv"
+        ) 
 
-        self.tile_plan_path = branch.staging_dir/plan_name
+        self.review_path = (
+            branch.metadata_dir
+            / "shard_metadata.csv"
+        )
+
+        self.tile_plan_path = (
+            spatial_branch.tile_plan_path(
+                plan_name
+            )
+        )
+
         self.branch = branch
+        self.spatial_branch = spatial_branch
 
         if not self.tile_plan_path.is_file() or not self.tile_plan_path.exists():
             raise FileNotFoundError
@@ -125,7 +215,11 @@ class TileRasterFromPlan:
 
             with writer_class(self.req) as writer: 
                 with RasterioWindowReader(
-                        self.p, self.masked, self.fill_value
+                        self.p, 
+                        self.masked,
+                        self.fill_value, 
+                        canonical_path=self.canonical_path, 
+                        resampling=self.resampling
                         ) as reader:  
 
                     n_tiles = 0  
@@ -149,20 +243,25 @@ class TileRasterFromPlan:
                                         f"skipped={n_skipped}\n"
                                         )
                                     )
+                        if self.skip_empty:
+                            skip = should_skip_tile(
+                                tile,
+                                min_content_fraction=(
+                                    self.min_content_fraction
+                                ),
+                                zero_is_empty=self.zero_is_empty,
+                            )
 
-                        skip = should_skip_tile(
-                            tile,
-                            min_content_fraction=self.min_content_fraction,
-                            zero_is_empty=self.zero_is_empty,
-                        )
+                            if skip.skip:
+                                n_skipped += 1
 
-                        if skip.skip:
-                            n_skipped += 1
+                                if (
+                                    progress is not None
+                                    and task_id is not None
+                                ):
+                                    progress.advance(task_id, 1)
 
-                            if progress is not None and task_id is not None:
-                                progress.advance(task_id, 1)
-
-                            continue
+                                continue
                         
 
                         encoded = self.encoder.encode(tile)
