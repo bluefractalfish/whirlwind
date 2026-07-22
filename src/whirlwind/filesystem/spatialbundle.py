@@ -12,13 +12,13 @@ from whirlwind.geography.geogroup import GeoRow
 
 
 @dataclass(frozen=True)
-class SpatialBranch:
+class SpatialBundle:
     """
     A group of mosaics aligned to one canonical grid.
 
     Directory structure:
 
-        branches/<branch_id>/
+        branches/bundle_id>/
             staging/
             manifest/
             metadata/
@@ -27,47 +27,53 @@ class SpatialBranch:
                 <mosaic_id>/ 
     """
 
-    branch_id: str
-    branch_dir: Path
+    bundle_id: str
+    bundle_dir: Path
     mosaics_dir: Path
     staging_dir: Path
     manifest_dir: Path
     metadata_dir: Path
     labels_dir: Path
+    shards_dir: Path 
+    browse_dir: Path 
 
     @classmethod
     def plant_at(
         cls,
-        branch_dir: str | Path,
-        branch_id: str,
-    ) -> "SpatialBranch":
-        branch_dir = Path(branch_dir).expanduser().resolve()
+        bundle_dir: str | Path,
+        bundle_id: str,
+    ) -> "SpatialBundle":
+        bundle_dir = Path(bundle_dir).expanduser().resolve()
 
         return cls(
-            branch_id=branch_id,
-            branch_dir=branch_dir,
-            mosaics_dir=branch_dir / "mosaics",
-            staging_dir=branch_dir / "staging",
-            manifest_dir=branch_dir / "manifest",
-            metadata_dir=branch_dir / "metadata",
-            labels_dir=branch_dir / "labels",
+            bundle_id=bundle_id,
+            bundle_dir=bundle_dir,
+            mosaics_dir=bundle_dir / "mosaics",
+            staging_dir=bundle_dir / "staging",
+            manifest_dir=bundle_dir / "manifest",
+            metadata_dir=bundle_dir / "metadata",
+            labels_dir=bundle_dir / "labels",
+            shards_dir=bundle_dir / "shards", 
+            browse_dir=bundle_dir / "browse",
         )
 
-    def ensure(self) -> "SpatialBranch":
+    def ensure(self) -> "SpatialBundle":
         for path in (
-            self.branch_dir,
+            self.bundle_dir,
             self.mosaics_dir,
             self.staging_dir,
             self.manifest_dir,
             self.metadata_dir,
             self.labels_dir,
+            self.shards_dir, 
+            self.browse_dir
         ):
             path.mkdir(parents=True, exist_ok=True)
 
         return self
 
     def exists(self) -> bool:
-        return self.branch_dir.is_dir()
+        return self.bundle_dir.is_dir()
 
     def mosaic_branch(
         self,
@@ -92,9 +98,9 @@ class SpatialBranch:
 
 
 @dataclass(frozen=True)
-class SpatialBranchSummary:
+class SpatialBundleSummary:
     metamosaic_id: str
-    branch_id: str
+    bundle_id: str
     date: str
     canonical_mosaic_id: str
     member_ids: tuple[str, ...]
@@ -108,7 +114,7 @@ class SpatialBranchSummary:
     def record(self) -> dict[str, str]:
         return {
             "metamosaic_id": self.metamosaic_id,
-            "branch_id": self.branch_id,
+            "bundle_id": self.bundle_id,
             "date": self.date,
             "canonical_mosaic_id": self.canonical_mosaic_id,
             "n_mosaics": str(self.n_mosaics),
@@ -121,14 +127,14 @@ class SpatialBranchSummary:
 
 
 @dataclass(frozen=True)
-class _BranchMember:
+class _Member:
     mosaic_id: str
     date: str
     manifest_row: dict[str, str]
     geo_row: GeoRow
 
 
-class BuildSpatialBranch:
+class BuildSpatialBundle:
     """
     Group rasters by their relationship to a canonical, largest-extent raster.
     """
@@ -140,8 +146,8 @@ class BuildSpatialBranch:
         geo_rows: list[GeoRow],
         threshold: float,
     ) -> tuple[
-        list[SpatialBranchSummary],
-        dict[str, SpatialBranchSummary],
+        list[SpatialBundleSummary],
+        dict[str, SpatialBundleSummary],
     ]:
         if not 0.0 < threshold <= 1.0:
             raise ValueError(
@@ -155,7 +161,7 @@ class BuildSpatialBranch:
 
         members_by_metamosaic: dict[
             str,
-            list[_BranchMember],
+            list[_Member],
         ] = {}
 
         for manifest_row in manifest_rows:
@@ -180,7 +186,7 @@ class BuildSpatialBranch:
                 metamosaic_id,
                 [],
             ).append(
-                _BranchMember(
+                _Member(
                     mosaic_id=mosaic_id,
                     date=date,
                     manifest_row=dict(manifest_row),
@@ -188,8 +194,8 @@ class BuildSpatialBranch:
                 )
             )
 
-        summaries: list[SpatialBranchSummary] = []
-        assignments: dict[str, SpatialBranchSummary] = {}
+        summaries: list[SpatialBundleSummary] = []
+        assignments: dict[str, SpatialBundleSummary] = {}
 
         for metamosaic_id, members in sorted(
             members_by_metamosaic.items()
@@ -213,7 +219,7 @@ class BuildSpatialBranch:
         summaries.sort(
             key=lambda summary: (
                 summary.metamosaic_id,
-                summary.branch_id,
+                summary.bundle_id,
             )
         )
 
@@ -224,7 +230,7 @@ class BuildSpatialBranch:
         rows: list[dict[str, str]],
         assignments: Mapping[
             str,
-            SpatialBranchSummary,
+            SpatialBundleSummary,
         ],
     ) -> list[dict[str, str]]:
         enriched_rows: list[dict[str, str]] = []
@@ -236,10 +242,10 @@ class BuildSpatialBranch:
             enriched = dict(row)
 
             if summary is None:
-                enriched["branch_id"] = ""
+                enriched["bundle_id"] = ""
                 enriched["canonical_mosaic_id"] = ""
             else:
-                enriched["branch_id"] = summary.branch_id
+                enriched["bundle_id"] = summary.bundle_id
                 enriched["canonical_mosaic_id"] = (
                     summary.canonical_mosaic_id
                 )
@@ -250,10 +256,10 @@ class BuildSpatialBranch:
 
     def _canonical_clusters(
         self,
-        members: Iterable[_BranchMember],
+        members: Iterable[_Member],
         *,
         threshold: float,
-    ) -> list[list[_BranchMember]]:
+    ) -> list[list[_Member]]:
         """
         select the largest remaining raster as an anchor, then attach every
         compatible raster sufficiently covered by that anchor.
@@ -273,12 +279,12 @@ class BuildSpatialBranch:
             reverse=True,
         )
 
-        clusters: list[list[_BranchMember]] = []
+        clusters: list[list[_Member]] = []
 
         while remaining:
             canonical = remaining[0]
             cluster = [canonical]
-            unassigned: list[_BranchMember] = []
+            unassigned: list[_Member] = []
 
             for candidate in remaining[1:]:
                 if not self._dates_compatible(
@@ -308,8 +314,8 @@ class BuildSpatialBranch:
         self,
         *,
         metamosaic_id: str,
-        members: list[_BranchMember],
-    ) -> SpatialBranchSummary:
+        members: list[_Member],
+    ) -> SpatialBundleSummary:
         if not members:
             raise ValueError(
                 "cannot summarize an empty spatial branch"
@@ -329,9 +335,9 @@ class BuildSpatialBranch:
 
         date = self._common_date(members)
 
-        return SpatialBranchSummary(
+        return SpatialBundleSummary(
             metamosaic_id=metamosaic_id,
-            branch_id=self._make_branch_id(
+            bundle_id=self._make_bundle_id(
                 metamosaic_id=metamosaic_id,
                 date=date,
                 canonical=canonical,
@@ -353,8 +359,8 @@ class BuildSpatialBranch:
 
     @staticmethod
     def _dates_compatible(
-        left: _BranchMember,
-        right: _BranchMember,
+        left: _Member,
+        right: _Member,
     ) -> bool: 
         """ safety check """
         if left.date and right.date:
@@ -364,19 +370,19 @@ class BuildSpatialBranch:
 
     @staticmethod
     def _canonical_score(
-        member: _BranchMember,
+        member: _Member,
     ) -> tuple[float, int, int, int, int, str]:
         """ prioritize large, full range RGB rasters for canonical reference """
         metadata = member.geo_row.row
         manifest = member.manifest_row
 
-        width = BuildSpatialBranch._as_int(
+        width = BuildSpatialBundle._as_int(
             metadata.get("width")
         )
-        height = BuildSpatialBranch._as_int(
+        height = BuildSpatialBundle._as_int(
             metadata.get("height")
         )
-        band_count = BuildSpatialBranch._as_int(
+        band_count = BuildSpatialBundle._as_int(
             metadata.get("count")
             or metadata.get("bands")
         )
@@ -433,7 +439,7 @@ class BuildSpatialBranch:
 
     @staticmethod
     def _common_date(
-        members: Iterable[_BranchMember],
+        members: Iterable[_Member],
     ) -> str:
         dates = sorted(
             {
@@ -446,11 +452,11 @@ class BuildSpatialBranch:
         return dates[0] if len(dates) == 1 else "nodate"
 
     @staticmethod
-    def _make_branch_id(
+    def _make_bundle_id(
         *,
         metamosaic_id: str,
         date: str,
-        canonical: _BranchMember,
+        canonical: _Member,
     ) -> str:
         """
         ID uses the canonical footprint, not the median member footprint

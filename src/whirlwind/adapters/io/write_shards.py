@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Optional, Any, Iterator 
 from rasterio import Affine
 
-from whirlwind.domain.tile import  EncodedTile
+from whirlwind.domain.tile import  EncodedTile, EncodedBundle
 from whirlwind.filesystem.files import logical_file_uri
 
 @dataclass
@@ -234,17 +234,30 @@ class ShardWriter:
 
     def write(self, tile: EncodedTile) -> ShardPlacement:
         """
-        Write one encoded tile into the current shard.
+        Write one encoded spatial tile into the current shard.
 
         Writes:
-          <key>.npy
+          <key>.variant.band_index.npy 
+            ..... 
+            ..... 
+
           <key>.json
+
+        where bundle contains multiple single band npy members and one json 
         """
         self._ensure_open()
 
         assert self.tar_path is not None
+        
+        member_names = {
+                suffix: (
+                    f"{tile.tile_id}.{suffix}.npy"
+                    if suffix 
+                    else f"{tile.tile_id}.npy"
+                    )
+                for suffix in tile.npy_members 
+                }
 
-        npy_member = f"{tile.tile_id}.npy"
         json_member = f"{tile.tile_id}.json"
 
         shard_uri = logical_file_uri( 
@@ -254,9 +267,9 @@ class ShardWriter:
 
         metadata = _resolve_storage(tile, 
                                     shard_uri, 
-                                    npy_member, 
+                                    member_names,
                                     json_member, 
-                                    self.tar_path.name
+                                    self.tar_path.name, 
                                     )
 
         json_bytes = json.dumps(
@@ -266,11 +279,21 @@ class ShardWriter:
         ).encode("utf-8")
     
         # check amount of available space 
-        incoming_bytes = len(tile.npy_bytes) + len(json_bytes)
+        incoming_bytes = (
+                sum(len(payload) for payload in tile.npy_members.values())
+                + len(json_bytes) 
+            )
+
+
         self._require_free_space(incoming_bytes)
         
-        # write npy/json 
-        self._write_member(npy_member, tile.npy_bytes)
+        # write npy/json  
+
+        for suffix, payload in tile.npy_members.items():
+            self._write_member(
+                    member_names[suffix],
+                    payload
+                    )
         self._write_member(json_member, json_bytes)
         
         self.samples_in_shard += 1
@@ -427,28 +450,36 @@ class BinSplitShardWriter:
 
 def _resolve_storage(tile: EncodedTile, 
                      shard_uri: str | Path, 
-                     npy_member: str, 
+                     npy_members: dict[str, str], 
                      json_member: str, 
                      shard_path: str):
-        tile_uri = f"{shard_uri}!/{npy_member}"
-        tile_json_uri = f"{shard_uri}!/{json_member}"
 
-        metadata = dict(tile.metadata)
-        metadata["shard_uri"] = shard_uri
-        metadata["tile_uri"] = tile_uri
-        metadata["tile_json_uri"] = tile_json_uri
+    member_uris = {
+            suffix: f"{shard_uri}!/{member_name}"
+            for suffix, member_name in npy_members.items()
+        }
 
-        metadata.setdefault("storage", {})
-        metadata["storage"].update({
+    tile_uri = next(iter(member_uris.values()), None)  
+
+    tile_json_uri = f"{shard_uri}!/{json_member}"
+
+    metadata = dict(tile.metadata)
+    metadata["shard_uri"] = shard_uri
+    metadata["tile_uri"] = tile_uri
+    metadata["tile_json_uri"] = tile_json_uri
+
+    metadata.setdefault("storage", {})
+    metadata["storage"].update({
             "shard_path": shard_path,
             "shard_uri": shard_uri,
-            "tile_member": npy_member,
+            "tile_members": npy_members,
+            "tile_member_uris": member_uris, 
             "tile_json_member": json_member,
             "tile_uri": tile_uri,
             "tile_json_uri": tile_json_uri,
-        }) 
+    }) 
 
-        return metadata
+    return metadata
 
 
 #########################################
@@ -461,42 +492,70 @@ def _list_to_affine(v: list[float]) -> Affine:
     return Affine(v[0], v[1], v[2], v[3], v[4], v[5])
 
 
-def iter_encoded_pairs(shard_path: Path) -> Iterator[tuple[str, bytes, dict[str, Any]]]:
+def iter_encoded_pairs(shard_path: Path) -> Iterator["EncodedBundle"]:
     """
-    Stream (key, npy_bytes, metadata) pairs from one shard tar.
+    Stream (key, npy_bytes, metadata)  from one shard tar.
 
     Expected current shard format:
-        {key}.npy
+        {key}.variant.band01.npy    -----> one bundle 
+        ..... 
+        ..... 
+        
         {key}.json
     """
-    npy_by_key: dict[str, bytes] = {}
-    json_by_key: dict[str, dict[str, Any]] = {}
+    shard_path = Path(shard_path)
 
     with tarfile.open(shard_path, "r") as tar:
-        for member in tar:
-            if not member.isfile():
-                continue
+        for member in tar: 
+            # find json 
+            if (
+                    not member.isfile() 
+                    or Path(member.name).suffix.lower() != ".json"
+                ): 
+                    continue 
 
-            suffix = Path(member.name).suffix.lower()
-            if suffix not in {".npy", ".json"}:
-                continue
+            metadata_file = tar.extractfile(member) 
+            if metadata_file is None: 
+                continue 
 
-            key = Path(member.name).stem
+            metadata = json.loads(
+                    metadata_file.read().decode("utf-8")
+                    )
 
-            f = tar.extractfile(member)
-            if f is None:
-                continue
+            tile_id = (
+                    metadata.get("tile_id")
+                    or metadata.get("key")
+                    or Path(member.name).stem
+                    )
+            key = metadata.get("key") or tile_id 
+            storage = metadata.get("storage") or {}
+            member_names = storage.get("tile_members") 
+            
+            # compatability with single, multiband arrays for legacy
+            if not isinstance(member_names, dict):
+                legacy_member = (
+                        storage.get("tile_member")
+                        or f"{tile_id}.npy"
+                    )
+                member_names = {"": legacy_member}
 
-            payload = f.read()
+            payloads: dict[str, bytes] = {}
 
-            if suffix == ".npy":
-                npy_by_key[key] = payload
-            else:
-                json_by_key[key] = json.loads(payload.decode("utf-8"))
+            for suffix, npy_member in member_names.items():
+                npy_file = tar.extractfile(str(npy_member))
 
-            if key in npy_by_key and key in json_by_key:
-                yield key, npy_by_key.pop(key), json_by_key.pop(key)
+                if npy_file is None: 
+                    raise ValueError(
+                            "uh oh! looks like json referenced a missing npy member: "
+                            f"shard: {shard_path}, member: {npy_member}"
+                            )
+                payloads[str(suffix)] = npy_file.read() 
 
+            yield EncodedBundle(
+                    key=str(key),
+                    npy=payloads,
+                    metadata=metadata
+                )
 
 def _load_npy(payload: bytes) -> np.ndarray:
     arr = np.load(io.BytesIO(payload), allow_pickle=False)

@@ -46,7 +46,7 @@ class RasterioWindowReader:
     def __init__(self,
             path: str | Path,
             masked: bool,
-            fill: float,
+            fill: float | int | None,
             *,
             canonical_path: str | Path | None = None,
             resampling: Resampling = Resampling.bilinear,
@@ -230,7 +230,7 @@ class RasterioWindowReader:
         row: PlannedWindow,
         *,
         masked: bool,
-        fill_value: float ,
+        fill_value: float | int | None,
         out_dtype: str | np.dtype | None = None,
         bands: Iterable[int] | None = None,
     ) -> Tile:

@@ -13,9 +13,9 @@ from whirlwind.geography.location import (
         FolderHintLocationResolver, LocationResolver
 ) 
 
-from whirlwind.filesystem.spatialbranch import (
-    BuildSpatialBranch,
-    SpatialBranchSummary,
+from whirlwind.filesystem.spatialbundle import (
+    BuildSpatialBundle,
+    SpatialBundleSummary,
 )
 from whirlwind.filesystem.files import FileID
 from whirlwind.filesystem.runtree import RunTree
@@ -58,7 +58,7 @@ class Result:
     summaries: tuple[Summary,...]
     spatial_branch_manifest_path: Path
     spatial_branches_written: int
-    branch_summaries: tuple[SpatialBranchSummary, ...]
+    branch_summaries: tuple[SpatialBundleSummary, ...]
     code: int = 0
 
 
@@ -136,7 +136,7 @@ class BuildMetamosaicBridge:
 
         with face.phase(4, 5,"building canonical spatial branches...",):
 
-            branch_builder = BuildSpatialBranch()
+            branch_builder = BuildSpatialBundle()
 
             branch_summaries, branch_assignments = (
                 branch_builder.build(

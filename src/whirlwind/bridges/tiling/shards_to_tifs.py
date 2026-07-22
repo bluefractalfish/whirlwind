@@ -22,16 +22,23 @@ DisplayKind = Literal["rgb", "rgba"]
 class Request:
     run_tree: RunTree
     manifest: IDManifest 
-    paths: Iterable[Path]
+    paths: Iterable[Path] 
+
     shard_sub_dir: str | None = None 
     display_bands: tuple[int, int, int] | None=None 
     alpha_band: int = 3 
-    grouped: bool = True 
+
+    grouped: bool = False 
+    
+    one_tif_per_npy: bool = True
+
     p_low: float = 2.0 
     p_high: float = 98.0 
     compress: str | None = None 
-    pattern: str = "*.tar"
-    mode: ExportMode = "display"
+    pattern: str = "*.tar" 
+
+    mode: ExportMode = "raw"
+
     display_kind: DisplayKind = "rgb"
     color_by: ColorBy | None=None 
     distance_max: float | None=None 
@@ -95,6 +102,14 @@ class ExportShardsBridge:
                 face.info("run `discover manifest` or ? for help")
                 face.div()
                 raise FileNotFoundError 
+        
+        all_records = tuple(request.manifest.records())
+        records_by_path = {
+                record.path.expanduser().resolve(): record 
+                for record in all_records 
+            } 
+
+        seen_bundles: set[str] = set()
 
         with face.phase(2,5,"building request..."): pass
         with face.phase(3,5,"building command to translate shards to tifs..."): pass 
@@ -105,23 +120,41 @@ class ExportShardsBridge:
             with face.progress() as pr: 
                 t1 = pr.add_task("traversing manifest...", total=request.manifest.length)
                 t2 = pr.add_task("translating",total=request.manifest.length)
-                for p in request.paths:
+                for requested_path in request.paths: 
                     pr.advance(t1,1)
-                    pr.update(t2,description=f"translating tiles from {RasterFile(p).mosaic_id}")
-                    branch = request.run_tree.branchlook(request.manifest, p)
+                    resolved_path = (Path(requested_path.expanduser().resolve()))
+                    record = records_by_path.get(resolved_path)
+                    if record is None: 
+                        raise ValueError(f"mosaic path not found: {resolved_path}")
+                    if not record.bundle_id: 
+                        raise ValueError(f"{record.mosaic_id} has no spatial bundle")
+                    if record.bundle_id in seen_bundles: 
+                        continue 
+                    seen_bundles.add(record.bundle_id)
+                    branch = (request.run_tree.spatial_branch_for(record).ensure())
+                    pr.update(t2,description=f"exporting bundle: {branch.bundle_id}")
                     #find shard_dir if exists. expects somethind like shards/"damage" 
                     if request.shard_sub_dir: 
                         shard_dir = branch.shards_dir / request.shard_sub_dir 
-                        out_dir = branch.tiles_dir / f"{request.shard_sub_dir}"
+                        out_dir = branch.browse_dir / f"{request.shard_sub_dir}"
                     else: 
                         shard_dir = branch.shards_dir
-                        out_dir = branch.tiles_dir 
-                    n_shards = sum(1 for p in shard_dir.rglob(request.pattern) if p.is_file())
+                        out_dir = branch.browse_dir 
+                    if not shard_dir.is_dir():
+                        continue 
+                
                     for shard_path in sorted(shard_dir.rglob(request.pattern)): 
                         if not shard_path.is_file():
                             continue 
                         shards_seen +=1 
-                        tile_out = out_dir / shard_path.stem if request.grouped else out_dir 
+                        
+                        relative_parent = (shard_path.parent.relative_to(shard_dir))
+                        shard_out_dir = out_dir / relative_parent
+                        if request.grouped: 
+                            tile_out = (shard_out_dir / shard_path.stem)
+                        else: 
+                            tile_out = shard_out_dir
+
                         seen, written, errors = convert_to_tif(
                                     shard_path=shard_path, 
                                     out_dir=tile_out, 
@@ -136,7 +169,8 @@ class ExportShardsBridge:
                                     color_by=request.color_by, 
                                     distance_max=request.distance_max, 
                                     alpha = request.alpha,
-                                    debug=request.debug
+                                    debug=request.debug, 
+                                    one_tif_per_npy=request.one_tif_per_npy
                                 )
 
                         tifs_written += written

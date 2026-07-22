@@ -32,10 +32,12 @@
 """
 from dataclasses import dataclass, replace 
 from typing import Any 
+from copy import deepcopy 
 
 import io 
 import json 
 import numpy as np 
+import re
 import rasterio 
 from rasterio import Affine 
 from pathlib import Path 
@@ -119,9 +121,53 @@ class EncodedTile:
     """ class representation of an encoded Tile object """
     tile_id: str 
     key: str 
-    npy_bytes: bytes 
+    # member npy arrays: 
+    # RGB.band01 
+    # NIR.band01 
+    # .... 
+    npy_members: dict[str, bytes] 
+
+    # each spatial bundle has one json 
     json_bytes: bytes 
     metadata: dict[str, Any]
+    
+    def merge(self, other: "EncodedTile") -> "EncodedTile":
+        """ combine two encoded tiles belonging to the same space"""
+
+        if self.tile_id != other.tile_id: 
+            raise ValueError(
+                    "cannot merge different spatial tiles: " 
+                    f"{self.tile_id} != {other.tile_id}"
+                )
+
+        members = dict(self.npy_members) 
+        layers = dict(self.metadata.get("layers") or {}) 
+        other_layers = other.metadata.get("layers") or {}
+                
+        for suffix, payload in other.npy_members.items():
+            # existing variant.band will win 
+            if suffix in members: 
+                continue 
+
+            members[suffix] = payload  
+
+            if suffix in other_layers:
+                layers[suffix] = dict(other_layers[suffix])
+        
+        metadata = _bundle_metadata(
+                self.metadata, 
+                members=members, 
+                layers=layers 
+                ) 
+
+        return replace(
+                self, 
+                npy_members=members, 
+                metadata=metadata, 
+                json_bytes=_metadata_json_bytes(metadata)
+            )
+    
+
 
     def as_manifest_row(self, 
                         shard: str,  
@@ -382,13 +428,94 @@ def _safe_float(v: Any) -> float | None:
 def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
+def _metadata_json_bytes(metadata: dict[str, Any]) -> bytes: 
+    return json.dumps(
+            metadata, 
+            ensure_ascii=False, 
+            separators=(",",":"),
+            ).encode("utf-8")
+def _bundle_metadata(
+        original: dict[str, Any], 
+        *, 
+        members: dict[str, bytes], 
+        layers: dict[str, dict[str, Any]],
+        ) -> dict[str, Any]: 
+    metadata = dict(original)
+    metadata["layers"] = layers 
+    metadata["bands"] = len(members)  
 
+    dtypes = {
+            str(layer["dtype"]) 
+            for layer in layers.values() 
+            if layer.get("dtype") is not None
+        }  
+    
+    if len(dtypes) == 1: 
+        bundle_dtypes = next(iter(dtypes))
+    elif len(dtypes) > 1: 
+        bundle_dtypes = "mixed"
+    else: 
+        bundle_dtypes = str(metadata.get("dtype") or "")
+
+    metadata["dtype"] = bundle_dtypes
+    
+    shapes = {
+            tuple(layer["shape"])
+            for layer in layers.values()
+            if layer.get("shape")
+        }
+
+    array_shape: list[int] | None = None 
+
+    if len(shapes) == 1: 
+        height, width = next(iter(shapes))
+        array_shape = [len(members),int(height),int(width)]
+    
+    member_hashes = {
+            suffix: str(layer["npy_sha256"])
+            for suffix, layer in layers.items()
+            if layer.get("npy_sha256")
+            }
+
+    raster = dict(metadata.get("raster") or {})
+
+    raster.update( 
+            {
+                "array_shape": array_shape, 
+                "bands": len(members), 
+                "dtype": bundle_dtypes, 
+                "npy_sha256": None, 
+                "members": [
+                    layers[suffix]["member"]
+                    for suffix in members
+                    if suffix in layers
+                    ], 
+                "member_sha256": member_hashes
+            }
+        )
+    metadata["raster"] = raster
+    hashes = dict(metadata.get("hashes") or {})
+    hashes["npy_sha256"] = None 
+    hashes["npy_members"] = member_hashes 
+    metadata["hashes"] = hashes 
+
+    schema = dict(metadata.get("schema") or {}) 
+    schema["version"] = "6.1"
+    metadata["schema"] = schema 
+
+    metadata["mosaic_ids"] = sorted(
+            {
+                str(layer["mosaic_id"])
+                for layer in layers.values()
+                if layer.get("mosaic_id") 
+                }
+            )
+    return metadata 
+
+   
 def _file_fingerprint(path: Path) -> tuple[int | None, int | None, str | None]:
     """
-    Cheap source identity.
-
-    Avoid hashing giant 100GB mosaics during tiling.
-    Full source SHA can be computed later if needed.
+        returns the size, time_ns, and hashed filename for cheap source id
     """
     try:
         st = path.stat()
@@ -397,7 +524,7 @@ def _file_fingerprint(path: Path) -> tuple[int | None, int | None, str | None]:
 
     size = int(st.st_size)
     mtime_ns = int(st.st_mtime_ns)
-    fp = hashlib.sha256(f"{path.as_uri()}|{size}|{mtime_ns}".encode("utf-8")).hexdigest()
+    fp = hashlib.sha256(f"{path.name}".encode("utf-8")).hexdigest()
     return size, mtime_ns, fp
 
 
@@ -435,7 +562,7 @@ def _source_record(path: Path) -> dict[str, Any]:
                 for v in ds.nodatavals
             ]
     except Exception:
-        # Do not make metadata enrichment fatal.
+        # dont make this fatel if it fails 
         pass
 
     return rec
@@ -541,14 +668,6 @@ def _image_stats(tile: Tile) -> dict[str, Any]:
             rgb_stats["dark_fraction"] = float(np.mean(finite_brightness <= 5.0))
             rgb_stats["bright_fraction"] = float(np.mean(finite_brightness >= 250.0))
 
-        # crude but useful vegetation-ish heuristic for review sampling
-        r = rgb[0]
-        g = rgb[1]
-        b = rgb[2]
-        denom = np.maximum(r + g + b, 1.0)
-        green_ratio = g / denom
-        rgb_stats["green_fraction"] = float(np.nanmean(green_ratio > 0.40))
-
     return {
         "per_band": per_band,
         "rgb": rgb_stats,
@@ -585,10 +704,16 @@ class TileEncoder:
      - converting tile.read.array into .npy bytes 
      - building tile metadata dict/json bytes 
      - quantization hook for downsampling etc 
+     - stores multiple spatial patches a bundle 
 
     """
 
-    def __init__(self, src: RasterFile) -> None:
+    def __init__(self, 
+                 src: RasterFile, 
+                 *, 
+                 variant_id: str | None=None, 
+                 fill_value: float | int | None=None
+    ) -> None:
         self.src = src 
         self.source_path = src.path
         # whole mosaic id 
@@ -597,7 +722,48 @@ class TileEncoder:
         self.uid = src.fid.uid
         # location in user system 
         self.source_uri = src.uri 
+        self.variant_token = (
+                self._safe_member_token(variant_id)
+                if variant_id 
+                else None )
         self._source_record: dict[str, Any] | None = None 
+        self.fill_value = fill_value 
+
+    @staticmethod
+    def _safe_member_token(value: str) -> str: 
+        safe = re.sub(
+                r"[^A-Za-z0-9_-]+",
+                "_",
+                value.strip(),
+                ).strip("_")
+        if not safe: 
+            raise ValueError(
+                    f"invalid measurement variant: {value!r}"
+                    ) 
+        return safe 
+    
+    def materialize(
+            self, 
+            array: np.ndarray, 
+            ) -> np.ndarray: 
+        """ convers masked array into normal ndarray before serializing"""
+
+        if not np.ma.isMaskedArray(array):
+            return np.asarray(array) 
+
+        mask = np.ma.getmaskarray(array)
+
+        if not bool(mask.any()):
+            return np.asarray(array.data)
+        
+        if self.fill_value is None: 
+            raise ValueError(
+                    "cannot serialize partial mask without fill value"
+                    )
+
+        return np.asarray(
+                np.ma.filled(array, self.fill_value)
+                )
 
     def source_record(self) -> dict[str, Any]: 
         """ 
@@ -616,12 +782,49 @@ class TileEncoder:
         row = tile.plan 
         return FileID.tile_key(self.uid, row.row_i, row.col_i)
     
-    def to_npy_bytes(self, tile: Tile) -> bytes: 
-        arr = tile.read.array 
+    def to_npy_bytes(self, array: np.ndarray) -> bytes: 
+        if np.ma.isMaskedArray(array):
+            raise TypeError(
+                    "to_npy_bytes requires ordinary, nonmasked array."
+                    "call materialize() first to apply mask"
+                    )
         bio = io.BytesIO()
-        np.save(bio, arr, allow_pickle=False)
+        np.save(
+                bio, 
+                np.asarray(array),
+                allow_pickle=False,
+            )
         return bio.getvalue()
     
+    def split_bands(
+            self, 
+            array: np.ndarray,
+        ) -> dict[str, bytes]:
+        """
+        splits a (C,H,W) array into one, two dimensional NPY per measured band 
+
+        if ther is no variant id, preserve legacy one-npy behavior 
+        """
+        if array.ndim == 2: 
+            array = array[np.newaxis, :,:]
+
+        if array.ndim != 3:
+            raise ValueError(
+                    "expected array with shape (bands, height, width)"
+                    f"but i got {array.shape} "
+                )
+        if self.variant_token is None: 
+            return {"": self.to_npy_bytes(array)} 
+
+        return {
+                f"{self.variant_token}.b{band_index:02d}": self.to_npy_bytes(
+                    array[band_index - 1]
+                )
+                for band_index in range(1, array.shape[0] + 1)
+            }
+
+
+
     def to_metadata(self, 
                     tile: Tile, 
                     tile_id: str, 
@@ -667,7 +870,7 @@ class TileEncoder:
                 tile_id=tile_id,
                 key=key,
                 schema_name="whirlwind.tile",
-                schema_version="1.0",
+                schema_version="6.0",
                 mosaic_id=self.file_id,
                 source_uri=str(self.source_uri),
 
@@ -736,28 +939,84 @@ class TileEncoder:
             separators=(",", ":"),
         ).encode("utf-8")
 
-    def encode(self, tile: Tile) -> EncodedTile: 
+    def encode(self, tile: Tile) -> "EncodedTile": 
+        if tile.read is None: 
+            raise ValueError("i cant encode a tile without pixel data!")
+
         tile_id = self.gen_tile_id(tile)
         key = self.gen_key(tile)
 
-        npy = self.to_npy_bytes(tile)
-        npy_sha256 = _sha256_bytes(npy)
+        original = tile.read.array 
+        array = self.materialize(original)
+        members = self.split_bands(array) 
+        
+        legacy_hash = None 
+        if self.variant_token is None: 
+            legacy_hash = _sha256_bytes(members[""])
 
-        metadata = self.to_metadata(tile, 
-                                    tile_id,
-                                    key, 
-                                    npy_sha256=npy_sha256, 
-                                ) 
+        metadata = self.to_metadata(
+                tile, 
+                tile_id, 
+                key, 
+                npy_sha256=legacy_hash
+            )
 
-        js = self.to_json_bytes(metadata)
+        if self.variant_token is not None: 
+            if original.ndim == 2:
+                original = original[np.newaxis, :, :]
+
+            layers: dict[str, dict[str, Any]] = {}
+
+            for bi, (suffix, payload) in enumerate(
+                    members.items(), 
+                    start=1
+                    ):
+                n_masked_pixels = 0 
+                
+                if np.ma.isMaskedArray(original):
+                    n_masked_pixels = int(
+                        np.ma.getmaskarray(
+                            original[bi - 1]
+                        ).sum()
+                    )
+
+                layers[suffix] = {
+                    "member": f"{tile_id}.{suffix}.npy",
+                    "suffix": suffix,
+                    "mosaic_id": self.file_id,
+                    "variant_token": self.variant_token,
+                    "source_uri": str(self.source_uri),
+                    "source_band": bi,
+                    "dtype": str(array[bi - 1].dtype),
+                    "shape": [
+                        int(array.shape[1]),
+                        int(array.shape[2]),
+                    ],
+                    "masked_pixel_count": n_masked_pixels,
+                    "fill_value": (
+                        self.fill_value
+                        if n_masked_pixels > 0
+                        else None
+                    ),
+                    "npy_sha256": _sha256_bytes(payload),
+                }
+
+            metadata["variant_token"] = self.variant_token
+            metadata = _bundle_metadata(
+                metadata,
+                members=members,
+                layers=layers,
+            )
+
+        json_bytes = _metadata_json_bytes(metadata)
 
         return EncodedTile(
-                tile_id=tile_id, 
-                key=key, 
-                npy_bytes=npy, 
-                json_bytes=js, 
-                metadata=metadata
-            )
+            tile_id=tile_id,
+            key=key,
+            npy_members=members,
+            json_bytes=json_bytes,
+            metadata=metadata,
+        )
 
 class CanonicalTileEncoder(TileEncoder):
     """
@@ -765,15 +1024,25 @@ class CanonicalTileEncoder(TileEncoder):
     spatial branch plan.
     """
 
-    def __init__( self,*, src: RasterFile, branch_id: str,) -> None:
-        super().__init__(src)
-        self.branch_id = branch_id
+    def __init__( self,
+                 *, 
+                 src: RasterFile, 
+                 bundle_id: str,
+                 variant_id: str | None=None,
+                 fill_value: float | int | None=None 
+        ) -> None:
+        super().__init__(
+                src, 
+                variant_id=variant_id, 
+                fill_value=fill_value, 
+            )
+        self.bundle_id = bundle_id
 
     def gen_tile_id(self, tile: Tile) -> str:
         row = tile.plan
 
         return FileID.tile(
-            self.branch_id,
+            self.bundle_id,
             row.row_i,
             row.col_i,
         )
@@ -781,31 +1050,96 @@ class CanonicalTileEncoder(TileEncoder):
     def gen_key(self, tile: Tile) -> str:
         return self.gen_tile_id(tile)
 
+    def to_metadata(
+        self,
+        tile: Tile,
+        tile_id: str,
+        key: str,
+        *,
+        npy_sha256: str | None = None,
+    ) -> dict[str, Any]:
+        metadata = super().to_metadata(
+            tile,
+            tile_id,
+            key,
+            npy_sha256=npy_sha256,
+        )
+
+        metadata["bundle_id"] = self.bundle_id
+
+        identity = dict(metadata.get("identity") or {})
+        identity["bundle_id"] = self.bundle_id
+        metadata["identity"] = identity
+
+        return metadata
+
 @dataclass(frozen=True)
-class EncodedPair: 
+class EncodedBundle: 
     key: str 
-    npy: bytes 
+    npy: bytes | dict[str, bytes]
     metadata: dict[str, Any]
 
-    def load_npy_tile(self) -> np.ndarray: 
+    def load_npy_bundle(self) -> dict[str,np.ndarray]: 
         """ 
-        loads one tile tensor from npy bytes 
+        loads every named npy array independenyl as 
+        a tile tensor, with keys such as RGB.b01, etc  
         
-        expects shape: (bands, height, width) 
-        can also take: (height, width)
+        expects shaped bundle of : (height, width) 
 
-        returns array with shape (bands, height, width)
+        can also take legacy tiles : (count, height, width)
+                returns these with empty dictionary key: ""
+        
+        with this, usage: 
+        ------------------ 
+        members = bundle.load_npy_bundle 
+        rgb_band1 = members["RGB.b01"][pixel_y, pixel_x]
+        nir_band1 = members["NIR.b01"][pixel_y,pixel_x]
         """
-        arr = np.load(io.BytesIO(self.npy)) 
+        # check if contains dictionary of layers 
+        payloads = (
+                self.npy 
+                if isinstance(self.npy, dict)
+                else {"": self.npy}
+                ) 
 
-        if arr.ndim == 2: 
-            arr = arr[np.newaxis, :, :]
+        return {
+                suffix: np.load(
+                    io.BytesIO(payload),
+                    allow_pickle=False,
+                    )
+                for suffix, payload in payloads.items()
+            } 
 
-        if arr.ndim != 3: 
-            raise ValueError(f"expected array shape: (bands, height, width), got {arr.shape}")
+    def load_npy_tile(self) -> np.ndarray:
+        """ preserves olf stacked-array interface for display/export """
+        arrays = self.load_npy_bundle()
+        if set(arrays) == {""}:
+            array = arrays[""]
 
-        return arr 
-    
+            if array.ndim == 2:
+                 array = array[np.newaxis, :, :] 
+
+            if array.ndim != 3: 
+                raise ValueError(
+                        "expected array with shape: (bands, height, width)"
+                        f"instead got shape: {array.shape}"
+                        ) 
+            return array 
+
+        bands: list[np.ndarray] = [] 
+
+        for suffix, array in arrays.items():
+            if array.ndim == 3 and array.shape[0] == 1: 
+                array = array[0] 
+            if array.ndim != 2: 
+                raise ValueError(
+                        f"expected two-dimensional member {suffix}" 
+                        f"but instead i got {array.shape}"
+                    )
+            bands.append(array)
+
+        return np.stack(bands, axis=0)
+
     def tile_out_path(self, out_dir: Path) -> Path: 
         """ build output path for one tile """
         tile_id = self.metadata.get("tile_id") or self.key 

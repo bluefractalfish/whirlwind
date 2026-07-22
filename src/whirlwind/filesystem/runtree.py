@@ -39,7 +39,7 @@ from whirlwind.filesystem.mosaicbranch import MosaicBranch
 from whirlwind.filesystem.metamosaictree import MetamosaicTree
 from whirlwind.domain.mosaic import MosaicRecord
 from whirlwind.filesystem.files import RasterFile 
-from whirlwind.filesystem.spatialbranch import SpatialBranch
+from whirlwind.filesystem.spatialbundle import SpatialBundle
 from whirlwind.domain.config import Config 
 
 @dataclass
@@ -163,24 +163,24 @@ class RunTree:
             record.mosaic_id,
         )
 
-    def spatial_branch_for( self, record: MosaicRecord) -> "SpatialBranch":
+    def spatial_branch_for( self, record: MosaicRecord) -> "SpatialBundle":
         if not record.metamosaic_id:
             raise ValueError(
                 f"{record.mosaic_id} has no metamosaic_id"
             )
 
-        if not record.branch_id:
+        if not record.bundle_id:
             raise ValueError(
                 f"{record.mosaic_id} has no branch_id"
             )
 
-        return SpatialBranch.plant_at(
+        return SpatialBundle.plant_at(
             self.layout.metamosaic_branch_dir(
                 self.root,
                 record.metamosaic_id,
-                record.branch_id,
+                record.bundle_id,
             ),
-            record.branch_id,
+            record.bundle_id,
         )
 
     def metamosaic_tree(self, metamosaic_id: str) -> MetamosaicTree: 

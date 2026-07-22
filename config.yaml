@@ -1,9 +1,9 @@
 global:
   version: "V5"
-  run_id: 2606
+  run_id: 2607
   io:
-    in_dir: /home/rhea/dev/legacy/
-    dest_dir: /home/rhea/A/artifacts/
+    in_dir: /home/rhea/C/
+    dest_dir: /home/rhea/B/artifacts/
   log_dir: ./artifacts/log/
 
 manifest:
@@ -22,6 +22,10 @@ metamosaic:
   build: 
     manifest_name: metamosaics.csv
     summary_name: metamosaic_summary.csv
+    metadata_name: core-metadata.csv
+    root_manifest_name: manifest.csv
+    manifest_name: spatial_canon.csv
+    overlap_threshold: 0.97
 
 operations: 
   downsample:

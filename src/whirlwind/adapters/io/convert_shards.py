@@ -49,7 +49,8 @@ import rasterio
 from typing import Literal, Any, Iterator
 from pathlib import Path
 
-from whirlwind.domain.tile import EncodedPair 
+from whirlwind.domain.tile import EncodedBundle 
+from whirlwind.adapters.io.write_shards import iter_encoded_pairs
 from whirlwind.adapters.display.colorcontrols import to_rgb, to_rgba, interpret_colors, blend_rgb_overlay
 
 ExportMode = Literal["display", "raw"] 
@@ -74,6 +75,7 @@ def convert_to_tif(
         distance_max: float | None=None, 
         alpha: float,
         debug: bool = False, 
+        one_tif_per_npy: bool 
         ) -> tuple[int, int, int]: 
 
     """
@@ -109,85 +111,60 @@ def convert_to_tif(
     tiles_seen = 0 
     tiles_written = 0 
     errors = 0 
+    
+    if one_tif_per_npy and mode != "raw":
+        raise ValueError("for one_tif_per_npy only mode=raw supported")
 
     if color_by == "centerline_distance" and distance_max is None:
         distance_max = max_damage_distance(shard_path)
 
     for pair in iter_encoded_pairs(shard_path):
         tiles_seen += 1 
+        
+        if one_tif_per_npy: 
+            try: 
+                written, member_errors = (
+                        write_npy_members(
+                            pair, 
+                            out_dir, 
+                            compress=compress, 
+                            stop_on_error=stop_on_error, 
+                            debug=debug
+                            )
+                        ) 
+                tiles_written += written 
+                errors += member_errors 
+            except Exception: 
+                errors += 1 
+                if stop_on_error: 
+                    raise 
+                continue 
+        if not one_tif_per_npy:
+            try: 
+                write_tile(
+                        pair,
+                        out_dir,
+                        mode=mode, 
+                        display_kind=display_kind, 
+                        display_bands=display_bands, 
+                        alpha_band=alpha_band, 
+                        p_low=p_low, 
+                        p_high=p_high, 
+                        compress=compress, 
+                        color_by=color_by, 
+                        distance_max=distance_max,
+                        alpha=alpha, 
+                        debug=debug
+                    )
+                tiles_written += 1 
 
-        try: 
-            write_tile(
-                    pair,
-                    out_dir,
-                    mode=mode, 
-                    display_kind=display_kind, 
-                    display_bands=display_bands, 
-                    alpha_band=alpha_band, 
-                    p_low=p_low, 
-                    p_high=p_high, 
-                    compress=compress, 
-                    color_by=color_by, 
-                    distance_max=distance_max,
-                    alpha=alpha, 
-                    debug=debug
-                )
-            tiles_written += 1 
-
-        except Exception: 
-            errors += 1 
-            if stop_on_error:
-                raise 
+            except Exception: 
+                errors += 1 
+                if stop_on_error:
+                    raise 
     return tiles_seen, tiles_written, errors 
 
 
-def iter_encoded_pairs(shard_path: Path | str) -> Iterator[EncodedPair]: 
-    """ 
-        stream npy/json pairs from one shard tar 
-
-        expects current shard format from ShardWriter.write() 
-            {tile.key}.npy 
-            {tile.key}.json 
-        yields: 
-            EncodedPair 
-                key 
-                npy bytes 
-                json metadata 
-    """
-    shard_path = Path(shard_path) 
-
-    npy_by_key: dict[str, bytes] = {} 
-    json_by_key: dict[str, dict[str, Any]] = {} 
-
-    with tarfile.open(shard_path, "r") as tar: 
-        for member in tar: 
-            if not member.isfile():
-                continue 
-
-            member_path = Path(member.name) 
-            suffix = member_path.suffix.lower() 
-
-            if suffix not in {".npy", ".json"}: 
-                continue 
-
-            key = member_path.stem 
-            f = tar.extractfile(member) 
-
-            if f is None:
-                continue 
-
-            payload = f.read() 
-
-            if suffix == ".npy": 
-                npy_by_key[key] = payload 
-
-            if suffix == ".json":
-                json_by_key[key] = json.loads(payload.decode("utf-8")) 
-
-            if key in npy_by_key and key in json_by_key: 
-                npy = npy_by_key.pop(key)
-                meta = json_by_key.pop(key)
-                yield EncodedPair(key=key, npy=npy, metadata=meta)
 
 def max_damage_distance(shard_path: Path | str) -> float | None:
     """
@@ -267,9 +244,137 @@ def distance_to_rgb_tile(
 
     return out
 
+def write_npy_members(
+    pair: EncodedBundle,
+    out_dir: Path,
+    *,
+    compress: str | None,
+    stop_on_error: bool,
+    debug: bool = False,
+) -> tuple[int, int]:
+    """
+    write every NPY member/array as an independent GeoTIFF.
+
+    New bundle members are two-dimensional and therefore produce
+    single-band TIFFs interpreted as greyscale .
+    """
+    members = pair.load_npy_bundle() 
+    layers = pair.metadata.get("layers") or {}
+
+    tile_id = (
+        pair.metadata.get("tile_id")
+        or pair.key
+    )
+
+    written = 0
+    errors = 0
+
+    for suffix, array in members.items():
+        try:
+            if debug:
+                _debug_arr(
+                    f"member {suffix}",
+                    array,
+                    pair.key,
+                )
+
+            if array.ndim == 2:
+                array = array[
+                    np.newaxis,
+                    :,
+                    :,
+                ]
+
+            if array.ndim != 3:
+                raise ValueError(
+                    "expected NPY member shape "
+                    "(height, width) or "
+                    "(bands, height, width), "
+                    f"got {array.shape}"
+                )
+
+            if suffix:
+                tif_name = (
+                    f"{tile_id}.{suffix}.tif"
+                )
+            else:
+                # Legacy one-NPY shard.
+                tif_name = f"{tile_id}.tif"
+
+            out_path = out_dir / tif_name
+
+            profile = pair.profile(
+                arr=array,
+                compress=compress,
+            )
+
+            # Do not automatically set profile["nodata"] here.
+            # A fill value of zero is ambiguous because zero may also
+            # be valid CHM, DEM, NDVI, or image data.
+            out_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            layer = layers.get(suffix) or {}
+
+            with rasterio.open(
+                out_path,
+                "w",
+                **profile,
+            ) as destination:
+                destination.write(array)
+
+                if array.shape[0] == 1 and suffix:
+                    destination.set_band_description(
+                        1,
+                        suffix,
+                    )
+
+                # Preserve the fill/mask information as ordinary
+                # metadata without causing GDAL to mask valid zeros.
+                destination.update_tags(
+                    layer_suffix=suffix,
+                    mosaic_id=str(
+                        layer.get("mosaic_id") or ""
+                    ),
+                    variant_token=str(
+                        layer.get("variant_token")
+                        or layer.get("variant_id")
+                        or ""
+                    ),
+                    source_band=str(
+                        layer.get("source_band") or ""
+                    ),
+                    source_uri=str(
+                        layer.get("source_uri") or ""
+                    ),
+                    fill_value=str(
+                        layer.get("fill_value")
+                        if layer.get("fill_value")
+                        is not None
+                        else ""
+                    ),
+                    masked_pixel_count=str(
+                        layer.get(
+                            "masked_pixel_count",
+                            "",
+                        )
+                    ),
+                )
+
+            written += 1
+
+        except Exception:
+            errors += 1
+
+            if stop_on_error:
+                raise
+
+    return written, errors
 
 def write_tile(
-        pair: EncodedPair,
+        pair: EncodedBundle,
         out_dir: Path, 
         *, 
         mode: ExportMode, 

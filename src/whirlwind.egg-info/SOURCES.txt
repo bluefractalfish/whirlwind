@@ -94,6 +94,7 @@ src/whirlwind/filesystem/metamosaictree.py
 src/whirlwind/filesystem/mosaicbranch.py
 src/whirlwind/filesystem/pathfinder.py
 src/whirlwind/filesystem/runtree.py
+src/whirlwind/filesystem/spatialbranch.py
 src/whirlwind/geography/bbox.py
 src/whirlwind/geography/damage_path.py
 src/whirlwind/geography/geogroup.py

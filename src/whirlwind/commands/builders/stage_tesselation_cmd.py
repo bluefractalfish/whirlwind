@@ -34,7 +34,9 @@ STAGE_TILING_HELP= """
 
     """.strip() 
 
-from whirlwind.bridges.staging.stage_tesselation import Result, Request, StageTesselationBridge 
+from whirlwind.bridges.staging.stage_tesselation import (
+        Result, Request, StageTesselationBridge, StageCanonicalTesselationBridge 
+        )
 from whirlwind.bridges.specs.tiling import TSpec
 from whirlwind.commands.bridge import ResultReporter, RequestBuilder, TokenView, BridgeCommand
 from whirlwind.commands.context import CommandContext
@@ -96,9 +98,16 @@ class PlanTilingReporter(ResultReporter[Result]):
         return result.code
 
 
-StageTesselationCommand = BridgeCommand(
+OldStageTesselationCommand = BridgeCommand(
         name = "tiling",
         builder=BuildTileStagingRequest(), 
         bridge=StageTesselationBridge(), 
         reporter=PlanTilingReporter()
         )
+
+StageTesselationCommand = BridgeCommand(
+    name="tiling",
+    builder=BuildTileStagingRequest(),
+    bridge=StageCanonicalTesselationBridge(),
+    reporter=PlanTilingReporter(),
+)

@@ -78,6 +78,13 @@ class TesselationBridge:
                 face.info("run `discover manifest` or ? for help")
                 face.div()
                 raise FileNotFoundError 
+        
+        all_records = tuple(request.manifest.records())
+        records_by_path = {
+                record.path.expanduser().resolve(): record 
+                for record in all_records
+            }
+        seen_bundles: set[str] = set()
 
         with face.phase(2,5,"constructing tesselation request..."): pass
         summaries: list[Summary] = []
@@ -87,8 +94,61 @@ class TesselationBridge:
         with face.progress() as pr:
             t1 = pr.add_task("walking manifest",total=total_rasters)
             t2 = pr.add_task("tiling", total=1)
-            for p in paths: 
-                pr.advance(t1,1)
+            for requested_path in paths: 
+                pr.advance(t1,1) 
+
+                resolved_path = (
+                        Path(requested_path).expanduser().resolve()
+                        )
+                requested_record = records_by_path.get(
+                        resolved_path
+                        )
+                if requested_record is None: 
+                    raise ValueError(
+                            "mosaic path not found in manifest"
+                            f"{resolved_path}"
+                        )
+                if not requested_record.bundle_id: 
+                    raise ValueError(
+                            f"{requested_record.mosaic_id}"
+                            "has no spatial bundle associated"
+                        )
+                bundle_id = requested_record.bundle_id 
+                
+                if bundle_id in seen_bundles: 
+                    continue 
+                seen_bundles.add(bundle_id)
+
+                bundle_records = tuple(
+                        record 
+                        for record in all_records 
+                        if record.bundle_id == bundle_id
+                    )
+
+                if not bundle_records: 
+                    raise ValueError(
+                            "spatial bundle has no mosaic records: "
+                            f"{bundle_id}"
+                        )
+                canonical_id = (
+                        requested_record.canonical_mosaic_id 
+                        or requested_record.canonical_mosaic_id
+                    )
+                canonical_record = next(
+                        (
+                            record 
+                            for record in bundle_records
+                            if record.mosaic_id == canonical_id
+                            ), 
+                        None, 
+                    )
+                if canonical_record is None: 
+                    raise ValueError(
+                            "canonical mosaic is missing: "
+                            f"{canonical_id}"
+                        )
+                p = canonical_record.path 
+
                 pr.update(t2, description=f"building tiler for {RasterFile(p).mosaic_id}")
                 
                 # confirm tile plan exists 
@@ -133,7 +193,7 @@ class TesselationBridge:
                             manifest=request.manifest, 
                             manifest_kind=request.manifest_kind, 
                             plan_name=request.plan_name, 
-                            shard_prefix=request.prefix, 
+                            shard_prefix=bundle_id, 
                             shard_size=request.shard_size, 
                             masked=request.masked, 
                             fill_value=request.fill_value, 
@@ -141,13 +201,14 @@ class TesselationBridge:
                             min_content_fraction=request.min_content_fraction, 
                             zero_is_empty=request.zero_is_empty, 
                             labeler=labeler, 
-                            overwrite=request.overwrite
+                            overwrite=request.overwrite, 
+                            bundle_records=bundle_records
                             ) 
 
                 except FileNotFoundError as e:
                     face.error(str(e))
-                    with face.phase(4,5,"something went wrong"): pass 
-                    summaries.append(Summary(error=1,code=3))
+                    with face.phase(4,5,"something went wrong. no tileplan was found"): pass 
+                    summaries.append(Summary(error=9,code=3))
                     continue
                 # get sink code (sc): 1 -> ok, else error 
                 sc = tiler.build_sinks()
@@ -167,7 +228,7 @@ class TesselationBridge:
                 tilesummary = tiler.run(tile_limit=request.tile_limit, 
                                         progress=pr, task_id=t2) 
 
-                n_rasters += 1
+                n_rasters += len(bundle_records)
                 n_tiles += tilesummary.n_tiles
                 summaries.append(Summary(error=0,
                                          code=tilesummary.code,

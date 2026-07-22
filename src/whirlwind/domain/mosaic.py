@@ -15,7 +15,7 @@ class MosaicRecord:
     spectral_id: str = ""
 
     canonical_mosaic_id: str | None=None 
-    branch_id: str | None=None 
+    bundle_id: str | None=None 
     metamosaic_id: str | None=None 
 
     metamosaic_alias: str | None=None
@@ -47,7 +47,7 @@ class MosaicRecord:
             canonical_mosaic_id=(row.get("canonical_mosaic_id") or None),
             variant_type=row.get("variant_type") or "",
             spectral_id=row.get("spectral_id") or "",
-            branch_id=row.get("branch_id") or None,
+            bundle_id=row.get("bundle_id") or None,
             metamosaic_id=row.get("metamosaic_id") or None,
             metamosaic_alias=row.get("metamosaic_alias") or None,
             id_scheme=row.get("id_scheme") or "",
