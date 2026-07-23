@@ -210,6 +210,18 @@ class TesselationBridge:
                     with face.phase(4,5,"something went wrong. no tileplan was found"): pass 
                     summaries.append(Summary(error=9,code=3))
                     continue
+                existing_shard = next(
+                        tiler.shard_dir.rglob("*.tar"),
+                        None,
+                    )
+                if existing_shard is not None and not request.overwrite:
+                    face.info(
+                        "skipping spatial bundle "
+                        f"{bundle_id}: shards already exist"
+                    )
+                    summaries.append(Summary(error=0, code=0))
+                    continue
+
                 # get sink code (sc): 1 -> ok, else error 
                 sc = tiler.build_sinks()
                 if sc != 1: 
