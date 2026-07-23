@@ -611,7 +611,10 @@ def _image_stats(tile: Tile) -> dict[str, Any]:
         return {}
 
     if np.ma.isMaskedArray(arr):
-        data = np.ma.filled(arr, np.nan).astype("float32", copy=False)
+        data = np.ma.filled(
+                arr.astype("float32",copy=False), 
+                np.nan
+                )
     else:
         data = np.asarray(arr).astype("float32", copy=False)
 

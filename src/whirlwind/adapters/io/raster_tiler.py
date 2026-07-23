@@ -272,7 +272,7 @@ class TileRasterFromPlan:
                             record.mosaic_id: stack.enter_context(
                                 RasterioWindowReader(
                                     record.path, 
-                                    masked=True, 
+                                    masked=self.masked, 
                                     fill=self.fill_value, 
                                     canonical_path=self.canonical_path, 
                                     resampling=self.resampling_by_id[
@@ -316,7 +316,7 @@ class TileRasterFromPlan:
                             try: 
                                 tile = reader.tile_from_row(
                                         planned_window, 
-                                        masked=True,
+                                        masked=self.masked,
                                         fill_value=None,
                                     )
                             except ValueError: 
